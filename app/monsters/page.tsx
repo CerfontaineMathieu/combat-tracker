@@ -12,6 +12,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MonsterDetail } from "@/components/monster-detail"
+import { NotionSyncButton } from "@/components/notion-sync-button"
 import { cn } from "@/lib/utils"
 import type { DbMonster } from "@/lib/types"
 
@@ -25,23 +26,25 @@ export default function MonstersPage() {
   const isMobile = useIsMobile()
 
   // Fetch monsters from API
-  useEffect(() => {
-    async function fetchMonsters() {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/monsters")
-        if (!response.ok) {
-          throw new Error("Failed to fetch monsters")
-        }
-        const data = await response.json()
-        setMonsters(data)
-        setFilteredMonsters(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading monsters")
-      } finally {
-        setLoading(false)
+  const fetchMonsters = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/monsters")
+      if (!response.ok) {
+        throw new Error("Failed to fetch monsters")
       }
+      const data = await response.json()
+      setMonsters(data)
+      setFilteredMonsters(data)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading monsters")
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchMonsters()
   }, [])
 
@@ -118,7 +121,7 @@ export default function MonstersPage() {
             <Skull className="w-5 h-5 text-crimson" />
             <h1 className="text-xl font-bold text-gold">Bestiaire</h1>
           </div>
-          <div className="w-16 sm:w-24" /> {/* Spacer for centering */}
+          <NotionSyncButton onSyncComplete={fetchMonsters} />
         </div>
       </header>
 
