@@ -1,0 +1,33 @@
+import { io, Socket } from 'socket.io-client';
+import type { ServerToClientEvents, ClientToServerEvents } from './socket-events';
+
+export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+let socket: AppSocket | null = null;
+
+export function getSocket(): AppSocket {
+  if (!socket) {
+    socket = io({
+      path: '/api/socketio',
+      autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+  }
+  return socket;
+}
+
+export function connectSocket(): AppSocket {
+  const s = getSocket();
+  if (!s.connected) {
+    s.connect();
+  }
+  return s;
+}
+
+export function disconnectSocket(): void {
+  if (socket?.connected) {
+    socket.disconnect();
+  }
+}

@@ -1,0 +1,343 @@
+﻿Nom,Actions,Actions légendaires,CA,CHAR,CON,DEX,Description,FOR,INT,Modif. CHAR,Modif. CON,Modif. DEX,Modif. FOR,Modif. INT,Modif. SAG,PV,Puissance (XP),Race,SAG,Taille,Vitesse
+Malfrat,"Attaques multiples. Le malfrat effectue deux attaques au corps à corps.
+Masse d'armes. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 5 (1d6 + 2) dégâts contondants.
+Arbalète lourde. Attaque à distance avec une arme : +2 au toucher, portée 30/120 m, une cible. Touché : 5 (1d10) dégâts perforants.",,11,11,14,11,"Compétences Intimidation +2
+Sens Perception passive 10
+Langues une langue au choix (généralement le commun)
+Tactique de groupe. Le malfrat a un avantage aux jets d'attaque contre une créature si au moins l'un de ses alliés est à 1,50 mètre ou moins de la créature et n'est pas incapable d'agir.",15,10,0,2,0,2,0,0,32,100,Humanoïde,10,M,9
+Cultiste fanatique,"Attaques multiples. Le fanatique effectue deux attaques au corps à corps.
+Dague. Attaque au corps à corps ou à distance avec une arme : +4 au toucher, allonge 1,50 m ou portée 6/18 m, une créature. Touché : 4 (1d4 + 2) dégâts perforants.",,13,13,12,14,"Flamme sacrée (https://www.notion.so/Flamme-sacr-e-245300de717f80478beed6c3472b9c15?pvs=21),Lumière (https://www.notion.so/Lumi-re-245300de717f80c0ad8ffd8e6abc41d1?pvs=21),Thaumaturgie (https://www.notion.so/Thaumaturgie-245300de717f8038942dd6ae7e21a9fe?pvs=21),Blessure (https://www.notion.so/Blessure-245300de717f804284a4dc8cfdef2148?pvs=21),Injonction (https://www.notion.so/Injonction-247300de717f80ed91a3d0593aa5a1db?pvs=21),Bouclier de la foi (https://www.notion.so/Bouclier-de-la-foi-245300de717f80148d56f3a4b2d2ecbe?pvs=21),Immobilisation de personne (https://www.notion.so/Immobilisation-de-personne-245300de717f8084bd68d8fdc6b790a0?pvs=21)",11,10,1,1,2,0,0,2,44,450,Humanoïde,14,M,9
+Vétéran,"Attaques multiples. Le vétéran effectue deux attaques à l'épée longue. S'il a dégainé son épée courte, il peut également effectuer une attaque avec cette dernière.
+Épée longue. Attaque au corps à corps avec une arme : +5 au toucher, allonge 1,50 m, une cible. Touché : 7 (1d8 + 3) dégâts tranchants, ou 8 (1d10 + 3) dégâts tranchants si utilisée à deux mains.
+Épée courte. Attaque au corps à corps avec une arme : +5 au toucher, allonge 1,50 m, une cible. Touché : 6 (1d6 + 3) dégâts perforants.
+Arbalète lourde. Attaque à distance avec une arme : +3 au toucher, portée 30/120 m, une cible. Touché : 6 (1d10 + 1) dégâts perforants.",,17,10,14,13,,16,10,0,2,1,3,0,0,58,700,Humanoïde,11,M,9
+Espion,"Attaques multiples. L'espion effectue deux attaques au corps à corps.
+Épée courte. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants.
+Arbalète de poing. Attaque à distance avec une arme : +4 au toucher, portée 9/36 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants.",,12,16,10,15,"Compétences Discrétion +4, Escamotage +4, Intuition +4, Investigation +5, Perception +6, Persuasion +5, Tromperie +5
+Sens Perception passive 16
+Langues deux langues au choix
+
+Ruse. À chacun de ses tours, l'espion peut utiliser une action bonus pour Se désengager, Se cacher ou Foncer.
+Attaque sournoise (1/tour). L'espion inflige 7 (2d6) dégâts supplémentaires à une créature qu'il touche avec une arme s'il a un avantage au jet d'attaque, ou si la cible est à 1,50 mètre ou moins d'un allié de l'espion qui n'est pas incapable d'agir et que l'espion n'a pas un désavantage au jet d'attaque.",10,12,3,0,2,0,1,2,27,200,Humanoïde,14,M,9
+Ptéranodon,"Morsure. Attaque au corps à corps avec une arme : + 3 au toucher, allonge 1,50 m, une cible. Touché : 6 (2d4 + 1) dégâts perforants.",,13,5,10,15,"Compétences Perception +1Sens Perception passive 11Langues —
+Repli aérien. Le ptéranodon ne provoque pas d'attaques d'opportunité lorsqu'il quitte l'allonge d'un ennemi en volant.",12,2,-3,0,2,1,-4,-1,13,50,Bête,9,M,"3m, vol 18m"
+Vautour Géant,"Attaques multiples. Le vautour réalise deux attaques : une avec son bec et une avec ses serres.
+Bec. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 7 (2d4 + 2) dégâts perforants.
+Serres. Attaque au corps à corps avec une arme : +5 au toucher, allonge 1,50 m, une cible. Touché : 9 (2d6 + 2) dégâts tranchants.",,10,7,15,10,"Compétences Perception +3
+Sens Perception passive 13
+Langues comprend le commun mais ne peut pas parler
+Odorat et vue aiguisés. Le vautour a un avantage aux jets de Sagesse (Perception) basés sur l'odorat ou la vue.
+
+Tactique de groupe. Le vautour a un avantage aux jets d'attaque contre une créature si au moins l'un de ses alliés est à 1,50 mètre ou moins de la créature et n'est pas incapable d'agir.",15,6,-2,2,0,2,-2,1,22,200,Bête,12,G,"3m, vol 18m"
+Eclaireur,"Attaques multiples. L'éclaireur effectue deux attaques au corps à corps ou deux attaques à distance.
+Épée courte. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants.
+Arc long. Attaque à distance avec une arme : +4 au toucher, portée 45/180 m, une cible. Touché : 6 (1d8 + 2) dégâts perforants.",,13,11,12,14,"Compétences Discrétion +6, Nature +4, Perception +5, Survie +5Sens Perception passive 15Langues une langue au choix (généralement le commun)
+Ouïe et vue aiguisées. L'éclaireur a un avantage aux jets de Sagesse (Perception) basés sur l'ouïe ou la vue.",11,11,0,1,2,0,0,1,16,100,Humanoïde,13,M,9
+Cultiste,"Serpe de rituel. Jet d'attaque au corps-à-corps : +3, allonge 1,50 m. Touché : 3 (1d4 + 1) dégâts tranchants plus 1 dégât nécrotique.",,12,10,10,12,"Compétences Tromperie +2, Religion +2Équipement armure de cuir, serpeSens Perception passive 10Langues commun",11,10,0,0,1,0,0,0,9,25,Humanoïde,11,M,9
+Chante-Brume,,,13,13,12,14,"Sombre dévotion. Le fanatique a un avantage aux jets de sauvegarde pour ne pas être charmé ou effrayé.
+Incantation. Le fanatique est un lanceur de sorts de niveau 4. Sa caractéristique d'incantation est la Sagesse (jet de sauvegarde contre ses sorts DD 11, +3 au toucher pour les attaques avec un sort). Le fanatique a préparé les sorts de clerc suivants :
+Sorts mineurs (à volonté) :  Thaumaturgie (https://www.notion.so/Thaumaturgie-245300de717f8038942dd6ae7e21a9fe?pvs=21), Illusion mineure (https://www.notion.so/Illusion-mineure-247300de717f8041b95dd13dc2ad933a?pvs=21), Saute de vent (https://www.notion.so/Saute-de-vent-247300de717f80bab474e767d71fe521?pvs=21) 
+Niveau 1 (4 emplacements) : Feuille Morte (https://www.notion.so/Feuille-Morte-247300de717f802fa2aef8e9c9365a96?pvs=21), Injonction (https://www.notion.so/Injonction-247300de717f80ed91a3d0593aa5a1db?pvs=21), Nappe de brouillard (https://www.notion.so/Nappe-de-brouillard-247300de717f80beab09da4d45022f88?pvs=21), Vague tonante (https://www.notion.so/Vague-tonante-247300de717f80cca2cbf62edec4397a?pvs=21) 
+Niveau 2 (3 emplacements) :https://www.aidedd.org/dnd/sorts.php?vf=immobilisation-de-personneFoulée Brumeuse (https://www.notion.so/Foul-e-Brumeuse-247300de717f80129744c766eb1ada76?pvs=21), Invisibilité (https://www.notion.so/Invisibilit-247300de717f8033873bcde68dc48fd2?pvs=21), Bourrasque (https://www.notion.so/Bourrasque-247300de717f80b68c33e6a9ba573202?pvs=21) ",11,10,1,1,2,0,0,2,44,450,Humanoïde,14,M,9
+Mage,"Dague. Attaque au corps à corps ou à distance avec une arme : +5 au toucher, allonge 1,50 m ou portée 6/18 m, une cible. Touché : 4 (1d4 + 2) dégâts perforants.",,12,11,11,14,"Jets de sauvegarde Int +6, Sag +4
+Compétences Arcanes +6, Histoire +6
+Sens Perception passive 11
+Langues quatre langues au choix
+
+Incantation. Le mage est un lanceur de sorts de niveau 9. Sa caractéristique d'incantation est l'Intelligence (jet de sauvegarde contre ses sorts DD 14, +6 au toucher pour les attaques avec un sort). Le mage a préparé les sorts de magicien suivants :
+Sorts mineurs (à volonté) : Main de mage (https://www.notion.so/Main-de-mage-247300de717f80369397c81e949a5437?pvs=21), Contact glacial (https://www.notion.so/Contact-glacial-249300de717f80fa8548d31a7ef9284d?pvs=21), Aspersion d’acide (https://www.notion.so/Aspersion-d-acide-249300de717f80c9b64bdda7989de76d?pvs=21) 
+Niveau 1 (4 emplacements) : Armure de mage (https://www.notion.so/Armure-de-mage-249300de717f803e8552e1b7db42ae83?pvs=21), Bouclier (https://www.notion.so/Bouclier-247300de717f80498768c775c6389f03?pvs=21), Projectile magique (https://www.notion.so/Projectile-magique-247300de717f80a9a934c08fb2f5e2c9?pvs=21), Rayon empoisonné (https://www.notion.so/Rayon-empoisonn-249300de717f80069490e10433259935?pvs=21) 
+Niveau 2 (3 emplacements) : Flèche acide de Melf (https://www.notion.so/Fl-che-acide-de-Melf-249300de717f80baabd3ca1653ab1aec?pvs=21), Rayon affaiblissant (https://www.notion.so/Rayon-affaiblissant-249300de717f80c19a46df9f5e09fe52?pvs=21), Ténèbres (https://www.notion.so/T-n-bres-247300de717f80ae888ddffea0b0c5c8?pvs=21) 
+Niveau 3 (3 emplacements) : Eclair (https://www.notion.so/Eclair-249300de717f807c8a58e49964dcffaa?pvs=21), Contresort (https://www.notion.so/Contresort-249300de717f8030861afe5c5db31ad1?pvs=21), Glyphe de protection (https://www.notion.so/Glyphe-de-protection-249300de717f802d8af5eede5aa5e549?pvs=21) 
+Niveau 4 (3 emplacements) : Flétrissement (https://www.notion.so/Fl-trissement-249300de717f80e09488eb0c1f6ce744?pvs=21), Fabrication (https://www.notion.so/Fabrication-249300de717f80acb8c3f08037ded6a7?pvs=21) 
+Niveau 5 (1 emplacement) : Brume mortelle (https://www.notion.so/Brume-mortelle-249300de717f8031baeed15e64ddeec3?pvs=21) ",9,17,0,0,2,-1,3,1,40,2300,Humanoïde,12,M,9
+Golem de Bric-à-Brac,"Attaques multiples. La gargouille effectue deux attaques Frappe.
+Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 5 (1d8 + 4) dégâts tranchants.",,15,7,16,11,"Résistances aux dégâts contondant, perforant et tranchant d'attaques non magiques qui ne sont pas en adamantiumImmunités aux dégâts poisonImmunités aux états épuisement, pétrifié, empoisonnéSens vision dans le noir 18 m, Perception passive 10Langues terreux
+
+Apparence trompeuse. Tant que le Golem reste immobile, elle ne peut être distinguée d'un tas de débris.",12,6,-2,3,0,1,-2,0,52,450,Elémentaire,11,M,9m
+Horreur câblée,"Coup. Attaque au corps à corps avec une arme : +3 au toucher, allonge 1,50 m, une cible. Touché : 4  1d6+1 dégâts contondants + 1d4 dégâts nécrotiques.
+",,8,5,16,6,"Jets de sauvegarde Sag +0
+Immunités aux dégâts poison
+Immunités aux états empoisonné
+Sens vision dans le noir 18 m, Perception passive 8
+Langues comprend les langues qu'il connaissait de son vivant mais ne peut pas parler
+
+Décharge Nécrotique : Quand une Horreur Câblée subit des dégâts de foudre ou de feu, elle réagit. Chaque créature à 1,5m d'elle doit réussir un jet de sauvegarde de Dextérité DD 12 ou subir 1d6 de dégâts nécrotiques.
+Tenacité de mort-vivant. Si des dégâts font tomber le zombi à 0 point de vie, celui-ci doit effectuer un jet de sauvegarde de Constitution DD 5 + les dégâts subis, sauf en cas de dégâts radiants ou coup critique. En cas de réussite, il tombe à 1 point de vie à la place.",13,3,-3,3,-2,1,-4,-2,22,50,Mort-Vivant,6,M,9
+Prestelin,"Attaques  multiples : Le Prestelin peut faire 3 attaques de Dagues.
+Dagues :  Mêlée ou attaque distante à l’arme : +8 au touché, détente 1,5 m. ou portée 6/18m., une cible. Touché : 8 (1d4 + 6) dégats perçants.",,16,7,1,23,"Compétences Acrobaties +8, Escamotage +8, Discrétion +8, Perception +5
+Sens vision dans le noir 18 m, Perception passive 15
+Langues commun, sylvestre
+Bonus de maîtrise +2
+Mouvement flou :  Les attaques contre la créature ont un désavantage, à moins que cette dernière soit incapacité ou que sa vitesse soit réduite à 0.
+Esquive totale :  Si la créature doit réussir un jet de sauvegarde pour déterminer si une attaque comme Boule de Feu touche, un JDS réussi ne fait aucun dégats, un JDS raté fait seulement la moitié des dégats. A condition que le Prestelin ne soit pas incapacité
+
+",4,10,-2,-5,6,-3,0,1,10,200,Féé,12,TP,36m
+Guenaude Verte,"Griffes. Attaque au corps à corps avec une arme : +6 au toucher, allonge 1,50 m, une cible. Touché : 13 (2d8 + 4) dégâts tranchants.
+Apparence illusoire. Grace à une illusion magique la guenaude se déguise, elle et tout ce qu'elle porte ou transporte, en une autre créature d'une taille équivalente et de forme humanoïde. L'effet se termine si la guenaude utilise son action bonus pour y mettre fin ou si elle meurt. Les modifications corporelles apportées par cet effet ne parviennent pas à duper une inspection corporelle. Par exemple, la guenaude peut sembler avoir une peau douce et fine, mais quiconque la touche sent immédiatement sa chaire rugueuse. Sinon, une créature doit utiliser une action pour inspecter visuellement l'illusion et réussir un jet d'Intelligence (Investigation) DD 20 pour remarquer que la guenaude est déguisée.
+Passage invisible. La guenaude devient invisible par magie jusqu'à ce qu'elle attaque, lance un sort, ou jusqu'à ce que sa concentration se termine (comme si elle se concentrait sur un sort). Tant qu'elle est invisible, elle ne laisse aucune trace physique de son passage, elle ne peut donc être traquée que par magie. Tout l'équipement qu'elle porte ou transporte est également invisible.",,17,14,16,12,"Compétences Arcanes +3, Discrétion +3, Perception +4, Tromperie +4
+Sens vision dans le noir 18 m, Perception passive 14
+Langues commun, draconique, sylvestre
+Amphibien. La guenaude peut respirer aussi bien dans l'air que sous l'eau.
+Incantation innée. La caractéristique d'incantation innée de la guenaude est le Charisme (jet de sauvegarde contre ses sorts DD 12). Elle peut lancer les sorts suivants de manière innée, sans avoir besoin de composantes matérielles :À volonté : Lumières dansantes (https://www.notion.so/Lumi-res-dansantes-247300de717f80ed9332d691cfbeb973?pvs=21), Illusion mineure (https://www.notion.so/Illusion-mineure-247300de717f8041b95dd13dc2ad933a?pvs=21), Moquerie cruelle (https://www.notion.so/Moquerie-cruelle-24a300de717f80558d74c22d9a874df0?pvs=21) 
+Imitation. La guenaude peut imiter les cris des animaux et les voix des humanoïdes. Une créature qui entend ces sons peut dire qu'il s'agit d'imitations en réussissant un jet de Sagesse (Intuition) DD 14.",18,13,2,3,1,4,1,2,82,700,Féé,14,M,9m
+Bonnet-rouge,"Attaques multiples. Le Bonnet-rouge fait 3 attaques avec sa serpe mauvaise.
+Serpe mauvaise. Attaque de mêlée : +6 au touché, porté 1,5m, une cible. Touché: 9 (2d4 + 4) dommage tranchant.
+Poursuite de fer. Le Bonnet-rouge se déplace de sa vitesse vers un adversaire qu’il peut voir and le frappe avec ses bottes en fer. La cible doit réussir un jet de sauvegarde de Dextérité (DD 14) ou prendre 20 (3d10+4 ) points de dégâts contandants et subir l’état renversé.",,14,9,18,13,"Compétences Athlétisme +6, Perception +3
+Sens vision dans le noir 18 m, Perception passive 13
+Langues commun, sylvestre
+Bonus de maîtrise +2
+Bottes en fer. Quand il se déplace, le Bonnet-rouge à un désavantage aux JDS de Dextérité
+Force hors normes. Quand il subit l’état aggripé, le bonnet-rouge est considéré de taille M. De plus, porté une arme lourde ne lui applique pas de désavantage aux jets d’attaques.",18,10,-1,4,1,4,0,1,45,700,Féé,12,P,"7,5m"
+Assassin,"Attaques multiples. L'assassin effectue deux attaques avec l'épée courte.
+Épée courte. Attaque au corps à corps avec une arme : +6 au toucher, allonge 1,50 m, une cible. Touché : 6 (1d6 + 3) dégâts perforants, et la cible doit effectuer un jet de sauvegarde de Constitution DD 15, subissant 24 (7d6) dégâts de poison en cas d'échec, ou la moitié de ces dégâts en cas de réussite.
+Arbalète légère. Attaque à distance avec une arme : +6 au toucher, portée 24/96 m, une cible. Touché : 7 (1d8 + 3) dégâts perforants, et la cible doit effectuer un jet de sauvegarde de Constitution DD 15, subissant 24 (7d6) dégâts de poison en cas d'échec, ou la moitié de ces dégâts en cas de réussite.",,15,10,14,16,"Jets de sauvegarde Dex +6, Int +4
+Compétences Acrobaties +6, Discrétion +9, Perception +3, Tromperie +3
+Résistances aux dégâts poison
+Sens Perception passive 13
+Langues jargon des voleurs plus deux langues au choix
+Assassinat. Au cours de son premier tour, l'assassin a un avantage aux jets d'attaque contre toute créature qui n'a pas encore pris un tour. Tout coup de l'assassin qui touche contre une créature surprise est un coup critique.
+Attaque sournoise. Une fois par tour, l'assassin inflige 14 (4d6) dégâts supplémentaires quand il touche une cible lors d'une attaque avec une arme et qu'il a un avantage au jet d'attaque, ou lorsque la cible est 1,50 mètre ou moins d'un allié de l'assassin qui n'est pas incapable d'agir et si l'assassin n'a pas un désavantage à son jet d'attaque.
+Esquive totale. Si l'assassin est soumis à un effet qui lui permet d'effectuer un jet de sauvegarde de Dextérité pour ne subir que la moitié des dégâts, il ne subit aucun dégât s'il réussit son jet de sauvegarde, et seulement la moitié des dégâts s'il échoue.",11,13,0,2,3,0,1,0,78,3900,Humanoïde,11,,9m
+Bandit,"Cimeterre. Attaque au corps à corps avec une arme : +3 au toucher, allonge 1,50 m, une cible. Touché : 4 (1d6 + 1) dégâts tranchants.
+Arbalète légère. Attaque à distance avec une arme : +3 au toucher, portée 24/96 m, une cible. Touché : 5 (1d8 + 1) dégâts perforants.",,12,10,12,12,"Sens Perception passive 10
+Langues une langue au choix (généralement le commun)",11,10,0,1,1,0,0,0,11,25,Humanoïde,10,,9m
+Fomorien,"Attaques multiples. Le fomorien attaque deux fois avec sa massue ou effectue une attaque avec sa massue et utilise une fois Mauvais œil.
+Massue. Attaque au corps à corps avec une arme : +9 au toucher, allonge 4,50 m, une cible. Touché : 19 (3d8 + 6) dégâts contondants.
+Mauvais Œil. Le fomorien force par magie une créature qu'il peut voir dans un rayon de 18 mètres autour de lui à effectuer un jet de sauvegarde de Charisme DD 14. La créature subit 24 (6d8) dégâts psychiques en cas d'échec, ou la moitié de ses dégâts en cas de réussite.
+Malédiction du mauvais oeil (Recharge après un repos court ou long). D'un regard, le fomorien utilise Mauvais Œil, mais en cas d'échec au jet de sauvegarde, la créature est également maudite de difformités magiques. Tant qu'elle est déformée, la créature a une vitesse divisée par deux et un désavantage aux jets de caractéristique, jets de sauvegarde et jets d'attaque basés sur la Force ou la Dextérité.La créature transformée peut retenter son jet de sauvegarde chaque fois qu'elle finit un repos long, mettant fin à l'effet qui l'affecte en cas de réussite.
+",,14,6,20,10,"Compétences Discrétion +3, Perception +8
+Sens vision dans le noir 36 m, Perception passive 18
+Langues géant, commun des profondeurs",23,9,-2,5,0,6,-1,2,149,3900,Géant,14,,12m
+Lierreux,"Constriction. Attaque au corps à corps avec une arme : +4 au toucher, allonge 3 m, une cible. Touché : 9 (2d6 + 2) dégâts contondants, et une cible de taille G ou inférieure est agrippée (DD 12 pour s'échapper). Tant qu'elle est agrippée, la cible est entravée, et le lierre infecté ne peut pas effectuer une attaque de constriction contre une autre cible.
+Enchevêtrement des plantes (Recharge 5-6). Des lianes et des racines entortillées poussent dans un rayon de 4,50 mètres centré sur le lierre infecté, et se flétrissent au bout de 1 minute. Pendant toute la durée de l'effet, cette zone est considérée comme un terrain difficile pour les créatures qui ne sont pas de type plante. De plus, toute créature présente dans la zone lorsque les plantes poussent, et que le lierre infecté choisit, doit réussir un jet de sauvegarde de Force DD 12 ou être entravée. Une créature peut utiliser son action pour effectuer un jet de Force DD 12, se libérant elle, ou libérant une autre créature entravée à portée, en cas de réussite.",,12,3,14,8,"Apparence trompeuse. Tant que le lierre infecté reste immobile, il ne peut être distingué d'un entrelacs de plantes grimpantes.",15,5,-4,2,-1,2,-3,0,26,100,Plante,10,,3
+Bulette,"Morsure. Attaque au corps à corps avec une arme : +7 au toucher, allonge 1,50 m, une cible. Touché : 30 (4d12 + 4) dégâts perforants.
+Saut implacable. Si la bulette parcourt au moins 4,50 mètres en sautant lors de son mouvement, elle peut utiliser son action pour atterrir sur un espace où se trouvent une ou plusieurs créatures. Chaque créature doit alors réussir un jet de sauvegarde de Force ou de Dextérité DD 16 (au choix de la cible) ou tomber à terre et subir 14 (3d6 + 4) dégâts contondants + 14 (3d6 + 4) dégâts tranchants. Si le jet de sauvegarde est réussi, la créature subit la moitié des dégâts, n'est pas projetée au sol, et est poussée de 1,50 mètre hors de l'espace de la bulette (vers un espace inoccupé choisi par la créature). S'il n'y a pas d'espace libre à portée, la créature se retrouve à terre dans l'espace de la bulette",,17,5,21,11,"Compétences Perception +6
+Sens vision dans le noir 18 m, perception des vibrations 18 m, Perception passive 16
+Langues
+Saut sans élan. La bulette peut sauter en longueur jusqu'à 9 mètres ou en hauteur jusqu'à 4,50 mètres, avec ou sans élan.",19,2,-3,5,0,4,-4,0,94,1800,Monstruosité,10,G,"12m, creusement 12m"
+Quaggoth,"Attaques multiples. Le quaggoth effectue deux attaques avec ses griffes.
+Griffes. Attaque au corps à corps avec une arme : +5 au toucher, allonge 1,50 m, une cible. Touché : 6 (1d6 + 3) dégâts tranchants.",,13,7,16,12,"Compétences Athlétisme +5
+Immunités aux dégâts poison
+Immunités aux états empoisonné
+Sens vision dans le noir 36 m, Perception passive 11
+Langues commun des profondeurs
+
+Fureur du blessé. Tant qu'il est à 10 points de vie ou moins, le qaggoth a un avantage aux jets d'attaque. De plus, il inflige 7 (2d6) dégâts supplémentaires à chaque cible qu'il touche avec une attaque au corps à corps.",17,6,-2,3,1,3,-2,1,45,450,Humanoïde,12,M,"9m, escalade 9m"
+Drider,"Attaques multiples. Le drider effectue trois attaques, soit avec son épée longue, soit avec son arc long. Il peut remplacer l'une de ses attaques par une attaque de morsure.
+Morsure. Attaque au corps à corps avec une arme : +6 au toucher, allonge 1,50 m, une créature. Touché : 2 (1d4) dégâts perforants + 9 (2d8) dégâts de poison.
+Épée longue. Attaque au corps à corps avec une arme : +6 au toucher, allonge 1,50 m, une cible. Touché : 7 (1d8 + 3) dégâts tranchants, ou 8 (1d10 + 3) dégâts tranchants si utilisée à deux mains.
+Arc long. Attaque à distance avec une arme : +6 au toucher, portée 45/180 m, une cible. Touché : 7 (1d8 + 3) dégâts perforants + 4 (1d8) dégâts de poison.",,19,12,18,16,"Compétences Discrétion +9, Perception +5
+Sens vision dans le noir 36 m, Perception passive 15
+Langues elfique, commun des profondeurs
+Puissance 6 (2300 PX)
+Ascendance féerique. Le drider a un avantage aux jets de sauvegarde contre les effets de charme, et la magie ne peut pas l'endormir.
+Incantation innée. La caractéristique d'incantation innée du drider est la Sagesse (jet de sauvegarde contre ses sorts DD 13). Le drider peut lancer les sorts suivants de manière innée, sans avoir besoin de composantes matérielles :À volonté : https://www.aidedd.org/dnd/sorts.php?vf=lumieres-dansantes1/jour chacun : https://www.aidedd.org/dnd/sorts.php?vf=tenebres, https://www.aidedd.org/dnd/sorts.php?vf=lueurs-feeriques
+Pattes d'araignée. Le drider peut escalader des surfaces difficiles et être au plafond la tête en bas sans avoir besoin d'effectuer un jet de caractéristique.
+Sensibilité au soleil. S'il est exposé à la lumière du soleil, le drider a un désavantage aux jets d'attaque et aux jets de Sagesse (Perception) basés sur la vue.
+Déplacement sur la toile. Le drider ignore les restrictions de mouvement causées par une toile d'araignée.",16,13,1,4,3,3,1,2,123,2300,Monstruosité,14,G,"9m, escalade 9m"
+Araignée géante,"Morsure. Attaque au corps à corps avec une arme : +5 au toucher, allonge 1,50 m, une créature. Touché : 7 (1d8 + 3) dégâts perforants, et la cible doit réaliser un jet de sauvegarde de Constitution DD 11, subissant 9 (2d8) dégâts de poison en cas d'échec, ou la moitié de ces dégâts en cas de réussite. Si le poison réduit les points de vie de la cible à 0, celle-ci est stable mais empoisonnée durant 1 heure, même si elle récupère des points de vie par la suite, et paralysée tant qu'elle est empoisonnée de cette manière.
+Toile d'araignée (Recharge 5-6). Attaque à distance avec une arme : +5 au toucher, portée 9/18 m, une créature. Touché : la cible est entravée par la toile. Par une action, la cible entravée peut effectuer un jet de Force DD 12, déchirant la toile en cas de réussite. La toile peut aussi être attaquée et détruite (CA 10 ; pv 5 ; vulnérabilité aux dégâts de feu ; immunités aux dégâts contondants, de poison et psychiques).",,14,4,12,16,"Compétences Discrétion +7
+Sens vision aveugle 3 m, vision dans le noir 18 m, Perception passive 10
+Langues -
+Déplacement sur la toile. L'araignée ignore les restrictions de mouvement causées par une toile d'araignée.
+Pattes d'araignée. L'araignée peut escalader des surfaces difficiles et être au plafond la tête en bas sans avoir besoin d'effectuer un jet de caractéristique.
+Sens de la toile. Lorsqu'elle est en contact avec une toile, l'araignée connait l'emplacement exact de toutes les créatures qui sont en contact avec cette toile.",14,2,-3,1,3,2,-4,0,26,200,Bête,11,G,"9m, escalade 9m"
+Drow,"Épée courte. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants.
+Arbalète de poing. Attaque à distance avec une arme : +4 au toucher, portée 9/36 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants, et la cible doit réussir un jet de sauvegarde de Constitution DD 13 ou être empoisonnée pendant 1 heure. Si le jet de sauvegarde échoue de 5 ou plus, la cible est également inconsciente tant qu'elle est empoisonnée de la sorte. La cible se réveille si elle subit des dégâts ou si une autre créature utilise son action pour la secouer.",,15,12,10,14,"Compétences Discrétion +4, Perception +2
+Sens vision dans le noir 36 m, Perception passive 12
+Langues elfique, commun des profondeurs
+
+Ascendance féerique. Le drow a un avantage aux jets de sauvegarde contre les effets de charme, et la magie ne peut pas l'endormir.
+Incantation innée. La caractéristique d'incantation innée du drow est le Charisme (jet de sauvegarde contre ses sorts DD 11). Il peut lancer les sorts suivants de manière innée, sans avoir besoin de composantes matérielles :À volonté : https://www.aidedd.org/dnd/sorts.php?vf=lumieres-dansantes1/jour chacun : https://www.aidedd.org/dnd/sorts.php?vf=tenebres, https://www.aidedd.org/dnd/sorts.php?vf=lueurs-feeriques
+Sensibilité au soleil. S'il est exposé à la lumière du soleil, le drow a un désavantage aux jets d'attaque et aux jets de Sagesse (Perception) basés sur la vue.",10,11,1,0,2,0,0,0,13,50,Humanoïde,11,M,9m
+Guerrier d’élite Drow,"Actions
+Attaques multiples. Le drow effectue deux attaques d'épée courte.
+Épée courte. Attaque au corps à corps avec une arme : +7 au toucher, allonge 1,50 m, une cible. Touché : 7 (1d6 + 4) dégâts perforants + 10 (3d6) dégâts de poison.
+Arbalète de poing. Attaque à distance avec une arme : +7 au toucher, portée 9/36 m, une cible. Touché : 7 (1d6 + 4) dégâts perforants, et la cible doit réussir un jet de sauvegarde de Constitution DD 13 ou être empoisonnée pendant 1 heure. Si le jet de sauvegarde échoue de 5 ou plus, la cible est également inconsciente tant qu'elle est empoisonnée de la sorte. La cible se réveille si elle subit des dégâts ou si une autre créature utilise son action pour la secouer.
+Réactions
+Parade. Le drow ajoute 3 à sa CA contre une attaque au corps à corps qui le toucherait. Pour cela, il doit voir l'attaquant et avoir en main une arme de corps à corps.",,18,12,14,18,"Jets de sauvegarde Dex +7, Con +5, Sag +4
+Compétences Discrétion +10, Perception +4
+Sens vision dans le noir 36 m, Perception passive 14
+Langues elfique, commun des profondeursPuissance 5 (1800 PX)
+
+Ascendance féerique. Le drow a un avantage aux jets de sauvegarde contre les effets de charme, de plus il est immunisé contre le sommeil magique.
+Incantation innée. La caractéristique d'incantation innée du drow est le Charisme (jet de sauvegarde contre ses sorts DD 12). Il peut lancer les sorts suivants de manière innée, sans avoir besoin de composantes matérielles :À volonté : https://www.aidedd.org/dnd/sorts.php?vf=lumieres-dansantes1/jour chacun : https://www.aidedd.org/dnd/sorts.php?vf=tenebres, https://www.aidedd.org/dnd/sorts.php?vf=lueurs-feeriques, https://www.aidedd.org/dnd/sorts.php?vf=levitation (personnel uniquement)
+Sensibilité au soleil. S'il est exposé à la lumière du soleil, le drow a un désavantage aux jets d'attaque et aux jets de Sagesse (Perception) basés sur la vue.",13,11,1,2,4,1,0,1,71,1800,Humanoïde,13,M,9m
+Guenaude marine,"Griffes. Attaque au corps à corps avec une arme : +5 au toucher, allonge 1,50 m, une cible. Touché : 10 (2d6 + 3) dégâts tranchants.
+Éblouissement mortel. La guenaude cible une créature effrayée qu'elle peut voir et située dans un rayon de 9 mètres autour d'elle. Si la cible peut voir la guenaude, elle doit réussir un jet de sauvegarde de Sagesse DD 11 contre la magie ou tomber à 0 point de vie.
+Apparence illusoire. La guenaude se déguise, elle et tout ce qu'elle porte ou transporte, grâce à une illusion magique, en une créature laide de forme humanoïde et ayant à peu près sa taille. L'effet se termine si la guenaude utilise son action bonus pour y mettre fin ou si elle meurt. Les modifications corporelles apportées par cet effet ne parviennent pas à duper une inspection corporelle. Par exemple, la guenaude peut sembler ne pas avoir de griffes, mais quelqu'un touchant ses mains sentira ses griffes. Sinon, une créature doit utiliser une action pour inspecter visuellement l'illusion et réussir un jet d'Intelligence (Investigation) DD 16 pour remarquer que la guenaude est déguisée.",,14,13,16,13,"Sens vision dans le noir 18 m, Perception passive 11Langues aquatique, commun, géant
+Amphibien. La guenaude peut respirer aussi bien dans l'air que sous l'eau.
+
+Apparence horrifique. Un humanoïde commençant son tour dans un rayon de 9 mètres autour de la guenaude, et qui peut voir sa forme véritable, doit effectuer un jet de sauvegarde de Sagesse DD 11. En cas d'échec, la créature est effrayée pendant 1 minute. Une créature peut retenter son jet de sauvegarde à la fin de chacun de ses tours, avec un désavantage si la guenaude se trouve dans sa ligne de mire, mettant fin à l'effet en cas de réussite. Si le jet de sauvegarde d'une créature est une réussite ou si l'effet prend fin, la créature devient immunisée contre l'apparence horrifique de la guenaude pour les 24 prochaines heures. À moins que la cible ne soit prise par surprise, ou que la révélation de la forme véritable de la guenaude soit soudaine, la cible peut détourner le regarde et ainsi éviter de faire le premier jet de sauvegarde. Jusqu'à la fin de son prochain tour, une créature qui a détourné le regard a un désavantage aux jets d'attaque effectués contre le guenaude.",16,12,1,3,1,3,1,1,52,450,Féé,12,M,"9m, 12m nage"
+Merrow,"Attaques multiples. Le merrow effectue deux attaques : une de morsure et une avec ses griffes ou avec le harpon.
+Griffes. Attaque au corps à corps avec une arme : +6 au toucher, allonge 1,50 m, une cible. Touché : 9 (2d4 + 4) dégâts tranchants.
+Morsure. Attaque au corps à corps avec une arme : +6 au toucher, allonge 1,50 m, une cible. Touché : 8 (1d8 + 4) dégâts perforants.
+Harpon. Attaque au corps à corps ou à distance avec une arme : +6 au toucher, allonge 1,50 m ou portée 6/18 m, une cible. Touché : 11 (2d6 + 4) dégâts perforants. Si la cible est de taille TG ou inférieure, elle doit réussir un jet de Force contre le merrow ou être tirée de 6 mètres vers le merrow.",,13,9,15,10,"Sens vision dans le noir 18 m, Perception passive 10
+Langues abyssal, aquatique
+Amphibien. Le merrow peut respirer aussi bien dans l'air que sous l'eau.",18,8,-1,2,0,4,-1,0,45,450,Monstruosité,10,G,"3m, nage 12m"
+Plésiosaure,"Morsure. Attaque au corps à corps avec une arme : +6 au toucher, allonge 3 m, une cible. Touché : 14 (3d6 + 4) dégâts perforants.",,13,5,16,15,"Compétences Discrétion +4, Perception +3Sens Perception passive 13
+Langues —
+Apnée. Le plésiosaure peut retenir son souffle durant 1 heure.",18,2,-3,3,2,4,-4,1,68,450,Bête,12,G,"6m, 12m nage"
+Sahuagin,"Attaques multiples. Le sahuagin effectue deux attaques : une de morsure et une avec ses griffes ou sa lance.
+Morsure. Attaque au corps à corps avec une arme : +3 au toucher, allonge 1,50 m, une cible. Touché : 3 (1d4 + 1) dégâts perforants.
+Griffes. Attaque au corps à corps avec une arme : +3 au toucher, allonge 1,50 m, une cible. Touché : 3 (1d4 + 1) dégâts tranchants.
+Lance. Attaque au corps à corps ou à distance avec une arme : +3 au toucher, allonge 1,50 m ou portée 6/18 m, une cible. Touché : 4 (1d6 + 1) dégâts perforants, ou 5 (1d8 + 1) dégâts perforants si utilisée à deux mains pour faire une attaque au corps à corps.",,12,9,12,11,"Compétences Perception +5
+Sens vision dans le noir 36 m, Perception passive 15
+Langues sahuagin
+Frénésie sanguinaire. Le sahuagin a un avantage aux jets d'attaque au corps à corps contre une créature qui n'a pas tous ses points de vie.
+Amphibie limitée. Le sahuagin peut respirer sur terre ou dans l'eau, mais il a besoin d'être immergé au moins une fois toutes les 4 heures pour éviter de s'étouffer.
+
+Télépathie avec les requins. Le sahuagin peut prendre magiquement le contrôle de n'importe quel requin dans un rayon de 36 mètres autour de lui, en utilisant une forme limitée de télépathie.",13,12,-1,1,0,1,1,1,22,100,Humanoïde,13,M,"9m, 12m"
+Sahuagin Baron,"Attaques multiples. Le sahuagin effectue trois attaques : une de morsure et deux avec ses griffes ou avec le trident.
+Griffes. Attaque au corps à corps avec une arme : +7 au toucher, allonge 1,50 m, une cible. Touché : 11 (2d6 + 4) dégâts tranchants.
+Morsure. Attaque au corps à corps avec une arme : +7 au toucher, allonge 1,50 m, une cible. Touché : 9 (2d4 + 4) dégâts perforants.
+Trident. Attaque au corps à corps ou à distance avec une arme : +7 au toucher, allonge 1,50 m ou portée 6/18 m, une cible. Touché : 11 (2d6 + 4) dégâts perforants, ou 13 (2d8 + 4) dégâts perforants si utilisé à deux mains pour effectuer une attaque au corps à corps.",,16,17,16,15,"Jets de sauvegarde Dex +5, Con +6, Int +5, Sag +4
+Compétences Perception +7Sens vision dans le noir 36 m, Perception passive 17
+Langues sahuagin
+
+Frénésie sanguinaire. Le sahuagin a un avantage aux jets d'attaque au corps à corps contre une créature qui n'a pas tous ses points de vie.
+Amphibie limitée. Le sahuagin peut respirer sur terre ou dans l'eau, mais il a besoin d'être immergé au moins une fois toutes les 4 heures pour éviter de s'étouffer.
+Télépathie avec les requins. Le sahuagin peut prendre magiquement le contrôle de n'importe quel requin dans un rayon de 36 mètres autour de lui, en utilisant une forme limitée de télépathie.",19,14,3,3,2,4,2,1,76,1800,Humanoïde,13,,"9m, 15m nage"
+Cultiste de la mort,"Multiattack. The cultist makes three attacks, using Dread Scythe or Deathly Ray in any combination.
+Dread Scythe. Melee Attack Roll: +7, reach 10 ft. Hit: 9 (1d10 + 4) Slashing damage plus 11 (2d10) Necrotic damage, and the target can't regain Hit Points until the end of its next turn.
+Deathly Ray. Ranged Attack Roll: +6, range 120 ft. Hit: 22 (4d10) Necrotic damage.
+Spellcasting. The cultist casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC 14):At will: https://www.aidedd.org/spell/speak-with-dead, https://www.aidedd.org/spell/thaumaturgy",,17,14,18,12,"Skills Insight +6, Perception +6, Religion +4
+Gear Splint Armor
+Senses Passive Perception 16
+Languages Common",19,12,2,4,1,4,1,3,127,3900,Humanoïde,16,M,9m
+Dévoreur d’intellect,"Attaques multiples. Le dévoreur d'intellect effectue une attaque avec ses griffes et utilise Consommation de l'intellect.
+Griffes. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 7 (2d4 + 2) dégâts tranchants.
+Consommation de l'intellect. Le dévoreur d'intellect cible une créature possédant un cerveau qu'il peut voir et qui se trouve dans un rayon de 3 mètres autour de lui. La cible doit réussir un jet de sauvegarde d'Intelligence DD 12 contre cette magie ou subir 11 (2d10) dégâts psychiques. De plus, en cas d'échec, lancez 3d6. Si le total est égal ou supérieur à la valeur d'Intelligence, cette valeur est réduite à 0. La cible est étourdie jusqu'à ce qu'elle regagne au moins un point d'Intelligence.
+Vol de corps. Le dévoreur d'intellect débute une opposition d'Intelligence contre un humanoïde incapable d'agir se trouvant à 1,50 mètre de lui et qui n'est pas protégé par une protection contre le Mal ou le Bien. S'il gagne l'opposition, le dévoreur d'intellect dévore par magie le cerveau de la cible, se téléporte à l'intérieur du crâne de la cible, et prend le contrôle de son corps. Une fois à l'intérieur d'une créature, le dévoreur d'intellect bénéficie d'un abri total contre les attaques et effets émanant de l'extérieur de son hôte. Le dévoreur d'intellect conserve ses valeurs d'Intelligence, de Sagesse et de Charisme, ainsi que sa compréhension du profond, sa télépathie, et ses traits. Pour le reste, il utilise les statistiques de la cible. Il connait tout ce que la créature savait, sorts et langages inclus. Si le corps de la cible meurt, le dévoreur d'intellect doit le quitter. Un sort de https://www.aidedd.org/dnd/sorts.php?vf=protection-contre-le-mal-et-le-bien lancé sur le corps oblige le dévoreur d'intellect à le quitter. Le dévoreur d'intellect est aussi forcé de sortir si la cible récupère son cerveau au moyen d'un https://www.aidedd.org/dnd/sorts.php?vf=souhait. En utilisant 1,50 mètre de mouvement, le dévoreur d'intellect peut volontairement quitter le corps, se téléportant sur le plus proche espace libre à 1,50 mètre de la cible. Le corps meurt ensuite, à moins que son cerveau lui soit restauré dans le prochain round.",,12,10,13,14,"Compétences Discrétion +4, Perception +2
+Résistances aux dégâts contondant, perforant et tranchant d'attaques non magiques
+Immunités aux états aveuglé
+Sens vision aveugle 18 m (aveugle au-delà de ce rayon), Perception passive 12
+Langues comprend le profond mais ne peut pas parler, télépathie 18 m
+Détection de la sentience. Le dévoreur d'intellect peut sentir la présence et localiser chaque créature ayant une Intelligence de 3 ou plus dans un rayon de 90 mètres, quelles que soient les barrières qui les séparent, à moins que la créature soit protégée par un sort d'https://www.aidedd.org/dnd/sorts.php?vf=esprit-impenetrable.",6,12,0,1,2,-2,1,0,21,450,Abbération,11,TP,12m
+Flagelleur Mental,"Explosion de l'esprit (Recharge 5-6). Le flagelleur mental émet une vague d'énergie psychique dans un cône de 18 mètres. Chaque créature présente dans la zone doit réussir un jet de sauvegarde d'Intelligence DD 15 ou subir 22 (4d8 + 4) dégâts psychiques et être étourdie pendant 1 minute. Une créature peut retenter son jet de sauvegarde à la fin de chacun de ses tours, mettant fin à l'effet qui l'affecte en cas de réussite.
+Extraction de cerveau. Attaque au corps à corps avec une arme : +7 au toucher, allonge 1,50 m, un humanoïde incapable d'agir et agrippé par le flagelleur mental. Touché : la cible subit 55 (10d10) dégâts perforants. Si ces dégâts font tomber les points de vie de la cible à 0, le flagelleur mental tue la cible en lui extrayant et dévorant le cerveau.
+Tentacules. Attaque au corps à corps avec une arme : +7 au toucher, allonge 1,50 m, une créature. Touché : 15 (2d10 + 4) dégâts psychiques. Si la cible est de taille M ou inférieure, elle est agrippée (DD 15 pour s'échapper) et doit réussir un jet de sauvegarde d'Intelligence DD 15 ou être étourdie tant qu'elle est agrippée de cette manière.",,15,17,12,12,"Jets de sauvegarde Int +7, Sag +6, Cha +6
+Compétences Arcanes +7, Discrétion +4, Intuition +6, Perception +6, Persuasion +6, Tromperie +6
+Sens vision dans le noir 36 m, Perception passive 16
+Langues profond, commun des profondeurs, télépathie 36 m
+Résistance à la magie. Le flagelleur mental a un avantage aux jets de sauvegarde contre les sorts et autres effets magiques.
+Incantation innée (psioniques). La caractéristique d'incantation innée du flagelleur mental est l'Intelligence (jet de sauvegarde contre ses sorts DD 15). Il peut lancer les sorts suivants de manière innée, sans avoir besoin de composantes matérielles :À volonté : https://www.aidedd.org/dnd/sorts.php?vf=detection-des-pensees, https://www.aidedd.org/dnd/sorts.php?vf=levitation1/jour chacun : https://www.aidedd.org/dnd/sorts.php?vf=domination-de-monstre, https://www.aidedd.org/dnd/sorts.php?vf=changement-de-plan (personnel uniquement)
+",11,19,3,1,1,0,4,3,71,2900,Abbération,17,M,9m
+Squelette,"Épée courte. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants.
+Arc court. Attaque à distance avec une arme : +4 au toucher, portée 24/96 m, une cible. Touché : 5 (1d6 + 2) dégâts perforants.",,13,5,15,14,"Vulnérabilités aux dégâts contondant
+Immunités aux dégâts poison
+Immunités aux états épuisement, empoisonné
+Sens vision dans le noir 18 m, Perception passive 9
+Langues comprend les langues qu'il connaissait de son vivant mais ne peut pas parler
+",10,6,-3,2,2,0,-2,-1,13,50,Mort-Vivant,8,M,9m
+Grung,"Dague. Attaque au corps à corps ou à distance avec une arme : +4 pour toucher, allonge 1,50 m ou portée 6/18 m, une cible. Touché : 4 (1d4 + 2) dégâts perforants, et la cible doit réussir un jet de sauvegarde de Constitution DD 12 ou subir 5 (2d4) dégâts de poison.
+Sarbacane. Attaque à distance avec une arme : +4 pour toucher, portée 7,5/30 m, une créature. Touché : 1 dégât perforant, et la cible doit réussir un jet de sauvegarde de Constitution DD 12 ou être empoisonnée pendant 1 minute. La cible peut retenter le jet de sauvegarde à la fin de chacun de ses tours pour mettre fin à l'effet.",,12,11,14,15,"Compétences Athlétisme +2, Perception +2, Discrétion +4, Survie +2
+Immunités aux dégâts poison
+Immunités aux états empoisonné
+Sens Vision passive 12
+Langues Grung
+
+Amphibie. Le grung peut respirer dans l'air et dans l'eau.
+Bond. Le grung peut effectuer un saut en longueur de 7,50 mètres et un saut en hauteur de 4,50 mètres, avec ou sans élan.",12,10,0,2,2,1,0,1,11,50,Humanoïde,12,P,"7,5m, escalade 7,5m"
+Guerrier d’élite Grung,"Attaques multiples. Le guerrier grung effectue deux attaques avec sa cimeterre.
+Cimeterre empoisonné. Attaque au corps à corps avec une arme : +4 pour toucher, allonge 1,50 m, une cible. Touché : 5 (1d6 + 2) dégâts tranchants plus 5 (2d4) dégâts de poison (jet de sauvegarde de Constitution DD 12 pour diviser les dégâts de poison par deux).",,14,11,14,15,"Compétences Athlétisme +3, Perception +3, Discrétion +4, Survie +3
+Immunités aux dégâts poison
+Immunités aux états empoisonné
+Sens Vision passive 13
+Langues Grung
+
+Amphibie. Le grung peut respirer dans l'air et dans l'eau.
+Bond. Le grung peut effectuer un saut en longueur de 7,50 mètres et un saut en hauteur de 4,50 mètres, avec ou sans élan.",12,10,0,2,2,1,0,1,27,200,Humanoïde,12,P,"7,5m, escalade 7,5m"
+Chaman Grung,"Bâton rituel. Attaque au corps à corps avec une arme : +1 pour toucher, allonge 1,50 m, une cible. Touché : 2 (1d6 - 1) dégâts contondants, et la cible doit réussir un jet de sauvegarde de Constitution DD 12 ou être empoisonnée pendant 1 minute.",,13,12,14,14,"Compétences Médecine +5, Nature +2, Perception +5, Survie +5
+Immunités aux dégâts poison
+Immunités aux états empoisonné
+Sens Vision passive 15
+Langues Grung, Commun (approximatif)
+
+Amphibie. Le grung peut respirer dans l'air et dans l'eau.
+Bond. Le grung peut effectuer un saut en longueur de 7,50 mètres et un saut en hauteur de 4,50 mètres, avec ou sans élan.
+
+Incantations. Le chaman est un lanceur de sorts de niveau 5. Sa caractéristique d'incantation est la Sagesse (DD des sorts 13, +5 pour toucher avec les attaques de sort). Il a préparé les sorts de druide suivants :
+• Tours de magie (à volonté) : Vaporisation de poison, Gourdin magique, Résistance
+• Niveau 1 (4 emplacements) : Enchevêtrement, Nappe de brouillard, Soins
+• Niveau 2 (3 emplacements) : Croissance d'épines, Immobilisation de personne
+• Niveau 3 (2 emplacements) : Invocation d'animaux (créatures du marais seulement), Nuage nauséabond",8,11,1,2,2,-1,0,3,33,450,Humanoïde,16,P,"7,5m, escalade 7,5m"
+Aboleth,"Attaques multiples. L'aboleth effectue trois attaques avec ses tentacules.
+
+Tentacule. Attaque au corps à corps avec une arme : +9 au toucher, allonge 3 m, une cible. Touché : 12 (2d6 + 5) dégâts contondants. Si la cible est une créature, elle doit réussir un jet de sauvegarde de Constitution DD 14 ou tomber malade. Cette maladie n'a aucun effet pendant 1 minute et peut être annulée par toute magie qui soigne les maladies. Après 1 minute, le teint de la créature malade devient translucide et visqueux, la créature ne peut pas récupérer de points de vie si elle n'est pas sous l'eau, et cette maladie ne peut plus être soignée que par https://www.aidedd.org/dnd/sorts.php?vf=guerison ou tout autre sort de guérison des maladies de niveau 6 ou supérieur. Lorsque la créature est en dehors d'une étendue d'eau, elle subit 6 (1d12) dégâts d'acide toutes les 10 minutes à moins que son corps ne soit humidifié avant que 10 minutes ne se soient écoulées.
+
+Queue. Attaque au corps à corps avec une arme : +9 au toucher, allonge 3 m, une cible. Touché : 15 (3d6 + 5) dégâts contondants.
+
+Asservissement (3/jour). L'aboleth cible une créature qu'il peut voir dans un rayon de 9 mètres autour de lui. La cible doit réussir un jet de sauvegarde de Sagesse DD 14 ou être charmée magiquement par l'aboleth jusqu'à ce que l'aboleth ne meure ou se trouve sur un plan d'existence différent de celui de la cible. La cible charmée est sous le contrôle de l'aboleth et ne peut pas utiliser de réaction, de plus l'aboleth et la cible peuvent communiquer par télépathie entre eux quelle que soit la distance. Chaque fois que la cible subit des dégâts, elle peut retenter son jet de sauvegarde. Si elle le réussit, l'effet se termine. Pas plus d'une fois toutes les 24 heures, la cible peut également retenter son jet de sauvegarde lorsqu'elle se trouve à plus de 1,5 kilomètre de l'aboleth.","L'aboleth peut effectuer 3 actions légendaires, en choisissant parmi les options suivantes. Une seule action légendaire peut être utilisée à la fois, et seulement à la fin du tour d'une autre créature. L'aboleth récupère les actions légendaires dépensées au début de son tour.
+
+Détection. L'aboleth effectue un jet de Sagesse (Perception).
+
+Attaque avec la queue. L'aboleth effectue une attaque avec sa queue.
+
+Absorption psychique (coûte 2 actions). Une créature charmée par l'aboleth subit 10 (3d6) dégâts psychiques, et l'aboleth récupère un montant de point de vie égal aux dégâts que cette créature a subis.",17,18,15,9,"Jets de sauvegarde Con +6, Int +8, Sag +6
+Compétences Histoire +12, Perception +10
+Sens vision dans le noir 36 m, Perception passive 20
+Langues profond, télépathie 36 m)
+
+Amphibien. L'aboleth peut respirer aussi bien dans l'air que sous l'eau.
+
+Nuage de mucus. Lorsqu'il est sous l'eau, l'aboleth est entouré d'un mucus altérant. Une créature qui touche l'aboleth ou qui le frappe lors d'une attaque au corps à corps en se trouvant à 1,50 mètre ou moins de lui, doit effectuer un jet de sauvegarde de Constitution DD 14. Si elle l'échoue, la créature tombe malade pour les 1d4 prochaines heures. Une créature malade ne peut respirer que sous l'eau.
+
+Pénétration télépathique. Si une créature communique par télépathie avec l'aboleth, l'aboleth découvre les plus grands désirs de la créature, à condition qu'il puisse voir la créature.",21,18,4,2,-1,5,4,2,135,5900,Abbération,15,G,"3m, nage 12m"
+Kuo-Toa,"Morsure. Attaque au corps à corps avec une arme : +3 au toucher, allonge 1,50 m, une cible. Touché : 3 (1d4 + 1) dégâts perforants.
+Lance. Attaque au corps à corps ou à distance avec une arme : +3 au toucher, allonge 1,50 m ou portée 6/18 m, une cible. Touché : 4 (1d6 + 1) dégâts perforants, ou 5 (1d8 + 1) dégâts perforants si utilisée à deux mains pour faire une attaque au corps à corps.
+
+Filet. Attaque à distance avec une arme : +3 au toucher, portée 1,50/4,50 m, une créature de taille G ou inférieure. Touché : la cible est entravée. Une créature peut utiliser son action pour effectuer un jet de Force DD 10 pour se libérer elle-même, ou pour libérer une autre créature prise dans le filet, mettant ainsi fin à cet effet en cas de réussite. Infliger 5 points de dégâts tranchants au filet (CA 10) libère la cible, sans la blesser, en détruisant le filet.
+
+Réactions :
+
+Bouclier collant. Lorsqu'une créature rate le kuo-toa avec une attaque au corps à corps avec une arme, le kuo-toa utilise son bouclier collant pour attraper l'arme. L'attaquant doit réussir un jet de sauvegarde de Force DD 11 ou voir son arme se coller au bouclier du kuo-toa. Si le porteur de l'arme ne peut pas, ou ne veut pas, la lâcher, il est agrippé jusqu'à ce que l'arme ne soit plus collée. Tant qu'elle adhère au bouclier, l'arme ne peut pas être utilisée. Une créature peut libérer l'arme en utilisant son action pour effectuer un jet de Force DD 11 et en le réussissant.
+
+",,13,8,11,10,"Compétences Perception +4
+Sens vision dans le noir 36 m, Perception passive 14
+Langues commun des profondeurs
+
+Amphibien. Le kuo-toa peut respirer aussi bien dans l'air que sous l'eau.
+
+Perception d'un autre monde. Le kuo-toa peut ressentir la présence de toute créature dans un rayon de 9 mètres qui est invisible ou se trouve dans le plan éthéré. Il peut localiser de telles créatures lorsqu'elles se déplacent.
+
+Visqueux. Le kuo-toa a un avantage aux jets de caractéristique et de sauvegarde effectués pour échapper à l'état agrippé.
+
+Sensibilité au soleil. S'il est exposé à la lumière du soleil, le kuo-toa a un désavantage aux jets d'attaque et aux jets de Sagesse (Perception) basés sur la vue.",13,11,-1,0,0,1,0,0,18,50,Humanoïde,10,M,"9 m, nage 9 m"
+Ettercap,"Attaques multiples. L'ettercap effectue deux attaques : une de morsure et une avec ses griffes.
+
+Griffes. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une cible. Touché : 7 (2d4 + 2) dégâts tranchants.
+
+Morsure. Attaque au corps à corps avec une arme : +4 au toucher, allonge 1,50 m, une créature. Touché : 6 (1d8 + 2) dégâts perforants + 4 (1d8) dégâts de poison. La cible doit réussir un jet de sauvegarde de Constitution DD 11 ou être empoisonnée pendant 1 minute. La créature peut recommencer ce jet de sauvegarde à la fin de chacun de ses tours, mettant fin à l'effet qui l'affecte en cas de réussite.
+
+Toile d'araignée (Recharge 5-6). Attaque à distance avec une arme : +4 au toucher, portée 9/18 m, une créature de taille G ou inférieure. Touché : la créature est entravée par la toile. Par une action, la créature entravée peut effectuer un jet de Force DD 11, s'échappant de la toile en cas de réussite. L'effet se termine si la toile est détruite. La toile a une CA de 10, 5 points de vie, est vulnérable aux dégâts de feu et immunisée contre les dégâts contondants, de poison et psychiques.",,13,8,13,15,"Compétences Discrétion +4, Perception +3, Survie +3
+Sens vision dans le noir 18 m, Perception passive 13
+Langues —
+
+Pattes d'araignée. L'ettercap peut escalader des surfaces difficiles et être au plafond la tête en bas sans avoir besoin d'effectuer un jet de caractéristique.
+
+Sens de la toile. Lorsqu'il est en contact avec une toile, l'ettercap connait l'emplacement exact de toutes les créatures qui sont en contact avec cette toile.
+
+Déplacement sur la toile. L'ettercap ignore les restrictions de mouvement causées par une toile d'araignée.",14,7,-1,1,2,2,-2,1,44,450,Monstruosité,12,," 9 m, escalade 9 m"
+Araignée de phase,"Morsure. Attaque au corps à corps avec une arme : +4 au
+toucher, allonge 1,50 m, une créature. Touché : 7 (1d10 + 2)
+dégâts perforants, et la cible doit réaliser un jet de
+sauvegarde de Constitution DD 11. En cas d'échec, elle
+prend 18 (4d8) dégâts de poison, ou la moitié en cas de
+réussite. Si les dégâts de poison réduisent la cible à 0 point
+de vie, celle-ci est stable mais empoisonnée durant 1 heure,
+même après avoir regagné des points de vie, et est
+paralysée tant qu'elle est empoisonnée de cette manière.",,13,6,12,15,"Saut éthérée. Par une action bonus, l'araignée peut
+magiquement passer du plan matériel au plan éthéré, et vice
+versa.
+Pattes d'araignée. L'araignée peut escalader des surfaces
+difficiles, même des plafonds la tête en bas, sans avoir
+besoin d'effectuer un jet de caractéristique.
+Déplacement sur la toile. L'araignée ignore les restrictions
+de mouvement causées par une toile d'araignée.
+",15,6,-2,1,2,2,-2,0,32,700,Monstruosité,10,G,"9m, escalade 9m"
+Capitaine Pirate,(voir pg 258 du manuel des monstres 2025),,17,17,14,18,(voir pg 258 du manuel des monstres 2025),10,10,3,2,4,0,0,2,84,2300,Humanoïde,14,,9m
+Vouivre,( voir pg 335 manuel des monstres),,14,6,16,10,( voir pg 335 manuel des monstres),19,5,-2,3,0,4,-3,1,127,2300,Dragon,12,G,"9m, vol 24m"
+Crânefeu,(voir pg 54 du manuel des monstres,,13,11,14,17,(voir pg 54 du manuel des monstres),1,16,0,2,3,-5,3,0,40,1100,Mort-Vivant,10,TP,"1,5m, vol 12m"
+Enlaceur,(voir pg 132 du manuel des monstres),,20,6,17,8,(voir pg 132 du manuel des monstres),18,7,-2,3,-1,4,-2,3,93,1800,Abbération,16,,"3m, escalade 6m"

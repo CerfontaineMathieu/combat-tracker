@@ -1,0 +1,12 @@
+FROM node:24-alpine
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Expose port
+EXPOSE 3000
+
+# Install dependencies and run dev server
+CMD ["sh", "-c", "pnpm install && pnpm dev"]
