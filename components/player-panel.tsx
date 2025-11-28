@@ -22,9 +22,10 @@ interface PlayerPanelProps {
   mode: "mj" | "joueur"
   combatActive?: boolean
   combatParticipants?: CombatParticipant[]
+  ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
 
-export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, mode, combatActive = false, combatParticipants = [] }: PlayerPanelProps) {
+export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [] }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
 
@@ -174,8 +175,8 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       </div>
                     </div>
 
-                    {/* HP Bar - Only visible for DM */}
-                    {mode === "mj" && (
+                    {/* HP Bar - Visible for DM or for the player's own characters */}
+                    {(mode === "mj" || ownCharacterIds.includes(player.id)) && (
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">PV</span>

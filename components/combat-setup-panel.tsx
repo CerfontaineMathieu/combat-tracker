@@ -65,6 +65,7 @@ interface CombatSetupPanelProps {
   onLoadPreset?: (participants: CombatParticipant[]) => void
   mode: "mj" | "joueur"
   campaignId?: number
+  ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
 
 export function CombatSetupPanel({
@@ -75,6 +76,7 @@ export function CombatSetupPanel({
   onLoadPreset,
   mode,
   campaignId,
+  ownCharacterIds = [],
 }: CombatSetupPanelProps) {
   const { combatParticipants, isOverCombatZone } = useCombatDnd()
 
@@ -377,6 +379,7 @@ export function CombatSetupPanel({
                           : undefined
                       }
                       mode={mode}
+                      ownCharacterIds={ownCharacterIds}
                     />
                   ))}
                 </div>

@@ -27,6 +27,7 @@ interface CombatPanelProps {
   onUpdateExhaustion?: (id: string, level: number, type: "player" | "monster") => void
   onRemoveFromCombat?: (id: string) => void
   mode: "mj" | "joueur"
+  ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
 
 export function CombatPanel({
@@ -42,6 +43,7 @@ export function CombatPanel({
   onUpdateExhaustion,
   onRemoveFromCombat,
   mode,
+  ownCharacterIds = [],
 }: CombatPanelProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
   const [hpAmount, setHpAmount] = useState("")
@@ -193,8 +195,8 @@ export function CombatPanel({
                         </div>
                       )}
 
-                      {/* HP Bar - Visible for DM (all) or Players (monsters only) */}
-                      {(mode === "mj" || participant.type === "monster") && (
+                      {/* HP Bar - Visible for DM (all), monsters, or the player's own characters */}
+                      {(mode === "mj" || participant.type === "monster" || ownCharacterIds.includes(participant.id)) && (
                         <div className="mt-1.5">
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-muted-foreground">PV</span>
