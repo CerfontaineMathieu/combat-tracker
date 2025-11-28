@@ -13,15 +13,19 @@ const handle = app.getRequestHandler();
 // Connected player info
 interface ConnectedPlayer {
   socketId: string;
-  odNumber: number;
-  name: string;
-  class: string;
-  level: number;
-  currentHp: number;
-  maxHp: number;
-  ac: number;
-  initiative: number;
-  conditions: string[];
+  playerName?: string;
+  characters: Array<{
+    odNumber: number;
+    name: string;
+    class: string;
+    level: number;
+    currentHp: number;
+    maxHp: number;
+    ac: number;
+    initiative: number;
+    conditions: string[];
+    exhaustionLevel?: number;
+  }>;
 }
 
 // Store connected players per campaign
@@ -31,7 +35,18 @@ const connectedPlayers = new Map<number, Map<string, ConnectedPlayer>>();
 interface JoinCampaignData {
   campaignId: number;
   role: 'dm' | 'player';
-  character?: ConnectedPlayer;
+  characters?: Array<{
+    odNumber: number;
+    name: string;
+    class: string;
+    level: number;
+    currentHp: number;
+    maxHp: number;
+    ac: number;
+    initiative: number;
+    conditions: string[];
+    exhaustionLevel?: number;
+  }>;
 }
 
 interface CombatUpdateData {
@@ -122,7 +137,7 @@ app.prepare().then(() => {
 
     // Join a campaign room
     socket.on('join-campaign', (data: JoinCampaignData) => {
-      const { campaignId, role, character } = data;
+      const { campaignId, role, characters } = data;
       const room = `campaign-${campaignId}`;
 
       socket.join(room);
@@ -131,8 +146,8 @@ app.prepare().then(() => {
 
       console.log(`[Socket.io] ${socket.id} joined ${room} as ${role}`);
 
-      // Handle player joining with character
-      if (role === 'player' && character) {
+      // Handle player joining with characters
+      if (role === 'player' && characters && characters.length > 0) {
         // Initialize campaign's player map if needed
         if (!connectedPlayers.has(campaignId)) {
           connectedPlayers.set(campaignId, new Map());
@@ -140,14 +155,14 @@ app.prepare().then(() => {
 
         const campaignPlayers = connectedPlayers.get(campaignId)!;
         const playerData: ConnectedPlayer = {
-          ...character,
           socketId: socket.id,
+          characters: characters
         };
 
         campaignPlayers.set(socket.id, playerData);
-        socket.data.odNumber = character.odNumber;
 
-        console.log(`[Socket.io] Player ${character.name} connected to campaign ${campaignId}`);
+        const characterNames = characters.map(c => c.name).join(', ');
+        console.log(`[Socket.io] Player with characters [${characterNames}] connected to campaign ${campaignId}`);
 
         // Notify everyone in room about new player
         io.to(room).emit('player-connected', { player: playerData });
@@ -187,10 +202,10 @@ app.prepare().then(() => {
             if (player) {
               campaignPlayers.delete(socket.id);
               io.to(room).emit('player-disconnected', {
-                odNumber: player.odNumber,
                 socketId: socket.id,
               });
-              console.log(`[Socket.io] Player ${player.name} left campaign ${campaignId}`);
+              const characterNames = player.characters.map(c => c.name).join(', ');
+              console.log(`[Socket.io] Player with characters [${characterNames}] left campaign ${campaignId}`);
             }
           }
         }
@@ -317,10 +332,10 @@ app.prepare().then(() => {
             if (player) {
               campaignPlayers.delete(socket.id);
               io.to(room).emit('player-disconnected', {
-                odNumber: player.odNumber,
                 socketId: socket.id,
               });
-              console.log(`[Socket.io] Player ${player.name} disconnected from campaign ${campaignId}`);
+              const characterNames = player.characters.map(c => c.name).join(', ');
+              console.log(`[Socket.io] Player with characters [${characterNames}] disconnected from campaign ${campaignId}`);
             }
           }
         }

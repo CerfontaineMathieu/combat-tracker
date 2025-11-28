@@ -9,6 +9,10 @@ export interface Character {
   conditions: string[]
   exhaustionLevel: number
   initiative: number
+  // Grouping metadata for multi-character players
+  playerSocketId?: string
+  isFirstInGroup?: boolean
+  groupSize?: number
 }
 
 export interface Monster {

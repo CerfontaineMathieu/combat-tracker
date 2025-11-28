@@ -101,20 +101,22 @@ function CombatTrackerContent() {
     setMode("joueur")
     setSelectedCharacters(characters)
     setUserSelected(true)
-    // Store in sessionStorage for socket connection (first character is primary)
+    // Store ALL characters in sessionStorage for socket connection
     if (characters.length > 0) {
-      const primaryCharacter = characters[0]
-      sessionStorage.setItem("selectedCharacter", JSON.stringify({
-        odNumber: primaryCharacter.id,
-        name: primaryCharacter.name,
-        class: primaryCharacter.class,
-        level: primaryCharacter.level,
-        currentHp: primaryCharacter.current_hp,
-        maxHp: primaryCharacter.max_hp,
-        ac: primaryCharacter.ac,
-        initiative: primaryCharacter.initiative,
-        conditions: primaryCharacter.conditions || [],
-      }))
+      sessionStorage.setItem("selectedCharacters", JSON.stringify(
+        characters.map(char => ({
+          odNumber: char.id,
+          name: char.name,
+          class: char.class,
+          level: char.level,
+          currentHp: char.current_hp,
+          maxHp: char.max_hp,
+          ac: char.ac,
+          initiative: char.initiative,
+          conditions: char.conditions || [],
+          exhaustionLevel: 0,
+        }))
+      ))
     }
   }
 
@@ -213,23 +215,20 @@ function CombatTrackerContent() {
 
       // Join the campaign room
       if (mode === 'joueur') {
-        // Get selected character from sessionStorage (set by join page)
-        const storedCharacter = sessionStorage.getItem('selectedCharacter')
-        if (storedCharacter) {
-          const character = JSON.parse(storedCharacter)
+        // Get selected characters from sessionStorage
+        const storedCharacters = sessionStorage.getItem('selectedCharacters')
+        if (storedCharacters) {
+          const characters = JSON.parse(storedCharacters)
           socket.emit('join-campaign', {
             campaignId,
             role: 'player',
-            character: {
-              ...character,
-              socketId: socket.id || '',
-            },
+            characters: characters
           })
           // Clear sessionStorage after using it
-          sessionStorage.removeItem('selectedCharacter')
+          sessionStorage.removeItem('selectedCharacters')
         }
       } else {
-        // DM joins without character
+        // DM joins without characters
         socket.emit('join-campaign', {
           campaignId,
           role: 'dm',
@@ -249,14 +248,15 @@ function CombatTrackerContent() {
     })
 
     socket.on('player-connected', (data) => {
-      console.log('[Socket] Player connected:', data.player.name)
+      const characterNames = data.player.characters.map(c => c.name).join(', ')
+      console.log('[Socket] Player connected:', characterNames)
       setConnectedPlayers(prev => {
         // Avoid duplicates
         if (prev.some(p => p.socketId === data.player.socketId)) return prev
         return [...prev, data.player]
       })
       if (mode === 'mj') {
-        toast.success(`${data.player.name} a rejoint la partie`)
+        toast.success(`${characterNames} a rejoint la partie`)
       }
     })
 
@@ -265,7 +265,8 @@ function CombatTrackerContent() {
       setConnectedPlayers(prev => {
         const player = prev.find(p => p.socketId === data.socketId)
         if (player && mode === 'mj') {
-          toast(`${player.name} a quitté la partie`)
+          const characterNames = player.characters.map(c => c.name).join(', ')
+          toast(`${characterNames} a quitté la partie`)
         }
         return prev.filter(p => p.socketId !== data.socketId)
       })
@@ -421,19 +422,26 @@ function CombatTrackerContent() {
   }, [campaignId, mode])
 
   // Convert connected players to Character format for the UI
+  // Flatten characters array from each connected player and add grouping metadata
   const displayPlayers: Character[] = mode === 'mj' && connectedPlayers.length > 0
-    ? connectedPlayers.map(p => ({
-        id: `p-${p.odNumber}`,
-        name: p.name,
-        class: p.class,
-        level: p.level,
-        currentHp: p.currentHp,
-        maxHp: p.maxHp,
-        ac: p.ac,
-        initiative: p.initiative,
-        conditions: p.conditions || [],
-        exhaustionLevel: p.exhaustionLevel || 0,
-      }))
+    ? connectedPlayers.flatMap(player =>
+        player.characters.map((char, idx) => ({
+          id: `p-${char.odNumber}`,
+          name: char.name,
+          class: char.class,
+          level: char.level,
+          currentHp: char.currentHp,
+          maxHp: char.maxHp,
+          ac: char.ac,
+          initiative: char.initiative,
+          conditions: char.conditions || [],
+          exhaustionLevel: char.exhaustionLevel || 0,
+          // Add metadata for grouping
+          playerSocketId: player.socketId,
+          isFirstInGroup: idx === 0,
+          groupSize: player.characters.length,
+        }))
+      )
     : players
 
   // Helper to add history entry
@@ -876,6 +884,8 @@ function CombatTrackerContent() {
           initiative: newMonster.initiative,
           notes: newMonster.notes || "",
           status: newMonster.status as "actif" | "mort",
+          conditions: newMonster.conditions || [],
+          exhaustionLevel: newMonster.exhaustion_level || 0,
         }])
         toast.success(`${monster.name} ajouté`)
       }
@@ -1066,6 +1076,8 @@ function CombatTrackerContent() {
             initiative: newMonster.initiative,
             notes: newMonster.notes || "",
             status: newMonster.status as "actif" | "mort",
+            conditions: newMonster.conditions || [],
+            exhaustionLevel: newMonster.exhaustion_level || 0,
           }])
         }
       } catch (error) {
@@ -1151,7 +1163,7 @@ function CombatTrackerContent() {
                 mode={mode}
               />
             )}
-            {activeTab === "bestiary" && (
+            {activeTab === "bestiary" && mode === "mj" && (
               <BestiaryPanel
                 monsters={monsters}
                 onAddMonster={addMonster}
@@ -1274,22 +1286,24 @@ function CombatTrackerContent() {
               onReorderParticipants={reorderParticipants}
             >
               <div className="grid grid-cols-12 gap-4 h-full">
-                {/* Left Panel - Players */}
-                <div className="col-span-3 overflow-auto">
-                  <PlayerPanel
-                    players={displayPlayers}
-                    onUpdateHp={updatePlayerHp}
-                    onUpdateInitiative={updatePlayerInitiative}
-                    onUpdateConditions={updatePlayerConditions}
-                    onUpdateExhaustion={updatePlayerExhaustion}
-                    mode={mode}
-                    combatActive={combatActive}
-                    combatParticipants={combatParticipants}
-                  />
-                </div>
+                {/* Left Panel - Players (MJ only) */}
+                {mode === "mj" && (
+                  <div className="col-span-3 overflow-auto">
+                    <PlayerPanel
+                      players={displayPlayers}
+                      onUpdateHp={updatePlayerHp}
+                      onUpdateInitiative={updatePlayerInitiative}
+                      onUpdateConditions={updatePlayerConditions}
+                      onUpdateExhaustion={updatePlayerExhaustion}
+                      mode={mode}
+                      combatActive={combatActive}
+                      combatParticipants={combatParticipants}
+                    />
+                  </div>
+                )}
 
                 {/* Center Panel - Combat Setup */}
-                <div className="col-span-6 overflow-auto">
+                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-12 overflow-auto"}>
                   <CombatSetupPanel
                     onStartCombat={startCombat}
                     onRemoveFromCombat={removeFromCombat}
@@ -1301,12 +1315,14 @@ function CombatTrackerContent() {
                   />
                 </div>
 
-                {/* Right Panel - Monster Picker from DB */}
-                <div className="col-span-3 overflow-auto">
-                  <MonsterPickerPanel
-                    onAddMonsters={addMonstersFromDb}
-                  />
-                </div>
+                {/* Right Panel - Monster Picker from DB (MJ only) */}
+                {mode === "mj" && (
+                  <div className="col-span-3 overflow-auto">
+                    <MonsterPickerPanel
+                      onAddMonsters={addMonstersFromDb}
+                    />
+                  </div>
+                )}
               </div>
             </CombatDndProvider>
           )
@@ -1319,6 +1335,7 @@ function CombatTrackerContent() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onNotesClick={() => setShowHistory(true)}
+          mode={mode}
         />
       )}
 

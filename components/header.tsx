@@ -94,16 +94,19 @@ export function Header({
         {/* Action Buttons - Hidden on mobile when hideActions is true */}
         {!hideActions && (
           <div className="hidden md:flex items-center gap-1">
-            <Link href="/monsters">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 hover:bg-primary/20 hover:text-crimson transition-smooth"
-                title="Bestiaire"
-              >
-                <Skull className="w-5 h-5" />
-              </Button>
-            </Link>
+            {/* Bestiaire - MJ only */}
+            {mode === "mj" && (
+              <Link href="/monsters">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 hover:bg-primary/20 hover:text-crimson transition-smooth"
+                  title="Bestiaire"
+                >
+                  <Skull className="w-5 h-5" />
+                </Button>
+              </Link>
+            )}
             <Button
               variant="ghost"
               size="icon"

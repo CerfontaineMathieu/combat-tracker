@@ -9,14 +9,18 @@ interface MobileNavProps {
   activeTab: MobileTab
   onTabChange: (tab: MobileTab) => void
   onNotesClick: () => void
+  mode: "mj" | "joueur"
 }
 
-export function MobileNav({ activeTab, onTabChange, onNotesClick }: MobileNavProps) {
-  const tabs = [
+export function MobileNav({ activeTab, onTabChange, onNotesClick, mode }: MobileNavProps) {
+  const allTabs = [
     { id: "players" as const, label: "Groupe", icon: Users },
     { id: "combat" as const, label: "Combat", icon: Swords },
     { id: "bestiary" as const, label: "Bestiaire", icon: Skull },
   ]
+
+  // Filter out bestiary tab for players
+  const tabs = mode === "mj" ? allTabs : allTabs.filter(tab => tab.id !== "bestiary")
 
   return (
     <nav

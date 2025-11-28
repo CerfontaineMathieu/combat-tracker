@@ -53,6 +53,8 @@ export function BestiaryPanel({ monsters, onAddMonster, onRemoveMonster, onUpdat
         initiative: Number.parseInt(newMonster.initiative) || 0,
         notes: newMonster.notes,
         status: "actif",
+        conditions: [],
+        exhaustionLevel: 0,
       })
       setNewMonster({ name: "", maxHp: "", ac: "", initiative: "", notes: "" })
       setIsAddDialogOpen(false)
@@ -75,56 +77,14 @@ export function BestiaryPanel({ monsters, onAddMonster, onRemoveMonster, onUpdat
       initiative: dbMonster.dexterity_mod || 0,
       notes: dbMonster.actions?.map(a => a.name).join(", ") || "",
       status: "actif",
+      conditions: [],
+      exhaustionLevel: 0,
     })
   }
 
+  // Players should not see the bestiary at all
   if (mode === "joueur") {
-    return (
-      <Card className="bg-card border-border h-full flex flex-col">
-        <CardHeader className="pb-3 shrink-0">
-          <CardTitle className="flex items-center gap-2 text-crimson">
-            <Skull className="w-5 h-5" />
-            Ennemis
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0">
-          <ScrollArea className="h-full px-6 pb-6">
-            <div className="space-y-2">
-              {monsters.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8 animate-fade-in">
-                  <Skull className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>Aucun ennemi en vue</p>
-                </div>
-              ) : (
-                monsters.map((monster, index) => (
-                  <div
-                    key={monster.id}
-                    className={cn(
-                      "p-3 bg-secondary/30 rounded-lg border border-border/50 min-h-[56px]",
-                      index === 0 && "animate-fade-in"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-crimson">{monster.name}</span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          monster.hp > 0
-                            ? "border-emerald/50 text-emerald"
-                            : "border-muted text-muted-foreground"
-                        )}
-                      >
-                        {monster.hp > 0 ? "Actif" : "Mort"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
-    )
+    return null
   }
 
   return (
