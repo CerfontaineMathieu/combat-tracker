@@ -19,6 +19,15 @@ import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket"
 import type { ConnectedPlayer } from "@/lib/socket-events"
 import type { Character, Monster, CombatParticipant, DbMonster } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Plus, Minus } from "lucide-react"
 
 // Default campaign ID (single session)
 const DEFAULT_CAMPAIGN_ID = 1
@@ -70,6 +79,10 @@ function CombatTrackerContent() {
   const [showSettings, setShowSettings] = useState(false)
   const [combatHistory, setCombatHistory] = useState<HistoryEntry[]>([])
   const [ambientEffect, setAmbientEffect] = useState<AmbientEffect>("none")
+
+  // State for monster drop quantity dialog
+  const [pendingDropMonster, setPendingDropMonster] = useState<DbMonster | null>(null)
+  const [dropQuantity, setDropQuantity] = useState(1)
 
   // Refs to access current state in socket handlers without causing reconnections
   const combatActiveRef = useRef(combatActive)
@@ -1234,6 +1247,63 @@ function CombatTrackerContent() {
       {/* Ambient Effects Overlay */}
       <AmbientEffects effect={ambientEffect} />
 
+      {/* Monster Drop Quantity Dialog */}
+      <Dialog open={!!pendingDropMonster} onOpenChange={(open) => !open && setPendingDropMonster(null)}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-crimson">
+              Ajouter {pendingDropMonster?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12"
+                onClick={() => setDropQuantity(Math.max(1, dropQuantity - 1))}
+                disabled={dropQuantity <= 1}
+              >
+                <Minus className="w-5 h-5" />
+              </Button>
+              <div className="text-4xl font-bold w-16 text-center">{dropQuantity}</div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12"
+                onClick={() => setDropQuantity(Math.min(20, dropQuantity + 1))}
+                disabled={dropQuantity >= 20}
+              >
+                <Plus className="w-5 h-5" />
+              </Button>
+            </div>
+            {pendingDropMonster && (
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                <p>PV: {pendingDropMonster.hit_points} | CA: {pendingDropMonster.armor_class}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPendingDropMonster(null)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingDropMonster) {
+                  addMonstersFromDb(pendingDropMonster, dropQuantity)
+                  setPendingDropMonster(null)
+                  setDropQuantity(1)
+                }
+              }}
+              className="bg-crimson hover:bg-crimson/80"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter {dropQuantity}x
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Header
         mode={mode}
         campaignName={campaignName}
@@ -1320,7 +1390,10 @@ function CombatTrackerContent() {
               setCombatParticipants={setCombatParticipants}
               onAddPlayerToCombat={addPlayerToCombat}
               onAddMonsterToCombat={addMonsterToCombat}
-              onAddDbMonsterToCombat={(dbMonster) => addMonstersFromDb(dbMonster, 1)}
+              onAddDbMonsterToCombat={(dbMonster) => {
+                setPendingDropMonster(dbMonster)
+                setDropQuantity(1)
+              }}
               onRemoveFromCombat={removeFromCombat}
               onReorderParticipants={reorderParticipants}
             >
@@ -1413,7 +1486,10 @@ function CombatTrackerContent() {
               setCombatParticipants={setCombatParticipants}
               onAddPlayerToCombat={addPlayerToCombat}
               onAddMonsterToCombat={addMonsterToCombat}
-              onAddDbMonsterToCombat={(dbMonster) => addMonstersFromDb(dbMonster, 1)}
+              onAddDbMonsterToCombat={(dbMonster) => {
+                setPendingDropMonster(dbMonster)
+                setDropQuantity(1)
+              }}
               onRemoveFromCombat={removeFromCombat}
               onReorderParticipants={reorderParticipants}
             >

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
-import { Search, Database, Plus, Minus, ChevronLeft, GripVertical } from "lucide-react"
+import { Search, Database, Plus, Minus, ChevronLeft, GripVertical, Eye } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -44,7 +44,7 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
       {...attributes}
       {...listeners}
       className={cn(
-        "group w-full text-left p-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 border-2 transition-all touch-none",
+        "group w-full text-left p-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 border-2 transition-all touch-none select-none",
         isDragging
           ? "opacity-50 border-crimson/50 z-50"
           : "border-transparent hover:border-crimson/30",
@@ -57,15 +57,9 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
           <GripVertical className="w-4 h-4 text-muted-foreground" />
         </div>
 
-        {/* Monster Info - clickable for details */}
-        <div
-          className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation()
-            onViewClick(monster)
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
+        {/* Monster Info */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+
           {monster.image_url && (
             <div className="w-8 h-8 rounded overflow-hidden border border-border shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -84,7 +78,7 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
           </div>
         </div>
 
-        {/* Stats and Add Button */}
+        {/* Stats and Action Buttons */}
         <div className="flex items-center gap-1 shrink-0">
           <Badge variant="outline" className="text-xs border-crimson/30 text-crimson">
             PV {monster.hit_points}
@@ -92,9 +86,22 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
           <Button
             size="icon"
             variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
+            onClick={(e) => {
+              e.stopPropagation()
+              onViewClick(monster)
+            }}
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
             className="h-8 w-8 text-crimson hover:bg-crimson/20"
-            onClick={(e) => onAddClick(monster, e)}
-            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddClick(monster, e)
+            }}
           >
             <Plus className="w-4 h-4" />
           </Button>
@@ -205,134 +212,142 @@ export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
     )
   }
 
+  // Quantity Dialog - rendered always so it works from both views
+  const quantityDialog = (
+    <Dialog open={!!quantityDialogMonster} onOpenChange={(open) => !open && setQuantityDialogMonster(null)}>
+      <DialogContent className="bg-card border-border max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-crimson">
+            Ajouter {quantityDialogMonster?.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-6">
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12"
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              disabled={quantity <= 1}
+            >
+              <Minus className="w-5 h-5" />
+            </Button>
+            <div className="text-4xl font-bold w-16 text-center">{quantity}</div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12"
+              onClick={() => setQuantity(Math.min(20, quantity + 1))}
+              disabled={quantity >= 20}
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+          </div>
+          {quantityDialogMonster && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>PV: {quantityDialogMonster.hit_points} | CA: {quantityDialogMonster.armor_class}</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setQuantityDialogMonster(null)}>
+            Annuler
+          </Button>
+          <Button
+            onClick={handleConfirmAdd}
+            className="bg-crimson hover:bg-crimson/80"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Ajouter {quantity}x
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   // Detail view
   if (selectedMonster) {
     return (
-      <Card className="bg-card border-border h-full flex flex-col">
-        <CardHeader className="pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedMonster(null)}
-              className="text-muted-foreground hover:text-foreground -ml-2"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Retour
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
-          <div className="mb-3">
-            <Button
-              size="sm"
-              className="w-full bg-crimson hover:bg-crimson/80"
-              onClick={(e) => handleAddClick(selectedMonster, e)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Ajouter au combat
-            </Button>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <MonsterDetail monster={selectedMonster} />
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        {quantityDialog}
+        <Card className="bg-card border-border h-full flex flex-col">
+          <CardHeader className="pb-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMonster(null)}
+                className="text-muted-foreground hover:text-foreground -ml-2"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Retour
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
+            <div className="mb-3">
+              <Button
+                size="sm"
+                className="w-full bg-crimson hover:bg-crimson/80"
+                onClick={(e) => handleAddClick(selectedMonster, e)}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Ajouter au combat
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <MonsterDetail monster={selectedMonster} />
+            </div>
+          </CardContent>
+        </Card>
+      </>
     )
   }
 
   // List view
   return (
-    <Card className="bg-card border-border h-full flex flex-col">
-      <CardHeader className="pb-3 shrink-0">
-        <CardTitle className="flex items-center gap-2 text-crimson">
-          <Database className="w-5 h-5" />
-          Bestiaire
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
-        {/* Search */}
-        <div className="relative mb-3 shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher un monstre..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-background"
-          />
-        </div>
-
-        {/* Help text */}
-        <p className="text-xs text-muted-foreground mb-2 shrink-0 flex items-center gap-1">
-          <GripVertical className="w-3 h-3" />
-          Glissez ou cliquez + pour ajouter
-        </p>
-
-        {/* Monster list */}
-        <ScrollArea className="flex-1">
-          <div className="space-y-1 pr-2">
-            {filteredMonsters.map((monster) => (
-              <DraggableDbMonsterCard
-                key={monster.id}
-                monster={monster}
-                onAddClick={handleAddClick}
-                onViewClick={setSelectedMonster}
-              />
-            ))}
+    <>
+      {quantityDialog}
+      <Card className="bg-card border-border h-full flex flex-col">
+        <CardHeader className="pb-3 shrink-0">
+          <CardTitle className="flex items-center gap-2 text-crimson">
+            <Database className="w-5 h-5" />
+            Bestiaire
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
+          {/* Search */}
+          <div className="relative mb-3 shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un monstre..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-background"
+            />
           </div>
-        </ScrollArea>
-      </CardContent>
 
-      {/* Quantity Dialog */}
-      <Dialog open={!!quantityDialogMonster} onOpenChange={(open) => !open && setQuantityDialogMonster(null)}>
-        <DialogContent className="bg-card border-border max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-crimson">
-              Ajouter {quantityDialogMonster?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-6">
-            <div className="flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-12 w-12"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                disabled={quantity <= 1}
-              >
-                <Minus className="w-5 h-5" />
-              </Button>
-              <div className="text-4xl font-bold w-16 text-center">{quantity}</div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-12 w-12"
-                onClick={() => setQuantity(Math.min(20, quantity + 1))}
-                disabled={quantity >= 20}
-              >
-                <Plus className="w-5 h-5" />
-              </Button>
+          {/* Help text */}
+          <p className="text-xs text-muted-foreground mb-2 shrink-0 flex items-center gap-1">
+            <GripVertical className="w-3 h-3" />
+            Glissez ou cliquez + pour ajouter
+          </p>
+
+          {/* Monster list */}
+          <ScrollArea className="flex-1">
+            <div className="space-y-1 pr-2">
+              {filteredMonsters.map((monster) => (
+                <DraggableDbMonsterCard
+                  key={monster.id}
+                  monster={monster}
+                  onAddClick={handleAddClick}
+                  onViewClick={setSelectedMonster}
+                />
+              ))}
             </div>
-            {quantityDialogMonster && (
-              <div className="mt-4 text-center text-sm text-muted-foreground">
-                <p>PV: {quantityDialogMonster.hit_points} | CA: {quantityDialogMonster.armor_class}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setQuantityDialogMonster(null)}>
-              Annuler
-            </Button>
-            <Button
-              onClick={handleConfirmAdd}
-              className="bg-crimson hover:bg-crimson/80"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Ajouter {quantity}x
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </>
   )
 }
