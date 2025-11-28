@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { CONDITIONS, CONDITION_COLORS, EXHAUSTION_LEVELS } from "@/lib/types"
 import { ConditionList } from "@/components/condition-badge"
@@ -161,7 +162,7 @@ export function ConditionManager({
                 </div>
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Durée (tours):</p>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant={selectedDuration === null ? "default" : "outline"}
                       size="sm"
@@ -170,17 +171,49 @@ export function ConditionManager({
                     >
                       Permanent
                     </Button>
-                    {[1, 2, 3, 5, 10].map(d => (
+                    <div className="flex items-center gap-1">
                       <Button
-                        key={d}
-                        variant={selectedDuration === d ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setSelectedDuration(d)}
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setSelectedDuration(Math.max(1, (selectedDuration || 1) - 1))}
+                        disabled={selectedDuration === null}
                       >
-                        {d}
+                        <Minus className="w-4 h-4" />
                       </Button>
-                    ))}
+                      <Input
+                        type="number"
+                        min={1}
+                        value={selectedDuration ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === "") {
+                            setSelectedDuration(null)
+                          } else {
+                            const num = parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1) {
+                              setSelectedDuration(num)
+                            }
+                          }
+                        }}
+                        onFocus={() => {
+                          if (selectedDuration === null) {
+                            setSelectedDuration(1)
+                          }
+                        }}
+                        placeholder="∞"
+                        className="h-8 w-16 text-center px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setSelectedDuration((selectedDuration || 0) + 1)}
+                        disabled={selectedDuration === null}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <Button

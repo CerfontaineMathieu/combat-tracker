@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { useSocket } from '@/hooks/use-socket';
 import { toast } from 'sonner';
-import type { Character, Monster, CombatParticipant, DiceRoll, Note } from './types';
+import type { Character, Monster, CombatParticipant, Note } from './types';
 import type {
   CombatUpdateData,
   HpChangeData,
@@ -31,7 +31,6 @@ interface CombatState {
   combatParticipants: CombatParticipant[];
 
   // Other
-  diceHistory: DiceRoll[];
   notes: Note[];
 
   // Loading state
@@ -57,7 +56,6 @@ type CombatAction =
   | { type: 'STOP_COMBAT' }
   | { type: 'NEXT_TURN' }
   | { type: 'SET_COMBAT_STATE'; combatActive: boolean; currentTurn: number; participants?: CombatParticipant[] }
-  | { type: 'ADD_DICE_ROLL'; roll: DiceRoll }
   | { type: 'ADD_NOTE'; note: Note }
   | { type: 'UPDATE_NOTE'; id: string; title: string; content: string }
   | { type: 'DELETE_NOTE'; id: string }
@@ -74,7 +72,6 @@ const initialState: CombatState = {
   combatActive: false,
   currentTurn: 0,
   combatParticipants: [],
-  diceHistory: [],
   notes: [],
   isLoading: true,
 };
@@ -230,12 +227,6 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         combatParticipants: action.participants ?? state.combatParticipants,
       };
 
-    case 'ADD_DICE_ROLL':
-      return {
-        ...state,
-        diceHistory: [action.roll, ...state.diceHistory].slice(0, 10),
-      };
-
     case 'ADD_NOTE':
       return { ...state, notes: [action.note, ...state.notes] };
 
@@ -303,7 +294,6 @@ interface CombatContextType {
   startCombat: () => void;
   stopCombat: () => void;
   nextTurn: () => void;
-  addDiceRoll: (roll: DiceRoll) => void;
   generateRoomCode: () => Promise<string | null>;
   // Player action
   reportDamage: (playerId: string, damage: number) => void;
@@ -562,10 +552,6 @@ export function CombatProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.combatParticipants.length, state.currentTurn, emitCombatUpdate]);
 
-  const addDiceRoll = useCallback((roll: DiceRoll) => {
-    dispatch({ type: 'ADD_DICE_ROLL', roll });
-  }, []);
-
   const generateRoomCode = useCallback(async (): Promise<string | null> => {
     if (!state.campaignId) return null;
     try {
@@ -606,7 +592,6 @@ export function CombatProvider({ children }: { children: React.ReactNode }) {
     startCombat,
     stopCombat,
     nextTurn,
-    addDiceRoll,
     generateRoomCode,
     reportDamage,
   };
