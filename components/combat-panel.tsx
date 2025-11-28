@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,7 @@ interface CombatPanelProps {
   onUpdateHp?: (id: string, change: number, type: "player" | "monster") => void
   onUpdateConditions?: (id: string, conditions: string[], type: "player" | "monster", conditionDurations?: Record<string, number>) => void
   onUpdateExhaustion?: (id: string, level: number, type: "player" | "monster") => void
+  onRemoveFromCombat?: (id: string) => void
   mode: "mj" | "joueur"
 }
 
@@ -39,6 +40,7 @@ export function CombatPanel({
   onUpdateHp,
   onUpdateConditions,
   onUpdateExhaustion,
+  onRemoveFromCombat,
   mode,
 }: CombatPanelProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
@@ -223,6 +225,18 @@ export function CombatPanel({
                     {/* Actions */}
                     {mode === "mj" && (
                       <div className="flex gap-1 shrink-0">
+                        {/* Remove from combat */}
+                        {onRemoveFromCombat && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-10 w-10 text-muted-foreground hover:text-crimson hover:bg-crimson/10 transition-smooth"
+                            onClick={() => onRemoveFromCombat(participant.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+
                         {/* Condition Manager */}
                         {onUpdateConditions && onUpdateExhaustion && (
                           <ConditionManager

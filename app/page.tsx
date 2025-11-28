@@ -1362,6 +1362,7 @@ function CombatTrackerContent() {
                   if (type === "player") updatePlayerExhaustion(id, level)
                   else updateMonsterExhaustion(id, level)
                 }}
+                onRemoveFromCombat={removeFromCombat}
                 mode={mode}
               />
             )}
@@ -1436,6 +1437,7 @@ function CombatTrackerContent() {
                       if (type === "player") updatePlayerExhaustion(id, level)
                       else updateMonsterExhaustion(id, level)
                     } : undefined}
+                    onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                     mode={mode}
                   />
                 </div>
