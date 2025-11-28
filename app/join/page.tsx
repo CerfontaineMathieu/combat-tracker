@@ -17,7 +17,7 @@ interface CampaignInfo {
 }
 
 interface CharacterInfo {
-  id: number;
+  id: string | number;
   name: string;
   class: string;
   level: number;
@@ -87,20 +87,20 @@ function JoinPageContent() {
 
     setIsLoading(true);
     try {
-      // Fetch available characters for this campaign
-      const response = await fetch(`/api/campaigns/${campaignInfo.id}/characters`);
+      // Fetch available characters from Notion
+      const response = await fetch('/api/characters/notion');
       if (response.ok) {
         const data = await response.json();
         setCharacters(data);
         setStep("character");
       } else {
         toast.error("Erreur", {
-          description: "Impossible de charger les personnages",
+          description: "Impossible de charger les personnages depuis Notion",
         });
       }
     } catch (error) {
       console.error("Failed to fetch characters:", error);
-      toast.error("Erreur de connexion");
+      toast.error("Erreur de connexion à Notion");
     } finally {
       setIsLoading(false);
     }

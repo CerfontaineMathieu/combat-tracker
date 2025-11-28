@@ -17,7 +17,7 @@ interface ConnectedPlayer {
   socketId: string;
   playerName?: string;
   characters: Array<{
-    odNumber: number;
+    odNumber: string | number; // Notion UUID or legacy DB ID
     name: string;
     class: string;
     level: number;
@@ -42,7 +42,7 @@ interface JoinCampaignData {
   role: 'dm' | 'player';
   password?: string; // Required for DM role
   characters?: Array<{
-    odNumber: number;
+    odNumber: string | number; // Notion UUID or legacy DB ID
     name: string;
     class: string;
     level: number;
