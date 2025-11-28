@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Sword, ScrollText, Settings, Skull, Crown, User, LogOut, Map } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Map } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -11,7 +11,6 @@ interface HeaderProps {
   mode: "mj" | "joueur"
   campaignName: string
   selectedCharacterName?: string
-  onHistoryClick: () => void
   onSettingsClick: () => void
   onLogout: () => void
   hideActions?: boolean
@@ -23,7 +22,6 @@ export function Header({
   mode,
   campaignName,
   selectedCharacterName,
-  onHistoryClick,
   onSettingsClick,
   onLogout,
   hideActions = false,
@@ -107,28 +105,17 @@ export function Header({
                 </Button>
               </Link>
             )}
-            {/* Carte de Faerûn - MJ only */}
-            {mode === "mj" && (
-              <Link href="/map">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 hover:bg-primary/20 hover:text-emerald transition-smooth"
-                  title="Carte de Faerûn"
-                >
-                  <Map className="w-5 h-5" />
-                </Button>
-              </Link>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onHistoryClick}
-              className="h-10 w-10 hover:bg-primary/20 hover:text-gold transition-smooth"
-              title="Historique du combat"
-            >
-              <ScrollText className="w-5 h-5" />
-            </Button>
+            {/* Carte de Faerûn */}
+            <Link href="/map">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 hover:bg-primary/20 hover:text-emerald transition-smooth"
+                title="Carte de Faerûn"
+              >
+                <Map className="w-5 h-5" />
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"

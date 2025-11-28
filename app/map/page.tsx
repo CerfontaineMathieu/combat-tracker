@@ -97,7 +97,6 @@ export default function MapPage() {
         mode={mode}
         campaignName="Carte de Faerûn"
         selectedCharacterName={selectedCharacterNames}
-        onHistoryClick={() => {}}
         onSettingsClick={() => {}}
         onLogout={handleLogout}
         hideActions

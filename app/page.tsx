@@ -1103,7 +1103,6 @@ function CombatTrackerContent() {
         mode={mode}
         campaignName={campaignName}
         selectedCharacterName={selectedCharacterNames}
-        onHistoryClick={() => setShowHistory(true)}
         onSettingsClick={() => setShowSettings(true)}
         onLogout={() => {
           // Leave campaign room before clearing state

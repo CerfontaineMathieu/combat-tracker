@@ -12,6 +12,8 @@ services:
       - DATABASE_URL=postgresql://dnd:dnd@db:5432/dnd_tracker
       # Enable polling for hot-reload in Docker
       - WATCHPACK_POLLING=true
+      # Tell pnpm we're in CI mode (no TTY prompts)
+      - CI=true
     volumes:
       # Mount source code for hot-reload
       - .:/app
