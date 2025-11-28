@@ -30,7 +30,7 @@ services:
       POSTGRES_PASSWORD: dnd
       POSTGRES_DB: dnd_tracker
     ports:
-      - "5433:5432"
+      - "5435:5432"
     volumes:
       - postgres_data_dev:/var/lib/postgresql
       - ./docker/init-db:/docker-entrypoint-initdb.d
