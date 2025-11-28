@@ -142,6 +142,17 @@ export interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
 }
 
+export interface PlayerPositionData {
+  odNumber: string | number;
+  name: string;
+  lng: number;
+  lat: number;
+}
+
+export interface PlayerPositionsData {
+  positions: PlayerPositionData[];
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -163,6 +174,11 @@ export interface ServerToClientEvents {
   'condition-change': (data: ConditionChangeData) => void;
   'exhaustion-change': (data: ExhaustionChangeData) => void;
   'ambient-effect': (data: AmbientEffectData) => void;
+  // Map position events
+  'player-positions': (data: PlayerPositionsData) => void;
+  'request-player-positions': () => void;
+  // Join error event
+  'join-error': (data: { error: string; message: string }) => void;
 }
 
 // Client to server events
@@ -182,4 +198,7 @@ export interface ClientToServerEvents {
   'condition-change': (data: ConditionChangeData) => void;
   'exhaustion-change': (data: ExhaustionChangeData) => void;
   'ambient-effect': (data: AmbientEffectData) => void;
+  // Map position events
+  'player-positions': (data: PlayerPositionsData) => void;
+  'request-player-positions': () => void;
 }

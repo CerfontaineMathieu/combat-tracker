@@ -114,6 +114,17 @@ interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
 }
 
+interface PlayerPositionData {
+  odNumber: string | number;
+  name: string;
+  lng: number;
+  lat: number;
+}
+
+interface PlayerPositionsData {
+  positions: PlayerPositionData[];
+}
+
 // Extended socket with custom data
 interface CampaignSocket extends Socket {
   data: {
@@ -257,11 +268,12 @@ app.prepare().then(() => {
     });
 
     // Request connected players list
-    socket.on('request-connected-players', () => {
-      if (socket.data.campaignId) {
-        const campaignPlayers = connectedPlayers.get(socket.data.campaignId);
+    socket.on('request-connected-players', (data?: { campaignId?: number }) => {
+      const campaignId = data?.campaignId || socket.data.campaignId;
+      if (campaignId) {
+        const campaignPlayers = connectedPlayers.get(campaignId);
         const allPlayers = campaignPlayers ? Array.from(campaignPlayers.values()) : [];
-        console.log(`[Socket.io] request-connected-players from ${socket.id}: ${allPlayers.length} players`);
+        console.log(`[Socket.io] request-connected-players from ${socket.id} for campaign ${campaignId}: ${allPlayers.length} players`);
         socket.emit('connected-players', { players: allPlayers });
       }
     });
@@ -356,6 +368,27 @@ app.prepare().then(() => {
         // Broadcast to all other clients in room (players)
         socket.to(room).emit('ambient-effect', data);
         console.log(`[Socket.io] Ambient effect changed in ${room}:`, data.effect);
+      }
+    });
+
+    // Player positions update (DM only, broadcast to all including DM)
+    socket.on('player-positions', (data: PlayerPositionsData) => {
+      if (socket.data.campaignId && socket.data.role === 'dm') {
+        const room = `campaign-${socket.data.campaignId}`;
+        // Broadcast to all clients in room (including sender for confirmation)
+        io.to(room).emit('player-positions', data);
+        console.log(`[Socket.io] Player positions updated in ${room}:`, data.positions.length, 'players');
+      }
+    });
+
+    // Request player positions (player joining map page)
+    socket.on('request-player-positions', (data?: { campaignId?: number }) => {
+      const campaignId = data?.campaignId || socket.data.campaignId;
+      if (campaignId) {
+        const room = `campaign-${campaignId}`;
+        // Ask DM to send current positions
+        socket.to(room).emit('request-player-positions');
+        console.log(`[Socket.io] Player positions requested in ${room} by ${socket.id}`);
       }
     });
 

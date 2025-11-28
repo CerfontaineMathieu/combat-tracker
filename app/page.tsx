@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Header } from "@/components/header"
 import { MobileNav, type MobileTab } from "@/components/mobile-nav"
@@ -15,8 +15,7 @@ import { SettingsPanel } from "@/components/settings-panel"
 import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
-import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket"
-import type { ConnectedPlayer } from "@/lib/socket-events"
+import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import {
@@ -57,6 +56,19 @@ function CombatTrackerContent() {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<MobileTab>("combat")
 
+  // Socket context
+  const {
+    state: socketState,
+    dispatch: socketDispatch,
+    joinCampaign,
+    leaveCampaign,
+    emitCombatUpdate,
+    emitHpChange,
+    emitConditionChange,
+    emitExhaustionChange,
+    emitAmbientEffect,
+  } = useSocketContext()
+
   // User selection state - null means not selected yet
   const [userSelected, setUserSelected] = useState(false)
   const [mode, setMode] = useState<"mj" | "joueur">("mj")
@@ -66,7 +78,6 @@ function CombatTrackerContent() {
   const campaignId = DEFAULT_CAMPAIGN_ID
   const [campaignName, setCampaignName] = useState("")
   const [players, setPlayers] = useState<Character[]>([])
-  const [connectedPlayers, setConnectedPlayers] = useState<ConnectedPlayer[]>([])
   const [monsters, setMonsters] = useState<Monster[]>([])
   const [combatActive, setCombatActive] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -88,7 +99,6 @@ function CombatTrackerContent() {
     return stored ? JSON.parse(stored) : []
   })
   const [loading, setLoading] = useState(true)
-  const [socketConnected, setSocketConnected] = useState(false)
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -105,35 +115,6 @@ function CombatTrackerContent() {
   // State for DM login
   const [dmError, setDmError] = useState<string | null>(null)
   const [dmLoading, setDmLoading] = useState(false)
-  const [pendingDmPassword, setPendingDmPassword] = useState<string | null>(null)
-
-  // Refs to access current state in socket handlers without causing reconnections
-  const combatActiveRef = useRef(combatActive)
-  const currentTurnRef = useRef(currentTurn)
-  const combatParticipantsRef = useRef(combatParticipants)
-  const modeRef = useRef(mode)
-  const pendingDmPasswordRef = useRef(pendingDmPassword)
-
-  // Keep refs updated when state changes
-  useEffect(() => {
-    combatActiveRef.current = combatActive
-  }, [combatActive])
-
-  useEffect(() => {
-    currentTurnRef.current = currentTurn
-  }, [currentTurn])
-
-  useEffect(() => {
-    combatParticipantsRef.current = combatParticipants
-  }, [combatParticipants])
-
-  useEffect(() => {
-    modeRef.current = mode
-  }, [mode])
-
-  useEffect(() => {
-    pendingDmPasswordRef.current = pendingDmPassword
-  }, [pendingDmPassword])
 
   // Persist combat state to sessionStorage
   useEffect(() => {
@@ -197,15 +178,13 @@ function CombatTrackerContent() {
   const handleSelectMJ = (password: string) => {
     setDmError(null)
     setDmLoading(true)
-    setPendingDmPassword(password)
 
     // Join campaign as DM with password
-    const socket = getSocket()
-    if (socket?.connected) {
+    if (socketState.isConnected) {
       console.log('[Socket] User selected MJ, joining as DM')
-      socket.emit('join-campaign', { campaignId, role: 'dm', password })
+      joinCampaign({ role: 'dm', password })
     } else {
-      // Socket not ready yet, will be handled when connected
+      // Socket not ready yet
       setDmLoading(false)
       setDmError("Connexion au serveur en cours...")
     }
@@ -232,13 +211,12 @@ function CombatTrackerContent() {
         exhaustionLevel: 0,
       }))
       localStorage.setItem("combatTrackerCharacters", JSON.stringify(charactersData))
-      // Also keep in sessionStorage for backward compatibility with socket code
+      // Also keep in sessionStorage for backward compatibility
       sessionStorage.setItem("selectedCharacters", JSON.stringify(charactersData))
       // Join campaign as player with characters
-      const socket = getSocket()
-      if (socket?.connected) {
+      if (socketState.isConnected) {
         console.log('[Socket] User selected player with characters:', charactersData.map(c => c.name).join(', '))
-        socket.emit('join-campaign', { campaignId, role: 'player', characters: charactersData })
+        joinCampaign({ role: 'player', characters: charactersData })
       }
     }
   }
@@ -327,299 +305,78 @@ function CombatTrackerContent() {
     fetchCampaignData()
   }, [campaignId])
 
-  // Socket connection for real-time player tracking
+  // Sync combat state from socket context
   useEffect(() => {
-    console.log('[Socket] Setting up socket connection and listeners...')
-    const socket = connectSocket()
-
-    const joinCampaign = () => {
-      // Join the campaign room
-      // Read mode from localStorage - if not set, don't join yet (wait for user selection)
-      const savedMode = localStorage.getItem('combatTrackerMode')
-
-      if (!savedMode) {
-        console.log('[Socket] No mode saved in localStorage, waiting for user selection')
-        return
-      }
-
-      if (savedMode === 'joueur') {
-        // Get selected characters from localStorage directly
-        const storedCharacters = localStorage.getItem('combatTrackerCharacters')
-        if (storedCharacters) {
-          const characters = JSON.parse(storedCharacters)
-          console.log('[Socket] Joining as player with characters:', characters.map((c: { name: string }) => c.name).join(', '))
-          socket.emit('join-campaign', {
-            campaignId,
-            role: 'player',
-            characters: characters
-          })
-        } else {
-          console.log('[Socket] Player mode but no characters found in localStorage')
-        }
-      } else {
-        // DM joins without characters
-        console.log('[Socket] Joining as DM')
-        socket.emit('join-campaign', {
-          campaignId,
-          role: 'dm',
-        })
-        // Request connected players list after joining (backup in case initial event is missed)
-        setTimeout(() => {
-          socket.emit('request-connected-players')
-        }, 500)
-      }
+    const { combatState } = socketState
+    if (combatState.active !== combatActive) {
+      setCombatActive(combatState.active)
     }
-
-    socket.on('connect', () => {
-      setSocketConnected(true)
-      console.log('[Socket] Connected')
-      joinCampaign()
-    })
-
-    // If socket is already connected (e.g., after hot reload), join immediately
-    if (socket.connected) {
-      setSocketConnected(true)
-      joinCampaign()
+    if (combatState.currentTurn !== currentTurn) {
+      setCurrentTurn(combatState.currentTurn)
     }
+    if (combatState.roundNumber !== roundNumber) {
+      setRoundNumber(combatState.roundNumber)
+    }
+    if (combatState.participants.length > 0) {
+      setCombatParticipants(combatState.participants)
+    }
+  }, [socketState.combatState, combatActive, currentTurn, roundNumber])
 
-    socket.on('disconnect', () => {
-      setSocketConnected(false)
-      console.log('[Socket] Disconnected')
-    })
+  // Sync ambient effect from socket context
+  useEffect(() => {
+    if (socketState.ambientEffect !== ambientEffect) {
+      setAmbientEffect(socketState.ambientEffect as AmbientEffect)
+    }
+  }, [socketState.ambientEffect, ambientEffect])
 
-    // Debug: log all incoming events
-    socket.onAny((eventName, ...args) => {
-      console.log('[Socket] Event received:', eventName, args)
-    })
-
-    // Listen for connected players updates (also signals successful DM join)
-    socket.on('connected-players', (data) => {
-      console.log('[Socket] Connected players:', data.players)
-      setConnectedPlayers(data.players)
-      // If we have a pending DM password, this means the join was successful
-      if (pendingDmPasswordRef.current) {
-        console.log('[Socket] DM join successful, completing login')
-        setMode("mj")
-        setSelectedCharacters([])
-        setUserSelected(true)
-        setDmLoading(false)
-        setDmError(null)
-        setPendingDmPassword(null)
-        // Persist mode to localStorage
-        localStorage.setItem("combatTrackerMode", "mj")
-        localStorage.removeItem("combatTrackerCharacters")
-      }
-    })
-
-    // Listen for join errors (password wrong or DM already connected)
-    socket.on('join-error', (data: { error: string; message: string }) => {
-      console.log('[Socket] Join error:', data)
+  // Handle DM join success (context sets isJoined when connected-players is received)
+  useEffect(() => {
+    if (socketState.isJoined && socketState.mode === 'mj' && dmLoading) {
+      console.log('[Socket] DM join successful, completing login')
+      setMode("mj")
+      setSelectedCharacters([])
+      setUserSelected(true)
       setDmLoading(false)
-      setDmError(data.message)
-      setPendingDmPassword(null)
-    })
-
-    socket.on('player-connected', (data) => {
-      try {
-        console.log('[Socket] player-connected event received:', data)
-        const characterNames = data.player.characters.map(c => c.name).join(', ')
-        console.log('[Socket] Player connected:', characterNames)
-        setConnectedPlayers(prev => {
-          console.log('[Socket] Updating connectedPlayers, prev:', prev.length, 'adding:', data.player.socketId)
-          // Avoid duplicates
-          if (prev.some(p => p.socketId === data.player.socketId)) return prev
-          return [...prev, data.player]
-        })
-        if (modeRef.current === 'mj') {
-          toast.success(`${characterNames} a rejoint la partie`)
-        }
-      } catch (error) {
-        console.error('[Socket] Error handling player-connected:', error)
-      }
-    })
-
-    socket.on('player-disconnected', (data) => {
-      console.log('[Socket] Player disconnected:', data.socketId)
-      setConnectedPlayers(prev => {
-        const player = prev.find(p => p.socketId === data.socketId)
-        if (player && modeRef.current === 'mj') {
-          const characterNames = player.characters.map(c => c.name).join(', ')
-          toast(`${characterNames} a quitté la partie`)
-        }
-        return prev.filter(p => p.socketId !== data.socketId)
-      })
-    })
-
-    // Listen for combat updates from other clients
-    socket.on('combat-update', (data) => {
-      console.log('[Socket] Combat update received:', data.type)
-      if (data.type === 'start') {
-        setCombatActive(true)
-        setCurrentTurn(data.currentTurn)
-        setRoundNumber(data.roundNumber || 1)
-        if (data.participants) {
-          setCombatParticipants(data.participants as CombatParticipant[])
-        }
-        if (modeRef.current === 'joueur') {
-          toast.success("Le combat a commencé!")
-        }
-      } else if (data.type === 'stop') {
-        setCombatActive(false)
-        setCombatParticipants([])
-        setCurrentTurn(0)
-        setRoundNumber(1)
-        if (modeRef.current === 'joueur') {
-          toast("Le combat est terminé")
-        }
-      } else if (data.type === 'next-turn') {
-        setCurrentTurn(data.currentTurn)
-        if (data.roundNumber) {
-          setRoundNumber(data.roundNumber)
-        }
-        // Show toast for players when turn changes
-        if (modeRef.current === 'joueur') {
-          // Use ref to get current participants (avoids stale closure)
-          const participant = combatParticipantsRef.current[data.currentTurn]
-          if (participant) {
-            if (data.currentTurn === 0 && data.roundNumber > 1) {
-              toast.success(`Round ${data.roundNumber} - Tour de ${participant.name}`)
-            } else {
-              toast(`Tour de ${participant.name}`, { duration: 2000 })
-            }
-          }
-        }
-      } else if (data.type === 'state-sync' && data.participants) {
-        setCombatActive(data.combatActive)
-        setCurrentTurn(data.currentTurn)
-        setRoundNumber(data.roundNumber || 1)
-        setCombatParticipants(data.participants as CombatParticipant[])
-      }
-    })
-
-    // Listen for HP changes from other clients
-    socket.on('hp-change', (data) => {
-      console.log('[Socket] HP change received:', data)
-      setCombatParticipants(prev =>
-        prev.map(p => p.id === data.participantId ? { ...p, currentHp: data.newHp } : p)
-      )
-      if (data.participantType === 'player') {
-        setPlayers(prev =>
-          prev.map(p => p.id === data.participantId ? { ...p, currentHp: data.newHp } : p)
-        )
-      } else {
-        setMonsters(prev =>
-          prev.map(m => m.id === data.participantId ? { ...m, hp: data.newHp } : m)
-        )
-      }
-    })
-
-    // Listen for condition changes from other clients
-    socket.on('condition-change', (data) => {
-      console.log('[Socket] Condition change received:', data)
-      setCombatParticipants(prev =>
-        prev.map(p => p.id === data.participantId ? { ...p, conditions: data.conditions, conditionDurations: data.conditionDurations } : p)
-      )
-      if (data.participantType === 'player') {
-        setPlayers(prev =>
-          prev.map(p => p.id === data.participantId ? { ...p, conditions: data.conditions } : p)
-        )
-      } else {
-        setMonsters(prev =>
-          prev.map(m => m.id === data.participantId ? { ...m, conditions: data.conditions } : m)
-        )
-      }
-    })
-
-    // Listen for exhaustion changes from other clients
-    socket.on('exhaustion-change', (data) => {
-      console.log('[Socket] Exhaustion change received:', data)
-      setCombatParticipants(prev =>
-        prev.map(p => p.id === data.participantId ? { ...p, exhaustionLevel: data.exhaustionLevel } : p)
-      )
-      if (data.participantType === 'player') {
-        setPlayers(prev =>
-          prev.map(p => p.id === data.participantId ? { ...p, exhaustionLevel: data.exhaustionLevel } : p)
-        )
-      } else {
-        setMonsters(prev =>
-          prev.map(m => m.id === data.participantId ? { ...m, exhaustionLevel: data.exhaustionLevel } : m)
-        )
-      }
-    })
-
-    // Listen for state sync requests (players request sync from DM)
-    socket.on('request-state-sync', () => {
-      console.log('[Socket] State sync requested')
-      // Only DM responds to sync requests - use refs to get current values
-      if (modeRef.current === 'mj' && combatActiveRef.current) {
-        socket.emit('combat-update', {
-          type: 'state-sync',
-          combatActive: combatActiveRef.current,
-          currentTurn: currentTurnRef.current,
-          participants: combatParticipantsRef.current,
-        })
-      }
-    })
-
-    // Listen for notifications from other clients
-    socket.on('notification', (data) => {
-      console.log('[Socket] Notification received:', data.message)
-      if (data.type === 'success') {
-        toast.success(data.message, { description: data.description })
-      } else if (data.type === 'error') {
-        toast.error(data.message, { description: data.description })
-      } else if (data.type === 'warning') {
-        toast.warning(data.message, { description: data.description })
-      } else {
-        toast(data.message, { description: data.description })
-      }
-    })
-
-    // Listen for ambient effect changes from DM
-    socket.on('ambient-effect', (data: { effect: AmbientEffect }) => {
-      console.log('[Socket] Ambient effect received:', data.effect)
-      setAmbientEffect(data.effect)
-    })
-
-    return () => {
-      console.log('[Socket] Cleaning up socket listeners...')
-      socket.emit('leave-campaign')
-      socket.off('connect')
-      socket.off('disconnect')
-      socket.off('connected-players')
-      socket.off('player-connected')
-      socket.off('player-disconnected')
-      socket.off('combat-update')
-      socket.off('hp-change')
-      socket.off('condition-change')
-      socket.off('exhaustion-change')
-      socket.off('request-state-sync')
-      socket.off('notification')
-      socket.off('ambient-effect')
-      disconnectSocket()
+      setDmError(null)
+      // Persist mode to localStorage
+      localStorage.setItem("combatTrackerMode", "mj")
+      localStorage.removeItem("combatTrackerCharacters")
     }
-  }, [campaignId]) // Note: mode is accessed via modeRef to avoid reconnection on mode change
+  }, [socketState.isJoined, socketState.mode, dmLoading])
 
-  // Periodic sync for DM to ensure connected players list is up to date
+  // Handle join errors from socket context
   useEffect(() => {
-    if (mode !== 'mj' || !socketConnected) return
+    if (socketState.joinError) {
+      console.log('[Socket] Join error:', socketState.joinError)
+      setDmLoading(false)
+      setDmError(socketState.joinError)
+    }
+  }, [socketState.joinError])
 
-    const interval = setInterval(() => {
-      const socket = getSocket()
-      if (socket?.connected) {
-        socket.emit('request-connected-players')
+  // Auto-join campaign on socket connect if user already selected (page refresh)
+  useEffect(() => {
+    if (!socketState.isConnected || socketState.isJoined) return
+
+    const savedMode = localStorage.getItem('combatTrackerMode')
+    if (!savedMode) return
+
+    if (savedMode === 'joueur') {
+      const storedCharacters = localStorage.getItem('combatTrackerCharacters')
+      if (storedCharacters) {
+        const characters = JSON.parse(storedCharacters)
+        console.log('[Socket] Auto-joining as player with characters:', characters.map((c: { name: string }) => c.name).join(', '))
+        joinCampaign({ role: 'player', characters })
       }
-    }, 3000) // Re-request every 3 seconds for more responsive updates
-
-    return () => clearInterval(interval)
-  }, [mode, socketConnected])
+    }
+    // Note: DM auto-rejoin is not supported (requires password)
+  }, [socketState.isConnected, socketState.isJoined, joinCampaign])
 
   // Convert connected players to Character format for the UI
   // Flatten characters array from each connected player and add grouping metadata
   // MJ mode: only show connected players (empty if none connected)
   // Player mode: show their own characters from players state
   const displayPlayers: Character[] = mode === 'mj'
-    ? connectedPlayers.flatMap(player =>
+    ? socketState.connectedPlayers.flatMap(player =>
         player.characters.map((char, idx) => ({
           id: String(char.odNumber), // Use Notion UUID directly (stored as odNumber for compatibility)
           name: char.name,
@@ -680,8 +437,7 @@ function CombatTrackerContent() {
     addHistoryEntry({ type: "combat_start" })
 
     // Emit socket event to sync with players
-    const socket = getSocket()
-    socket.emit('combat-update', {
+    emitCombatUpdate({
       type: 'start',
       combatActive: true,
       currentTurn: 0,
@@ -703,8 +459,7 @@ function CombatTrackerContent() {
     setCombatHistory([]) // Clear history when combat ends
 
     // Emit socket event to sync with players
-    const socket = getSocket()
-    socket.emit('combat-update', {
+    emitCombatUpdate({
       type: 'stop',
       combatActive: false,
       currentTurn: 0,
@@ -745,8 +500,7 @@ function CombatTrackerContent() {
         )
 
         // Emit condition change for expired conditions
-        const socket = getSocket()
-        socket.emit('condition-change', {
+        emitConditionChange({
           participantId: nextParticipant.id,
           participantType: nextParticipant.type,
           conditions: newConditions,
@@ -764,8 +518,7 @@ function CombatTrackerContent() {
         )
 
         // Emit updated durations
-        const socket = getSocket()
-        socket.emit('condition-change', {
+        emitConditionChange({
           participantId: nextParticipant.id,
           participantType: nextParticipant.type,
           conditions: nextParticipant.conditions,
@@ -780,8 +533,7 @@ function CombatTrackerContent() {
     }
 
     // Emit socket event to sync with players
-    const socket = getSocket()
-    socket.emit('combat-update', {
+    emitCombatUpdate({
       type: 'next-turn',
       combatActive: true,
       currentTurn: nextIndex,
@@ -830,8 +582,7 @@ function CombatTrackerContent() {
       )
 
       // Emit HP change to sync with other clients
-      const socket = getSocket()
-      socket.emit('hp-change', {
+      emitHpChange({
         participantId: id,
         participantType: 'player',
         newHp,
@@ -882,8 +633,7 @@ function CombatTrackerContent() {
       )
 
       // Emit HP change to sync with other clients
-      const socket = getSocket()
-      socket.emit('hp-change', {
+      emitHpChange({
         participantId: id,
         participantType: 'monster',
         newHp,
@@ -909,15 +659,6 @@ function CombatTrackerContent() {
 
   const updatePlayerInitiative = async (id: string, initiative: number) => {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, initiative } : p)))
-
-    // Also update connectedPlayers if they exist (for MJ view with connected players)
-    setConnectedPlayers((prev) => prev.map((player) => ({
-      ...player,
-      characters: player.characters.map((char) =>
-        String(char.odNumber) === id ? { ...char, initiative } : char
-      )
-    })))
-
     // Note: Character initiative is session-only (from Notion), no DB persistence
   }
 
@@ -929,8 +670,7 @@ function CombatTrackerContent() {
       )
 
       // Emit condition change to sync with other clients
-      const socket = getSocket()
-      socket.emit('condition-change', {
+      emitConditionChange({
         participantId: id,
         participantType: 'player',
         conditions,
@@ -949,8 +689,7 @@ function CombatTrackerContent() {
       )
 
       // Emit exhaustion change to sync with other clients
-      const socket = getSocket()
-      socket.emit('exhaustion-change', {
+      emitExhaustionChange({
         participantId: id,
         participantType: 'player',
         exhaustionLevel,
@@ -968,8 +707,7 @@ function CombatTrackerContent() {
       )
 
       // Emit condition change to sync with other clients
-      const socket = getSocket()
-      socket.emit('condition-change', {
+      emitConditionChange({
         participantId: id,
         participantType: 'monster',
         conditions,
@@ -998,8 +736,7 @@ function CombatTrackerContent() {
       )
 
       // Emit exhaustion change to sync with other clients
-      const socket = getSocket()
-      socket.emit('exhaustion-change', {
+      emitExhaustionChange({
         participantId: id,
         participantType: 'monster',
         exhaustionLevel,
@@ -1142,8 +879,7 @@ function CombatTrackerContent() {
 
       // Sync with players via WebSocket
       if (combatActive) {
-        const socket = getSocket()
-        socket.emit('combat-update', {
+        emitCombatUpdate({
           type: 'state-sync',
           combatActive: true,
           currentTurn: newCurrentTurn,
@@ -1172,8 +908,7 @@ function CombatTrackerContent() {
 
       // If combat is active, sync the updated participants to players
       if (combatActive) {
-        const socket = getSocket()
-        socket.emit('combat-update', {
+        emitCombatUpdate({
           type: 'state-sync',
           combatActive: true,
           currentTurn,
@@ -1234,8 +969,7 @@ function CombatTrackerContent() {
   const handleAmbientEffectChange = (effect: AmbientEffect) => {
     setAmbientEffect(effect)
     // Emit to players
-    const socket = getSocket()
-    socket.emit('ambient-effect', { effect })
+    emitAmbientEffect(effect)
   }
 
   // Load fight preset - replaces current monsters
@@ -1373,12 +1107,8 @@ function CombatTrackerContent() {
         onSettingsClick={() => setShowSettings(true)}
         onLogout={() => {
           // Leave campaign room before clearing state
-          const socket = getSocket()
-          if (socket?.connected) {
-            socket.emit('leave-campaign')
-          }
+          leaveCampaign()
           setUserSelected(false)
-          setConnectedPlayers([])
           localStorage.removeItem("combatTrackerMode")
           localStorage.removeItem("combatTrackerCharacters")
           sessionStorage.removeItem("selectedCharacters")
