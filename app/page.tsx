@@ -102,11 +102,17 @@ function CombatTrackerContent() {
   const [pendingDropMonster, setPendingDropMonster] = useState<DbMonster | null>(null)
   const [dropQuantity, setDropQuantity] = useState(1)
 
+  // State for DM login
+  const [dmError, setDmError] = useState<string | null>(null)
+  const [dmLoading, setDmLoading] = useState(false)
+  const [pendingDmPassword, setPendingDmPassword] = useState<string | null>(null)
+
   // Refs to access current state in socket handlers without causing reconnections
   const combatActiveRef = useRef(combatActive)
   const currentTurnRef = useRef(currentTurn)
   const combatParticipantsRef = useRef(combatParticipants)
   const modeRef = useRef(mode)
+  const pendingDmPasswordRef = useRef(pendingDmPassword)
 
   // Keep refs updated when state changes
   useEffect(() => {
@@ -124,6 +130,10 @@ function CombatTrackerContent() {
   useEffect(() => {
     modeRef.current = mode
   }, [mode])
+
+  useEffect(() => {
+    pendingDmPasswordRef.current = pendingDmPassword
+  }, [pendingDmPassword])
 
   // Persist combat state to sessionStorage
   useEffect(() => {
@@ -184,19 +194,20 @@ function CombatTrackerContent() {
   }, [])
 
   // Handle MJ selection
-  const handleSelectMJ = () => {
-    setMode("mj")
-    setSelectedCharacters([])
-    setUserSelected(true)
-    // Persist mode to localStorage
-    localStorage.setItem("combatTrackerMode", "mj")
-    localStorage.removeItem("combatTrackerCharacters")
-    // Join campaign as DM
+  const handleSelectMJ = (password: string) => {
+    setDmError(null)
+    setDmLoading(true)
+    setPendingDmPassword(password)
+
+    // Join campaign as DM with password
     const socket = getSocket()
     if (socket?.connected) {
       console.log('[Socket] User selected MJ, joining as DM')
-      socket.emit('join-campaign', { campaignId, role: 'dm' })
-      setTimeout(() => socket.emit('request-connected-players'), 500)
+      socket.emit('join-campaign', { campaignId, role: 'dm', password })
+    } else {
+      // Socket not ready yet, will be handled when connected
+      setDmLoading(false)
+      setDmError("Connexion au serveur en cours...")
     }
   }
 
@@ -382,10 +393,31 @@ function CombatTrackerContent() {
       console.log('[Socket] Event received:', eventName, args)
     })
 
-    // Listen for connected players updates
+    // Listen for connected players updates (also signals successful DM join)
     socket.on('connected-players', (data) => {
       console.log('[Socket] Connected players:', data.players)
       setConnectedPlayers(data.players)
+      // If we have a pending DM password, this means the join was successful
+      if (pendingDmPasswordRef.current) {
+        console.log('[Socket] DM join successful, completing login')
+        setMode("mj")
+        setSelectedCharacters([])
+        setUserSelected(true)
+        setDmLoading(false)
+        setDmError(null)
+        setPendingDmPassword(null)
+        // Persist mode to localStorage
+        localStorage.setItem("combatTrackerMode", "mj")
+        localStorage.removeItem("combatTrackerCharacters")
+      }
+    })
+
+    // Listen for join errors (password wrong or DM already connected)
+    socket.on('join-error', (data: { error: string; message: string }) => {
+      console.log('[Socket] Join error:', data)
+      setDmLoading(false)
+      setDmError(data.message)
+      setPendingDmPassword(null)
     })
 
     socket.on('player-connected', (data) => {
@@ -1300,6 +1332,8 @@ function CombatTrackerContent() {
         campaignId={campaignId}
         onSelectMJ={handleSelectMJ}
         onSelectPlayers={handleSelectPlayers}
+        dmError={dmError}
+        dmLoading={dmLoading}
       />
     )
   }
