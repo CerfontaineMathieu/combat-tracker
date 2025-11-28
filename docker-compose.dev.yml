@@ -8,6 +8,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://dnd:dnd@db:5432/dnd_tracker
       - WATCHPACK_POLLING=true
+      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
+      - NOTION_MONSTERS_DATABASE_ID=${NOTION_MONSTERS_DATABASE_ID}
     volumes:
       # Mount source code for hot-reload
       - .:/app

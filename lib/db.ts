@@ -39,6 +39,8 @@ export interface Monster {
     special_abilities: Array<{ name: string; description: string }>;
   };
   image_url: string | null;
+  ai_generated: string | null;  // AI-generated image path (local only)
+  notion_id: string | null;      // Notion page ID (for sync tracking)
   created_at: Date;
 }
 
@@ -65,14 +67,124 @@ export async function searchMonsters(query: string): Promise<Monster[]> {
   return result.rows;
 }
 
+/**
+ * Get all monsters as a Map for efficient lookups
+ * @returns Map with lowercase monster names as keys
+ */
+export async function getAllMonstersMap(): Promise<Map<string, Monster>> {
+  const monsters = await getMonsters();
+  const map = new Map<string, Monster>();
+  monsters.forEach(m => map.set(m.name.toLowerCase(), m));
+  return map;
+}
+
+/**
+ * Update specific fields of a monster, preserving fields not included in the update
+ * CRITICAL: This function never allows ai_generated to be overwritten
+ * @param id - Monster ID
+ * @param fields - Partial monster data (only fields to update)
+ * @returns Updated monster
+ */
+export async function updateMonsterFields(
+  id: number,
+  fields: Partial<Omit<Monster, 'id' | 'created_at' | 'ai_generated'>>
+): Promise<Monster> {
+  // Build dynamic SET clause for only provided fields
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  // Never allow ai_generated to be updated through this function
+  const allowedFields = Object.keys(fields).filter(k => k !== 'ai_generated' && k !== 'id' && k !== 'created_at');
+
+  for (const key of allowedFields) {
+    setClauses.push(`${key} = $${paramIndex++}`);
+    const value = fields[key as keyof typeof fields];
+
+    // Handle JSONB fields
+    if (key === 'actions' || key === 'legendary_actions' || key === 'traits') {
+      values.push(JSON.stringify(value));
+    } else {
+      values.push(value);
+    }
+  }
+
+  if (setClauses.length === 0) {
+    // No fields to update, just return the current monster
+    const monster = await getMonsterById(id);
+    if (!monster) throw new Error(`Monster with id ${id} not found`);
+    return monster;
+  }
+
+  values.push(id);
+
+  const result = await pool.query(
+    `UPDATE monsters SET ${setClauses.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+    values
+  );
+
+  if (!result.rows[0]) throw new Error(`Monster with id ${id} not found`);
+  return result.rows[0];
+}
+
+/**
+ * Delete monsters by IDs with safety checks
+ * Prevents deletion of monsters currently in active combat
+ * @param ids - Array of monster IDs to delete
+ * @returns Object with deleted count and any errors
+ */
+export async function deleteMonstersById(ids: number[]): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  for (const id of ids) {
+    try {
+      // Check if monster is in use in combat
+      const inUseResult = await pool.query(
+        'SELECT COUNT(*) as count FROM combat_monsters WHERE monster_id = $1',
+        [id]
+      );
+
+      const count = parseInt(inUseResult.rows[0].count);
+
+      if (count > 0) {
+        const monster = await getMonsterById(id);
+        errors.push(`Impossible de supprimer "${monster?.name || `ID ${id}`}": utilisé dans un combat actif`);
+        continue;
+      }
+
+      // Safe to delete
+      const result = await pool.query('DELETE FROM monsters WHERE id = $1', [id]);
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    } catch (error) {
+      errors.push(`Erreur lors de la suppression du monstre ID ${id}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  return { deleted, errors };
+}
+
+/**
+ * Get monsters by their Notion IDs
+ * @param notionIds - Array of Notion page IDs
+ * @returns Array of monsters
+ */
+export async function getMonstersByNotionIds(notionIds: string[]): Promise<Monster[]> {
+  const result = await pool.query(
+    'SELECT * FROM monsters WHERE notion_id = ANY($1)',
+    [notionIds]
+  );
+  return result.rows;
+}
+
 export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>): Promise<Monster> {
   const result = await pool.query(
     `INSERT INTO monsters (
       name, armor_class, hit_points, speed, strength, dexterity, constitution,
       intelligence, wisdom, charisma, strength_mod, dexterity_mod, constitution_mod,
       intelligence_mod, wisdom_mod, charisma_mod, creature_type, size,
-      challenge_rating_xp, actions, legendary_actions, traits, image_url
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+      challenge_rating_xp, actions, legendary_actions, traits, image_url, notion_id, ai_generated
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
     ON CONFLICT (name)
     DO UPDATE SET
       armor_class = EXCLUDED.armor_class,
@@ -96,7 +208,9 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       actions = EXCLUDED.actions,
       legendary_actions = EXCLUDED.legendary_actions,
       traits = EXCLUDED.traits,
-      image_url = EXCLUDED.image_url
+      image_url = EXCLUDED.image_url,
+      notion_id = EXCLUDED.notion_id
+      -- NOTE: ai_generated is NOT updated here, preserving local AI-generated images
     RETURNING *`,
     [
       monster.name,
@@ -130,6 +244,8 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
         special_abilities: [],
       }),
       monster.image_url,
+      monster.notion_id || null,
+      monster.ai_generated || null,
     ]
   );
   return result.rows[0];

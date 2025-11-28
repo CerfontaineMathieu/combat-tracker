@@ -87,6 +87,7 @@ export interface DbMonster {
   }
   image_url: string | null
   ai_generated: string | null
+  notion_id: string | null
 }
 
 // Condition definition with icon and color
@@ -245,4 +246,38 @@ export const CONDITION_COLORS: Record<string, { bg: string; border: string; text
   blue: { bg: "bg-blue-500/20", border: "border-blue-500/50", text: "text-blue-500" },
   gray: { bg: "bg-gray-500/20", border: "border-gray-500/50", text: "text-gray-400" },
   sky: { bg: "bg-sky-500/20", border: "border-sky-500/50", text: "text-sky-500" },
+}
+
+// Notion Sync types
+export interface SyncPreviewData {
+  success: boolean
+  summary: {
+    toAdd: number
+    toUpdate: number
+    toDelete: number
+    unchanged: number
+    total: number
+  }
+  items: import('@/lib/monster-comparison').SyncPreviewItem[]
+}
+
+export interface SyncOperations {
+  add: { name: string; notionId: string }[]
+  update: {
+    name: string
+    dbId: number
+    fields: (keyof DbMonster)[]
+    notionId: string
+  }[]
+  delete: number[]
+}
+
+export interface SyncApplyResult {
+  success: boolean
+  results: {
+    added: number
+    updated: number
+    deleted: number
+    errors: string[]
+  }
 }

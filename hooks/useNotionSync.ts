@@ -1,24 +1,54 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-
-interface SyncResult {
-  message: string;
-  total: number;
-  success: number;
-  failed: number;
-  errors: string[];
-}
+import type { SyncPreviewData, SyncOperations, SyncApplyResult } from '@/lib/types';
 
 export function useNotionSync(onSyncComplete?: () => void) {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [previewData, setPreviewData] = useState<SyncPreviewData | null>(null);
 
-  const syncMonsters = async (): Promise<SyncResult | null> => {
+  const previewSync = async (): Promise<SyncPreviewData | null> => {
     setIsSyncing(true);
+    setPreviewData(null);
 
     try {
-      const response = await fetch('/api/notion/sync', {
+      const response = await fetch('/api/notion/sync/preview', {
         method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Échec du chargement de l\'aperçu');
+      }
+
+      setPreviewData(data);
+
+      toast.success('Aperçu chargé', {
+        description: `${data.summary.toAdd} à ajouter, ${data.summary.toUpdate} à modifier, ${data.summary.toDelete} à supprimer`,
+      });
+
+      return data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      toast.error('Erreur de chargement', {
+        description: message,
+      });
+      return null;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const applySync = async (operations: SyncOperations): Promise<SyncApplyResult | null> => {
+    setIsApplying(true);
+
+    try {
+      const response = await fetch('/api/notion/sync/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operations }),
       });
 
       const data = await response.json();
@@ -28,13 +58,21 @@ export function useNotionSync(onSyncComplete?: () => void) {
       }
 
       setLastSync(new Date());
+      setPreviewData(null); // Clear preview after apply
 
-      // Show success toast
-      toast.success(`Synchronisation réussie`, {
-        description: `${data.success} monstres synchronisés${data.failed > 0 ? `, ${data.failed} échecs` : ''}`,
-      });
+      // Show result toast
+      const { added, updated, deleted, errors } = data.results;
+      if (errors.length > 0) {
+        toast.warning('Synchronisation partiellement réussie', {
+          description: `${added} ajoutés, ${updated} modifiés, ${deleted} supprimés. ${errors.length} erreurs.`,
+        });
+      } else {
+        toast.success('Synchronisation réussie', {
+          description: `${added} ajoutés, ${updated} modifiés, ${deleted} supprimés`,
+        });
+      }
 
-      // Call the callback if provided
+      // Call completion callback
       if (onSyncComplete) {
         onSyncComplete();
       }
@@ -47,8 +85,12 @@ export function useNotionSync(onSyncComplete?: () => void) {
       });
       return null;
     } finally {
-      setIsSyncing(false);
+      setIsApplying(false);
     }
+  };
+
+  const cancelPreview = () => {
+    setPreviewData(null);
   };
 
   const testConnection = async (): Promise<boolean> => {
@@ -76,8 +118,12 @@ export function useNotionSync(onSyncComplete?: () => void) {
 
   return {
     isSyncing,
+    isApplying,
     lastSync,
-    syncMonsters,
+    previewData,
+    previewSync,
+    applySync,
+    cancelPreview,
     testConnection,
   };
 }
