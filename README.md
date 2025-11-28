@@ -41,7 +41,7 @@ Both environments can run in parallel.
 ### User Modes
 
 - **DM Mode (Maitre du Jeu):** Full control over combat, monsters, and ambient effects
-- **Player Mode (Joueur):** Limited view with character management and dice rolling
+- **Player Mode (Joueur):** Limited view with character management
 
 ### Combat Management
 
@@ -93,13 +93,6 @@ Both environments can run in parallel.
 **Exhaustion System:**
 - 6-level exhaustion tracking (D&D 5e standard)
 - Color-coded severity indicators
-
-### Dice Roller
-
-- Support for D4, D6, D8, D10, D12, D20
-- Roll history with timestamps
-- Critical hit (nat 20) and fumble (nat 1) detection
-- Special animations and notifications
 
 ### Combat History
 

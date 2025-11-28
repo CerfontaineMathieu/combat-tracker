@@ -68,7 +68,7 @@ The app is a single-page client component (`app/page.tsx`) that manages:
 - `Character` - Player characters
 - `Monster` - Enemies/NPCs
 - `CombatParticipant` - Unified combat entity (player or monster)
-- `DiceRoll`, `Note` - Supporting features
+- `Note` - Supporting features
 
 **Path Aliases:**
 - `@/` maps to project root (configured in `tsconfig.json`)
