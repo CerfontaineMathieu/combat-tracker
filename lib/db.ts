@@ -65,6 +65,76 @@ export async function searchMonsters(query: string): Promise<Monster[]> {
   return result.rows;
 }
 
+export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>): Promise<Monster> {
+  const result = await pool.query(
+    `INSERT INTO monsters (
+      name, armor_class, hit_points, speed, strength, dexterity, constitution,
+      intelligence, wisdom, charisma, strength_mod, dexterity_mod, constitution_mod,
+      intelligence_mod, wisdom_mod, charisma_mod, creature_type, size,
+      challenge_rating_xp, actions, legendary_actions, traits, image_url
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+    ON CONFLICT (name)
+    DO UPDATE SET
+      armor_class = EXCLUDED.armor_class,
+      hit_points = EXCLUDED.hit_points,
+      speed = EXCLUDED.speed,
+      strength = EXCLUDED.strength,
+      dexterity = EXCLUDED.dexterity,
+      constitution = EXCLUDED.constitution,
+      intelligence = EXCLUDED.intelligence,
+      wisdom = EXCLUDED.wisdom,
+      charisma = EXCLUDED.charisma,
+      strength_mod = EXCLUDED.strength_mod,
+      dexterity_mod = EXCLUDED.dexterity_mod,
+      constitution_mod = EXCLUDED.constitution_mod,
+      intelligence_mod = EXCLUDED.intelligence_mod,
+      wisdom_mod = EXCLUDED.wisdom_mod,
+      charisma_mod = EXCLUDED.charisma_mod,
+      creature_type = EXCLUDED.creature_type,
+      size = EXCLUDED.size,
+      challenge_rating_xp = EXCLUDED.challenge_rating_xp,
+      actions = EXCLUDED.actions,
+      legendary_actions = EXCLUDED.legendary_actions,
+      traits = EXCLUDED.traits,
+      image_url = EXCLUDED.image_url
+    RETURNING *`,
+    [
+      monster.name,
+      monster.armor_class,
+      monster.hit_points,
+      monster.speed,
+      monster.strength,
+      monster.dexterity,
+      monster.constitution,
+      monster.intelligence,
+      monster.wisdom,
+      monster.charisma,
+      monster.strength_mod,
+      monster.dexterity_mod,
+      monster.constitution_mod,
+      monster.intelligence_mod,
+      monster.wisdom_mod,
+      monster.charisma_mod,
+      monster.creature_type,
+      monster.size,
+      monster.challenge_rating_xp,
+      JSON.stringify(monster.actions || []),
+      JSON.stringify(monster.legendary_actions || []),
+      JSON.stringify(monster.traits || {
+        skills: [],
+        senses: [],
+        languages: [],
+        damage_resistances: [],
+        damage_immunities: [],
+        condition_immunities: [],
+        special_abilities: [],
+      }),
+      monster.image_url,
+    ]
+  );
+  return result.rows[0];
+}
+
 // Campaign types and functions
 export interface Campaign {
   id: number;
