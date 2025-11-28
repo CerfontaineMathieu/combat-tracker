@@ -68,17 +68,35 @@ function CombatTrackerContent() {
   const [players, setPlayers] = useState<Character[]>([])
   const [connectedPlayers, setConnectedPlayers] = useState<ConnectedPlayer[]>([])
   const [monsters, setMonsters] = useState<Monster[]>([])
-  const [combatActive, setCombatActive] = useState(false)
-  const [currentTurn, setCurrentTurn] = useState(0)
-  const [roundNumber, setRoundNumber] = useState(1)
-  const [combatParticipants, setCombatParticipants] = useState<CombatParticipant[]>([])
+  const [combatActive, setCombatActive] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem('dnd-combatActive') === 'true'
+  })
+  const [currentTurn, setCurrentTurn] = useState(() => {
+    if (typeof window === 'undefined') return 0
+    const stored = sessionStorage.getItem('dnd-currentTurn')
+    return stored ? parseInt(stored, 10) : 0
+  })
+  const [roundNumber, setRoundNumber] = useState(() => {
+    if (typeof window === 'undefined') return 1
+    const stored = sessionStorage.getItem('dnd-roundNumber')
+    return stored ? parseInt(stored, 10) : 1
+  })
+  const [combatParticipants, setCombatParticipants] = useState<CombatParticipant[]>(() => {
+    if (typeof window === 'undefined') return []
+    const stored = sessionStorage.getItem('dnd-combatParticipants')
+    return stored ? JSON.parse(stored) : []
+  })
   const [loading, setLoading] = useState(true)
   const [socketConnected, setSocketConnected] = useState(false)
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [combatHistory, setCombatHistory] = useState<HistoryEntry[]>([])
-  const [ambientEffect, setAmbientEffect] = useState<AmbientEffect>("none")
+  const [ambientEffect, setAmbientEffect] = useState<AmbientEffect>(() => {
+    if (typeof window === 'undefined') return "none"
+    return (sessionStorage.getItem('dnd-ambientEffect') as AmbientEffect) || "none"
+  })
 
   // State for monster drop quantity dialog
   const [pendingDropMonster, setPendingDropMonster] = useState<DbMonster | null>(null)
@@ -106,6 +124,27 @@ function CombatTrackerContent() {
   useEffect(() => {
     modeRef.current = mode
   }, [mode])
+
+  // Persist combat state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('dnd-combatActive', String(combatActive))
+  }, [combatActive])
+
+  useEffect(() => {
+    sessionStorage.setItem('dnd-currentTurn', String(currentTurn))
+  }, [currentTurn])
+
+  useEffect(() => {
+    sessionStorage.setItem('dnd-roundNumber', String(roundNumber))
+  }, [roundNumber])
+
+  useEffect(() => {
+    sessionStorage.setItem('dnd-combatParticipants', JSON.stringify(combatParticipants))
+  }, [combatParticipants])
+
+  useEffect(() => {
+    sessionStorage.setItem('dnd-ambientEffect', ambientEffect)
+  }, [ambientEffect])
 
   // Restore mode from localStorage on mount
   useEffect(() => {
@@ -1088,10 +1127,40 @@ function CombatTrackerContent() {
   }
 
   const removeFromCombat = (id: string) => {
-    const participant = combatParticipants.find(p => p.id === id)
-    setCombatParticipants(prev => prev.filter(p => p.id !== id))
+    const participantIndex = combatParticipants.findIndex(p => p.id === id)
+    const participant = combatParticipants[participantIndex]
+    const updatedParticipants = combatParticipants.filter(p => p.id !== id)
+    setCombatParticipants(updatedParticipants)
+
     if (participant) {
       toast(`${participant.name} retiré du combat`)
+
+      // Adjust currentTurn if needed
+      let newCurrentTurn = currentTurn
+      if (combatActive && updatedParticipants.length > 0) {
+        if (participantIndex < currentTurn) {
+          // Removed participant was before current turn, shift back
+          newCurrentTurn = currentTurn - 1
+        } else if (currentTurn >= updatedParticipants.length) {
+          // Current turn is now out of bounds
+          newCurrentTurn = Math.max(0, updatedParticipants.length - 1)
+        }
+        if (newCurrentTurn !== currentTurn) {
+          setCurrentTurn(newCurrentTurn)
+        }
+      }
+
+      // Sync with players via WebSocket
+      if (combatActive) {
+        const socket = getSocket()
+        socket.emit('combat-update', {
+          type: 'state-sync',
+          combatActive: true,
+          currentTurn: newCurrentTurn,
+          roundNumber,
+          participants: updatedParticipants,
+        })
+      }
     }
   }
 
