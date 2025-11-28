@@ -36,7 +36,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false }: Dra
       {...listeners}
       {...attributes}
       className={cn(
-        "group relative rounded-lg border-2 transition-all",
+        "group relative rounded-lg border-2 transition-all select-none touch-none",
         "bg-secondary/60 hover:bg-secondary/80",
         isDragging && "opacity-40",
         isInCombat
@@ -108,7 +108,7 @@ export function DraggableMonsterCard({ monster, isInCombat, compact = false }: D
       {...listeners}
       {...attributes}
       className={cn(
-        "group relative rounded-lg border-2 transition-all",
+        "group relative rounded-lg border-2 transition-all select-none touch-none",
         "bg-secondary/60 hover:bg-secondary/80",
         isDragging && "opacity-40",
         isInCombat
