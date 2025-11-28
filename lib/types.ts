@@ -40,15 +40,6 @@ export interface CombatParticipant {
   type: "player" | "monster"
 }
 
-export interface DiceRoll {
-  id: string
-  dice: string
-  result: number
-  timestamp: string
-  isCritical?: boolean
-  isFumble?: boolean
-}
-
 export interface Note {
   id: string
   date: string
