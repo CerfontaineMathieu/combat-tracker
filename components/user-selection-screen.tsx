@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 
 interface CharacterInfo {
-  id: number
+  id: string | number
   name: string
   class: string
   level: number
@@ -48,21 +48,21 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers, d
     async function fetchCharacters() {
       try {
         setLoading(true)
-        const response = await fetch(`/api/campaigns/${campaignId}/characters`)
+        const response = await fetch('/api/characters/notion')
         if (response.ok) {
           const data = await response.json()
           setCharacters(data)
         } else {
-          setError("Impossible de charger les personnages")
+          setError("Impossible de charger les personnages depuis Notion")
         }
       } catch {
-        setError("Erreur de connexion")
+        setError("Erreur de connexion à Notion")
       } finally {
         setLoading(false)
       }
     }
     fetchCharacters()
-  }, [campaignId])
+  }, [])
 
   const getHpColor = (current: number, max: number) => {
     const ratio = current / max

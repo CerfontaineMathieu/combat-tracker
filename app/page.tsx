@@ -169,7 +169,7 @@ function CombatTrackerContent() {
             // Also restore to sessionStorage for socket connection
             sessionStorage.setItem("selectedCharacters", savedCharacters)
             // Convert back to SelectedCharacters format for state
-            setSelectedCharacters(charactersData.map((char: { odNumber: number; name: string; class: string; level: number; currentHp: number; maxHp: number; ac: number; initiative: number; conditions: string[] }) => ({
+            setSelectedCharacters(charactersData.map((char: { odNumber: string | number; name: string; class: string; level: number; currentHp: number; maxHp: number; ac: number; initiative: number; conditions: string[] }) => ({
               id: char.odNumber,
               name: char.name,
               class: char.class,
@@ -256,13 +256,13 @@ function CombatTrackerContent() {
           setCampaignName(campaign.name)
         }
 
-        // Fetch characters
-        const charactersRes = await fetch(`/api/campaigns/${campaignId}/characters`)
+        // Fetch characters from Notion
+        const charactersRes = await fetch('/api/characters/notion')
         if (charactersRes.ok) {
           const charactersData = await charactersRes.json()
-          // Map database fields to frontend fields
+          // Map Notion fields to frontend fields
           setPlayers(charactersData.map((c: {
-            id: number
+            id: string
             name: string
             class: string
             level: number
@@ -271,9 +271,8 @@ function CombatTrackerContent() {
             ac: number
             initiative: number
             conditions: string[]
-            exhaustion_level: number
           }) => ({
-            id: `p-${c.id}`,
+            id: c.id,
             name: c.name,
             class: c.class,
             level: c.level,
@@ -282,7 +281,7 @@ function CombatTrackerContent() {
             ac: c.ac,
             initiative: c.initiative,
             conditions: c.conditions || [],
-            exhaustionLevel: c.exhaustion_level || 0,
+            exhaustionLevel: 0,
           })))
         }
 
@@ -622,7 +621,7 @@ function CombatTrackerContent() {
   const displayPlayers: Character[] = mode === 'mj'
     ? connectedPlayers.flatMap(player =>
         player.characters.map((char, idx) => ({
-          id: `p-${char.odNumber}`,
+          id: String(char.odNumber), // Use Notion UUID directly (stored as odNumber for compatibility)
           name: char.name,
           class: char.class,
           level: char.level,
@@ -841,17 +840,7 @@ function CombatTrackerContent() {
       })
     }
 
-    // Update in database
-    try {
-      await fetch(`/api/campaigns/${campaignId}/characters`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: getNumericId(id), current_hp: newHp }),
-      })
-    } catch (error) {
-      console.error('Failed to update character HP:', error)
-      toast.error("Erreur de sauvegarde")
-    }
+    // Note: Character HP is session-only (from Notion), no DB persistence
   }
 
   const updateMonsterHp = async (id: string, change: number) => {
@@ -922,25 +911,14 @@ function CombatTrackerContent() {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, initiative } : p)))
 
     // Also update connectedPlayers if they exist (for MJ view with connected players)
-    const numericId = getNumericId(id)
     setConnectedPlayers((prev) => prev.map((player) => ({
       ...player,
       characters: player.characters.map((char) =>
-        char.odNumber === numericId ? { ...char, initiative } : char
+        String(char.odNumber) === id ? { ...char, initiative } : char
       )
     })))
 
-    // Update in database
-    try {
-      await fetch(`/api/campaigns/${campaignId}/characters`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: numericId, initiative }),
-      })
-    } catch (error) {
-      console.error('Failed to update character initiative:', error)
-      toast.error("Erreur de sauvegarde")
-    }
+    // Note: Character initiative is session-only (from Notion), no DB persistence
   }
 
   const updatePlayerConditions = async (id: string, conditions: string[], conditionDurations?: Record<string, number>) => {
@@ -960,17 +938,7 @@ function CombatTrackerContent() {
       })
     }
 
-    // Update in database
-    try {
-      await fetch(`/api/campaigns/${campaignId}/characters`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: getNumericId(id), conditions }),
-      })
-    } catch (error) {
-      console.error('Failed to update character conditions:', error)
-      toast.error("Erreur de sauvegarde")
-    }
+    // Note: Character conditions are session-only (from Notion), no DB persistence
   }
 
   const updatePlayerExhaustion = async (id: string, exhaustionLevel: number) => {
@@ -989,17 +957,7 @@ function CombatTrackerContent() {
       })
     }
 
-    // Update in database
-    try {
-      await fetch(`/api/campaigns/${campaignId}/characters`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: getNumericId(id), exhaustion_level: exhaustionLevel }),
-      })
-    } catch (error) {
-      console.error('Failed to update character exhaustion:', error)
-      toast.error("Erreur de sauvegarde")
-    }
+    // Note: Character exhaustion is session-only (from Notion), no DB persistence
   }
 
   const updateMonsterConditions = async (id: string, conditions: string[], conditionDurations?: Record<string, number>) => {

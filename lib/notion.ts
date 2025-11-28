@@ -202,3 +202,124 @@ export async function getMonstersFromNotion(): Promise<Partial<Monster>[]> {
   const notionMonsters = await fetchMonstersFromNotion();
   return notionMonsters.map(mapNotionMonsterToDbMonster);
 }
+
+// ============================================
+// CHARACTER FUNCTIONS
+// ============================================
+
+export interface NotionCharacter {
+  id: string;
+  name: string;
+  class: string;
+  level: number;
+  current_hp: number;
+  max_hp: number;
+  ac: number;
+  initiative: number;
+  conditions: string[];
+}
+
+/**
+ * Get characters database ID
+ */
+function getCharactersDatabaseId() {
+  const databaseId = process.env.NOTION_CHARACTERS_DATABASE_ID;
+
+  if (!databaseId) {
+    throw new Error('NOTION_CHARACTERS_DATABASE_ID is not defined');
+  }
+
+  return databaseId;
+}
+
+/**
+ * Fetch playable characters from Notion database (filtered by Joueur checkbox)
+ */
+export async function fetchPlayableCharactersFromNotion(): Promise<NotionCharacter[]> {
+  try {
+    const notion = getNotionClient();
+    const databaseId = getCharactersDatabaseId();
+
+    const characters: NotionCharacter[] = [];
+    let hasMore = true;
+    let startCursor: string | undefined;
+
+    while (hasMore) {
+      const response = await notion.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: 'Joueur',
+          checkbox: {
+            equals: true,
+          },
+        },
+        start_cursor: startCursor,
+      });
+
+      // Map each result to our character format
+      for (const page of response.results) {
+        const character = mapNotionPageToCharacter(page);
+        if (character) {
+          characters.push(character);
+        }
+      }
+
+      hasMore = response.has_more;
+      startCursor = response.next_cursor ?? undefined;
+    }
+
+    return characters;
+  } catch (error) {
+    console.error('Error fetching characters from Notion:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to extract multi_select values as comma-separated string
+ */
+function extractMultiSelect(multiSelectProp: any): string {
+  if (!multiSelectProp || !multiSelectProp.multi_select) return '';
+  return multiSelectProp.multi_select.map((item: any) => item.name).join(', ');
+}
+
+/**
+ * Map a Notion page to our character format
+ */
+function mapNotionPageToCharacter(page: any): NotionCharacter | null {
+  try {
+    const props = page.properties;
+
+    // Name is a title property
+    const name = extractText(props.Name?.title || []);
+    if (!name) return null; // Skip characters without a name
+
+    // Class is a multi_select property called "Classe(s)"
+    const characterClass = extractMultiSelect(props['Classe(s)']) || 'Inconnu';
+
+    // Level is a number property
+    const level = extractNumber(props.Level?.number) ?? 1;
+
+    // HP: use PV Actuel if available, otherwise PV Max
+    const maxHp = extractNumber(props['PV Max']?.number) ?? 10;
+    const currentHp = extractNumber(props['PV Actuel']?.number) ?? maxHp;
+
+    // AC is a number property
+    const ac = extractNumber(props.CA?.number) ?? 10;
+
+    return {
+      id: page.id,
+      name,
+      class: characterClass,
+      level,
+      current_hp: currentHp,
+      max_hp: maxHp,
+      ac,
+      initiative: 0,
+      conditions: [],
+    };
+  } catch (error) {
+    console.error('Error mapping Notion character:', error);
+    return null;
+  }
+}

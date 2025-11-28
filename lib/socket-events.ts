@@ -4,7 +4,7 @@ export interface JoinCampaignData {
   campaignId: number;
   role: 'dm' | 'player';
   characters?: Array<{
-    odNumber: number;
+    odNumber: string | number; // Notion UUID or legacy DB ID
     name: string;
     class: string;
     level: number;
@@ -22,7 +22,7 @@ export interface ConnectedPlayer {
   socketId: string; // Socket ID
   playerName?: string; // Optional: player's real name
   characters: Array<{
-    odNumber: number; // Character ID from DB
+    odNumber: string | number; // Notion UUID or legacy DB ID
     name: string;
     class: string;
     level: number;
