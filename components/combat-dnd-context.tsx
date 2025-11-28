@@ -140,8 +140,23 @@ export function CombatDndProvider({
       if (activeId.startsWith("drag-player-")) {
         const playerId = activeId.replace("drag-player-", "")
         const player = players.find(p => p.id === playerId)
-        if (player && !combatParticipants.some(p => p.id === playerId)) {
-          onAddPlayerToCombat(player)
+        if (player) {
+          // Check if player belongs to a group
+          if (player.playerSocketId && player.groupSize && player.groupSize > 1) {
+            // Add all players from the same group
+            const groupPlayers = players.filter(p => p.playerSocketId === player.playerSocketId)
+            // Only add players not already in combat
+            groupPlayers.forEach(p => {
+              if (!combatParticipants.some(cp => cp.id === p.id)) {
+                onAddPlayerToCombat(p)
+              }
+            })
+          } else {
+            // Single player - add normally
+            if (!combatParticipants.some(p => p.id === playerId)) {
+              onAddPlayerToCombat(player)
+            }
+          }
         }
       } else if (activeId.startsWith("drag-dbmonster-")) {
         // DB monster from picker - add 1 instance

@@ -61,15 +61,40 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>Aucun joueur</p>
                 </div>
-              ) : (
-                players.map((player) => (
-                  <DraggablePlayerCard
-                    key={player.id}
-                    player={player}
-                    isInCombat={isPlayerInCombat(player.id)}
-                  />
+              ) : (() => {
+                // Group characters by playerSocketId for drag-and-drop
+                const groupedPlayers: Record<string, Character[]> = players.reduce((groups, player) => {
+                  const key = player.playerSocketId || player.id
+                  if (!groups[key]) groups[key] = []
+                  groups[key].push(player)
+                  return groups
+                }, {} as Record<string, Character[]>)
+
+                return Object.entries(groupedPlayers).map(([socketId, characters]) => (
+                  <div key={socketId} className="space-y-2">
+                    {/* Player group indicator - only show if multiple characters */}
+                    {characters.length > 1 && characters[0].isFirstInGroup && (
+                      <div className="text-xs text-muted-foreground px-2 flex items-center gap-2">
+                        <Users className="w-3 h-3" />
+                        Groupe de {characters.length} personnages
+                      </div>
+                    )}
+                    {/* Render draggable cards with visual connection */}
+                    <div className={cn(
+                      "space-y-2",
+                      characters.length > 1 && "pl-2 border-l-2 border-gold/20"
+                    )}>
+                      {characters.map((player) => (
+                        <DraggablePlayerCard
+                          key={player.id}
+                          player={player}
+                          isInCombat={isPlayerInCombat(player.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))
-              )}
+              })()}
             </div>
           </ScrollArea>
         </CardContent>
@@ -93,8 +118,30 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                 <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>Aucun joueur</p>
               </div>
-            ) : (
-              players.map((player, index) => (
+            ) : (() => {
+              // Group characters by playerSocketId
+              const groupedPlayers: Record<string, Character[]> = players.reduce((groups, player) => {
+                const key = player.playerSocketId || player.id
+                if (!groups[key]) groups[key] = []
+                groups[key].push(player)
+                return groups
+              }, {} as Record<string, Character[]>)
+
+              return Object.entries(groupedPlayers).map(([socketId, characters]) => (
+                <div key={socketId} className="space-y-2">
+                  {/* Player group indicator - only show if multiple characters */}
+                  {characters.length > 1 && characters[0].isFirstInGroup && (
+                    <div className="text-xs text-muted-foreground px-2 flex items-center gap-2">
+                      <Users className="w-3 h-3" />
+                      Groupe de {characters.length} personnages
+                    </div>
+                  )}
+                  {/* Render characters with visual connection */}
+                  <div className={cn(
+                    "space-y-2",
+                    characters.length > 1 && "pl-2 border-l-2 border-gold/20"
+                  )}>
+                    {characters.map((player, index) => (
                 <div
                   key={player.id}
                   className={cn(
@@ -301,8 +348,11 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                     </div>
                   )}
                 </div>
+              ))}
+                  </div>
+                </div>
               ))
-            )}
+            })()}
           </div>
         </ScrollArea>
       </CardContent>

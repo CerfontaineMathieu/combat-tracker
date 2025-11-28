@@ -3,21 +3,36 @@
 export interface JoinCampaignData {
   campaignId: number;
   role: 'dm' | 'player';
-  character?: ConnectedPlayer; // Character info when joining as player
+  characters?: Array<{
+    odNumber: number;
+    name: string;
+    class: string;
+    level: number;
+    currentHp: number;
+    maxHp: number;
+    ac: number;
+    initiative: number;
+    conditions: string[];
+    exhaustionLevel?: number;
+  }>; // Characters array when joining as player
 }
 
-// Connected player info (character chosen by player)
+// Connected player info (characters chosen by player)
 export interface ConnectedPlayer {
   socketId: string; // Socket ID
-  odNumber: number; // Character ID from DB
-  name: string;
-  class: string;
-  level: number;
-  currentHp: number;
-  maxHp: number;
-  ac: number;
-  initiative: number;
-  conditions: string[];
+  playerName?: string; // Optional: player's real name
+  characters: Array<{
+    odNumber: number; // Character ID from DB
+    name: string;
+    class: string;
+    level: number;
+    currentHp: number;
+    maxHp: number;
+    ac: number;
+    initiative: number;
+    conditions: string[];
+    exhaustionLevel?: number;
+  }>;
 }
 
 // Player connection events
@@ -26,7 +41,6 @@ export interface PlayerConnectedData {
 }
 
 export interface PlayerDisconnectedData {
-  odNumber: number; // Character ID that disconnected
   socketId: string;
 }
 
@@ -111,6 +125,23 @@ export interface NotificationData {
   description?: string;
 }
 
+export interface ConditionChangeData {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  conditions: string[];
+  conditionDurations?: Record<string, number>;
+}
+
+export interface ExhaustionChangeData {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  exhaustionLevel: number;
+}
+
+export interface AmbientEffectData {
+  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -128,6 +159,10 @@ export interface ServerToClientEvents {
   'connected-players': (data: ConnectedPlayersData) => void;
   // Notification events
   'notification': (data: NotificationData) => void;
+  // Condition and state events
+  'condition-change': (data: ConditionChangeData) => void;
+  'exhaustion-change': (data: ExhaustionChangeData) => void;
+  'ambient-effect': (data: AmbientEffectData) => void;
 }
 
 // Client to server events
@@ -143,4 +178,8 @@ export interface ClientToServerEvents {
   'request-connected-players': () => void;
   // Notification events
   'notification': (data: NotificationData) => void;
+  // Condition and state events
+  'condition-change': (data: ConditionChangeData) => void;
+  'exhaustion-change': (data: ExhaustionChangeData) => void;
+  'ambient-effect': (data: AmbientEffectData) => void;
 }
