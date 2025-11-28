@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Sword, ScrollText, Settings, Skull, Crown, User, LogOut } from "lucide-react"
+import { Sword, ScrollText, Settings, Skull, Crown, User, LogOut, Map } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -104,6 +104,19 @@ export function Header({
                   title="Bestiaire"
                 >
                   <Skull className="w-5 h-5" />
+                </Button>
+              </Link>
+            )}
+            {/* Carte de Faerûn - MJ only */}
+            {mode === "mj" && (
+              <Link href="/map">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 hover:bg-primary/20 hover:text-emerald transition-smooth"
+                  title="Carte de Faerûn"
+                >
+                  <Map className="w-5 h-5" />
                 </Button>
               </Link>
             )}
