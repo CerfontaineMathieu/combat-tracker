@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Cloud } from "lucide-react";
 import { useNotionSync } from "@/hooks/useNotionSync";
+import { NotionSyncDialog } from "@/components/notion-sync-dialog";
 import {
   Tooltip,
   TooltipContent,
@@ -15,7 +16,15 @@ interface NotionSyncButtonProps {
 }
 
 export function NotionSyncButton({ onSyncComplete }: NotionSyncButtonProps) {
-  const { isSyncing, lastSync, syncMonsters } = useNotionSync(onSyncComplete);
+  const {
+    isSyncing,
+    isApplying,
+    lastSync,
+    previewData,
+    previewSync,
+    applySync,
+    cancelPreview
+  } = useNotionSync(onSyncComplete);
 
   const formatLastSync = (date: Date | null) => {
     if (!date) return "Jamais synchronisé";
@@ -32,29 +41,51 @@ export function NotionSyncButton({ onSyncComplete }: NotionSyncButtonProps) {
     return `Il y a ${diffDays}j`;
   };
 
+  const handleOpenDialog = async () => {
+    if (!previewData) {
+      await previewSync();
+    }
+  };
+
+  const handleApply = async (operations: any) => {
+    await applySync(operations);
+  };
+
+  const isDialogOpen = previewData !== null;
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={syncMonsters}
-            disabled={isSyncing}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            {isSyncing ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Cloud className="h-4 w-4" />
-            )}
-            {isSyncing ? "Synchronisation..." : "Sync Notion"}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{formatLastSync(lastSync)}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={handleOpenDialog}
+              disabled={isSyncing}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              {isSyncing ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Cloud className="h-4 w-4" />
+              )}
+              {isSyncing ? "Chargement..." : "Sync Notion"}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{formatLastSync(lastSync)}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <NotionSyncDialog
+        open={isDialogOpen}
+        previewData={previewData}
+        isApplying={isApplying}
+        onApply={handleApply}
+        onCancel={cancelPreview}
+      />
+    </>
   );
 }
