@@ -1400,6 +1400,7 @@ function CombatTrackerContent() {
                 onUpdateConditions={updatePlayerConditions}
                 onUpdateExhaustion={updatePlayerExhaustion}
                 mode={mode}
+                ownCharacterIds={selectedCharacters.map(c => String(c.id))}
               />
             )}
             {activeTab === "combat" && (
@@ -1425,6 +1426,7 @@ function CombatTrackerContent() {
                 }}
                 onRemoveFromCombat={removeFromCombat}
                 mode={mode}
+                ownCharacterIds={selectedCharacters.map(c => String(c.id))}
               />
             )}
             {activeTab === "bestiary" && mode === "mj" && (
@@ -1472,6 +1474,7 @@ function CombatTrackerContent() {
                       mode={mode}
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
+                      ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                     />
                   </div>
                 )}
@@ -1500,6 +1503,7 @@ function CombatTrackerContent() {
                     } : undefined}
                     onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                     mode={mode}
+                    ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   />
                 </div>
 
@@ -1569,6 +1573,7 @@ function CombatTrackerContent() {
                       mode={mode}
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
+                      ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                     />
                   </div>
                 )}
@@ -1583,6 +1588,7 @@ function CombatTrackerContent() {
                     onLoadPreset={loadPresetParticipants}
                     mode={mode}
                     campaignId={campaignId}
+                    ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   />
                 </div>
 

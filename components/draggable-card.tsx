@@ -229,9 +229,10 @@ interface SortableParticipantCardProps {
   onUpdateInitiative?: (initiative: number) => void
   index: number
   mode?: "mj" | "joueur"
+  ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
 
-export function SortableParticipantCard({ participant, onRemove, onUpdateInitiative, index, mode = "mj" }: SortableParticipantCardProps) {
+export function SortableParticipantCard({ participant, onRemove, onUpdateInitiative, index, mode = "mj", ownCharacterIds = [] }: SortableParticipantCardProps) {
   const [isEditingInit, setIsEditingInit] = useState(false)
   const [initValue, setInitValue] = useState(String(participant.initiative))
 
@@ -359,8 +360,8 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
             )}
           </div>
 
-          {/* HP Bar - Only visible for DM */}
-          {mode === "mj" && (
+          {/* HP Bar - Visible for DM or the player's own characters */}
+          {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
             <div className="mt-1.5">
               <div className="flex justify-between text-xs mb-0.5">
                 <span className="text-muted-foreground">PV</span>
