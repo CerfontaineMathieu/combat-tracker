@@ -5,10 +5,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
+      # Override DATABASE_URL to use Docker network hostname
       - DATABASE_URL=postgresql://dnd:dnd@db:5432/dnd_tracker
-      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
-      - NOTION_MONSTERS_DATABASE_ID=${NOTION_MONSTERS_DATABASE_ID}
     depends_on:
       db:
         condition: service_healthy
