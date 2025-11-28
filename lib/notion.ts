@@ -6,6 +6,9 @@ export interface NotionMonster {
   properties: Record<string, any>;
 }
 
+// Cache for data source IDs (database_id -> data_source_id)
+const dataSourceCache: Map<string, string> = new Map();
+
 /**
  * Get Notion client instance
  */
@@ -33,6 +36,33 @@ function getDatabaseId() {
 }
 
 /**
+ * Get the data_source_id from a database_id (v5 SDK requirement)
+ * In the new API, databases are containers and data_sources are the actual tables
+ */
+async function getDataSourceId(notion: Client, databaseId: string): Promise<string> {
+  // Check cache first
+  const cached = dataSourceCache.get(databaseId);
+  if (cached) {
+    return cached;
+  }
+
+  // Fetch the database to get its data sources
+  const database = await notion.databases.retrieve({ database_id: databaseId }) as any;
+
+  // The data_sources array contains the actual data source IDs
+  // For simple databases, there's typically one data source
+  const dataSources = database.data_sources;
+  if (!dataSources || dataSources.length === 0) {
+    throw new Error(`No data sources found for database ${databaseId}`);
+  }
+
+  const dataSourceId = dataSources[0].id;
+  dataSourceCache.set(databaseId, dataSourceId);
+
+  return dataSourceId;
+}
+
+/**
  * Fetch all monsters from Notion database
  */
 export async function fetchMonstersFromNotion(): Promise<NotionMonster[]> {
@@ -40,13 +70,17 @@ export async function fetchMonstersFromNotion(): Promise<NotionMonster[]> {
     const notion = getNotionClient();
     const databaseId = getDatabaseId();
 
+    // v5 SDK: First get the data_source_id from the database
+    const dataSourceId = await getDataSourceId(notion, databaseId);
+
     const monsters: NotionMonster[] = [];
     let hasMore = true;
     let startCursor: string | undefined;
 
     while (hasMore) {
-      const response = await notion.databases.query({
-        database_id: databaseId,
+      // v5 SDK: Use dataSources.query with data_source_id
+      const response = await notion.dataSources.query({
+        data_source_id: dataSourceId,
         start_cursor: startCursor,
       });
 
@@ -240,13 +274,17 @@ export async function fetchPlayableCharactersFromNotion(): Promise<NotionCharact
     const notion = getNotionClient();
     const databaseId = getCharactersDatabaseId();
 
+    // v5 SDK: First get the data_source_id from the database
+    const dataSourceId = await getDataSourceId(notion, databaseId);
+
     const characters: NotionCharacter[] = [];
     let hasMore = true;
     let startCursor: string | undefined;
 
     while (hasMore) {
-      const response = await notion.databases.query({
-        database_id: databaseId,
+      // v5 SDK: Use dataSources.query with data_source_id
+      const response = await notion.dataSources.query({
+        data_source_id: dataSourceId,
         filter: {
           property: 'Joueur',
           checkbox: {
