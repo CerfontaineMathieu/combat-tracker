@@ -6,7 +6,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 D&D Combat Tracker - A real-time Dungeons & Dragons combat tracking application built with Next.js 16 and React 19. The UI is in French.
 
-## Commands
+## Docker Environment (Required)
+
+**Always use Docker for development and production.** Do not run the Node server directly on the host machine.
+
+### Development Environment
+```bash
+docker-compose -f docker-compose.dev.yml up --build
+```
+- App: http://localhost:3001
+- PostgreSQL: localhost:5433
+- Hot-reload enabled via volume mounts
+- **Claude should rebuild dev docker when needed for testing**
+
+### Production Environment
+```bash
+docker-compose up --build
+```
+- App: http://localhost:3000
+- PostgreSQL: localhost:5432
+- **Do not rebuild production docker - user handles this manually**
+
+Both environments can run in parallel thanks to different ports.
+
+## Commands (inside container)
 
 ```bash
 pnpm dev      # Start development server

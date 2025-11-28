@@ -164,11 +164,13 @@ app.prepare().then(() => {
         const characterNames = characters.map(c => c.name).join(', ');
         console.log(`[Socket.io] Player with characters [${characterNames}] connected to campaign ${campaignId}`);
 
-        // Notify everyone in room about new player
+        // Notify everyone in room about new player (including sender for confirmation)
         io.to(room).emit('player-connected', { player: playerData });
+        console.log(`[Socket.io] Emitted player-connected to room ${room}`);
 
         // Send current connected players list to the new player
         const allPlayers = Array.from(campaignPlayers.values());
+        console.log(`[Socket.io] Sending connected-players to new player ${socket.id}: ${allPlayers.length} players`);
         socket.emit('connected-players', { players: allPlayers });
       }
 
@@ -184,6 +186,7 @@ app.prepare().then(() => {
       if (role === 'dm') {
         const campaignPlayers = connectedPlayers.get(campaignId);
         const allPlayers = campaignPlayers ? Array.from(campaignPlayers.values()) : [];
+        console.log(`[Socket.io] Sending connected-players to DM: ${allPlayers.length} players`, allPlayers.map(p => p.characters.map(c => c.name).join(', ')));
         socket.emit('connected-players', { players: allPlayers });
       }
     });
@@ -221,6 +224,7 @@ app.prepare().then(() => {
       if (socket.data.campaignId) {
         const campaignPlayers = connectedPlayers.get(socket.data.campaignId);
         const allPlayers = campaignPlayers ? Array.from(campaignPlayers.values()) : [];
+        console.log(`[Socket.io] request-connected-players from ${socket.id}: ${allPlayers.length} players`);
         socket.emit('connected-players', { players: allPlayers });
       }
     });
