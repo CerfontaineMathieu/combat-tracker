@@ -1,11 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Crown, User, Heart, Shield, Loader2, Check } from "lucide-react"
+import { Crown, User, Heart, Shield, Loader2, Check, Lock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 interface CharacterInfo {
@@ -22,15 +30,19 @@ interface CharacterInfo {
 
 interface UserSelectionScreenProps {
   campaignId: number
-  onSelectMJ: () => void
+  onSelectMJ: (password: string) => void
   onSelectPlayers: (characters: CharacterInfo[]) => void
+  dmError?: string | null
+  dmLoading?: boolean
 }
 
-export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers }: UserSelectionScreenProps) {
+export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers, dmError, dmLoading }: UserSelectionScreenProps) {
   const [characters, setCharacters] = useState<CharacterInfo[]>([])
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [password, setPassword] = useState("")
 
   useEffect(() => {
     async function fetchCharacters() {
@@ -76,6 +88,17 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers }:
     }
   }
 
+  const handleMJClick = () => {
+    setShowPasswordDialog(true)
+    setPassword("")
+  }
+
+  const handlePasswordSubmit = () => {
+    if (password.trim()) {
+      onSelectMJ(password)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
@@ -89,7 +112,7 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers }:
           {/* MJ Option */}
           <Card
             className="cursor-pointer transition-all hover:border-gold hover:bg-gold/5 group"
-            onClick={onSelectMJ}
+            onClick={handleMJClick}
           >
             <CardHeader className="text-center pb-2">
               <div className="flex justify-center mb-2">
@@ -209,6 +232,52 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers }:
           </Card>
         </div>
       </div>
+
+      {/* Password Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-gold flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Connexion Maître du Jeu
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Mot de passe
+              </label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                placeholder="Entrez le mot de passe..."
+                className="bg-background"
+                autoFocus
+              />
+            </div>
+            {dmError && (
+              <p className="text-sm text-crimson">{dmError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowPasswordDialog(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handlePasswordSubmit}
+              disabled={!password.trim() || dmLoading}
+              className="bg-gold hover:bg-gold/80 text-background"
+            >
+              {dmLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
+              Connexion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

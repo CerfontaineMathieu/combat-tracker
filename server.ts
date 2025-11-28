@@ -2,10 +2,12 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
+import 'dotenv/config';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
+const DM_PASSWORD = process.env.DM_PASSWORD || 'defaultpassword';
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -31,10 +33,14 @@ interface ConnectedPlayer {
 // Store connected players per campaign
 const connectedPlayers = new Map<number, Map<string, ConnectedPlayer>>();
 
+// Store connected DM socket ID per campaign (only one allowed)
+const connectedDMs = new Map<number, string>();
+
 // Socket event types
 interface JoinCampaignData {
   campaignId: number;
   role: 'dm' | 'player';
+  password?: string; // Required for DM role
   characters?: Array<{
     odNumber: number;
     name: string;
@@ -137,8 +143,30 @@ app.prepare().then(() => {
 
     // Join a campaign room
     socket.on('join-campaign', (data: JoinCampaignData) => {
-      const { campaignId, role, characters } = data;
+      const { campaignId, role, password, characters } = data;
       const room = `campaign-${campaignId}`;
+
+      // DM role validation
+      if (role === 'dm') {
+        // Check password
+        if (password !== DM_PASSWORD) {
+          console.log(`[Socket.io] DM login failed for ${socket.id}: invalid password`);
+          socket.emit('join-error', { error: 'invalid-password', message: 'Mot de passe incorrect' });
+          return;
+        }
+
+        // Check if DM already connected
+        const existingDM = connectedDMs.get(campaignId);
+        if (existingDM && existingDM !== socket.id) {
+          console.log(`[Socket.io] DM login failed for ${socket.id}: DM already connected (${existingDM})`);
+          socket.emit('join-error', { error: 'dm-already-connected', message: 'Un Maître du Jeu est déjà connecté' });
+          return;
+        }
+
+        // Register this socket as DM
+        connectedDMs.set(campaignId, socket.id);
+        console.log(`[Socket.io] DM registered for campaign ${campaignId}: ${socket.id}`);
+      }
 
       socket.join(room);
       socket.data.campaignId = campaignId;
@@ -196,6 +224,15 @@ app.prepare().then(() => {
       if (socket.data.campaignId) {
         const campaignId = socket.data.campaignId;
         const room = `campaign-${campaignId}`;
+
+        // Remove DM from connected DMs
+        if (socket.data.role === 'dm') {
+          const currentDM = connectedDMs.get(campaignId);
+          if (currentDM === socket.id) {
+            connectedDMs.delete(campaignId);
+            console.log(`[Socket.io] DM left campaign ${campaignId}`);
+          }
+        }
 
         // Remove player from connected players
         if (socket.data.role === 'player') {
@@ -327,6 +364,15 @@ app.prepare().then(() => {
       if (socket.data.campaignId) {
         const campaignId = socket.data.campaignId;
         const room = `campaign-${campaignId}`;
+
+        // Remove DM from connected DMs
+        if (socket.data.role === 'dm') {
+          const currentDM = connectedDMs.get(campaignId);
+          if (currentDM === socket.id) {
+            connectedDMs.delete(campaignId);
+            console.log(`[Socket.io] DM disconnected from campaign ${campaignId}`);
+          }
+        }
 
         // Remove player from connected players
         if (socket.data.role === 'player') {
