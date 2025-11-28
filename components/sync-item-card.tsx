@@ -75,18 +75,18 @@ export function SyncItemCard({
             <div className="flex items-center gap-2 mb-2">
               {Icon && <Icon className={cn("w-4 h-4", config.color)} />}
               <span className={cn("font-semibold", config.color)}>{config.label}</span>
-              <span className="font-bold">{monsterName}</span>
+              <span className="font-bold text-slate-900">{monsterName}</span>
             </div>
 
             <div className="flex flex-wrap gap-2 text-sm">
-              {monster.hit_points && <Badge variant="outline" className="font-semibold">PV: {monster.hit_points}</Badge>}
-              {monster.armor_class && <Badge variant="outline" className="font-semibold">CA: {monster.armor_class}</Badge>}
-              {monster.creature_type && <Badge variant="outline" className="font-semibold">{monster.creature_type}</Badge>}
-              {monster.size && <Badge variant="outline" className="font-semibold">{monster.size}</Badge>}
+              {monster.hit_points && <Badge variant="outline" className="font-semibold text-slate-900 border-slate-400">PV: {monster.hit_points}</Badge>}
+              {monster.armor_class && <Badge variant="outline" className="font-semibold text-slate-900 border-slate-400">CA: {monster.armor_class}</Badge>}
+              {monster.creature_type && <Badge variant="outline" className="font-semibold text-slate-900 border-slate-400">{monster.creature_type}</Badge>}
+              {monster.size && <Badge variant="outline" className="font-semibold text-slate-900 border-slate-400">{monster.size}</Badge>}
             </div>
 
             {expanded && monster && (
-              <div className="mt-3 text-sm space-y-1 text-slate-700 font-medium">
+              <div className="mt-3 text-sm space-y-1 text-slate-900 font-medium">
                 {monster.strength && <div>Force: {monster.strength} ({monster.strength_mod})</div>}
                 {monster.dexterity && <div>Dextérité: {monster.dexterity} ({monster.dexterity_mod})</div>}
                 {monster.constitution && <div>Constitution: {monster.constitution} ({monster.constitution_mod})</div>}
