@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - DATABASE_URL=postgresql://dnd:dnd@db:5432/dnd_tracker
       - WATCHPACK_POLLING=true
@@ -28,9 +28,9 @@ services:
       POSTGRES_PASSWORD: dnd
       POSTGRES_DB: dnd_tracker
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data_dev:/var/lib/postgresql
       - ./docker/init-db:/docker-entrypoint-initdb.d
       - ./public/all_monsters.csv:/data/all_monsters.csv:ro
     healthcheck:
@@ -41,4 +41,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  postgres_data_dev:

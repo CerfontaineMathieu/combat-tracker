@@ -75,6 +75,7 @@ function CombatTrackerContent() {
   const combatActiveRef = useRef(combatActive)
   const currentTurnRef = useRef(currentTurn)
   const combatParticipantsRef = useRef(combatParticipants)
+  const modeRef = useRef(mode)
 
   // Keep refs updated when state changes
   useEffect(() => {
@@ -89,11 +90,62 @@ function CombatTrackerContent() {
     combatParticipantsRef.current = combatParticipants
   }, [combatParticipants])
 
+  useEffect(() => {
+    modeRef.current = mode
+  }, [mode])
+
+  // Restore mode from localStorage on mount
+  useEffect(() => {
+    const savedMode = localStorage.getItem("combatTrackerMode") as "mj" | "joueur" | null
+    if (savedMode) {
+      setMode(savedMode)
+      if (savedMode === "joueur") {
+        const savedCharacters = localStorage.getItem("combatTrackerCharacters")
+        if (savedCharacters) {
+          try {
+            const charactersData = JSON.parse(savedCharacters)
+            // Also restore to sessionStorage for socket connection
+            sessionStorage.setItem("selectedCharacters", savedCharacters)
+            // Convert back to SelectedCharacters format for state
+            setSelectedCharacters(charactersData.map((char: { odNumber: number; name: string; class: string; level: number; currentHp: number; maxHp: number; ac: number; initiative: number; conditions: string[] }) => ({
+              id: char.odNumber,
+              name: char.name,
+              class: char.class,
+              level: char.level,
+              current_hp: char.currentHp,
+              max_hp: char.maxHp,
+              ac: char.ac,
+              initiative: char.initiative,
+              conditions: char.conditions,
+            })))
+            setUserSelected(true)
+          } catch {
+            // Invalid data, clear it
+            localStorage.removeItem("combatTrackerCharacters")
+            localStorage.removeItem("combatTrackerMode")
+          }
+        }
+      } else {
+        setUserSelected(true)
+      }
+    }
+  }, [])
+
   // Handle MJ selection
   const handleSelectMJ = () => {
     setMode("mj")
     setSelectedCharacters([])
     setUserSelected(true)
+    // Persist mode to localStorage
+    localStorage.setItem("combatTrackerMode", "mj")
+    localStorage.removeItem("combatTrackerCharacters")
+    // Join campaign as DM
+    const socket = getSocket()
+    if (socket?.connected) {
+      console.log('[Socket] User selected MJ, joining as DM')
+      socket.emit('join-campaign', { campaignId, role: 'dm' })
+      setTimeout(() => socket.emit('request-connected-players'), 500)
+    }
   }
 
   // Handle players selection (multiple characters)
@@ -101,22 +153,30 @@ function CombatTrackerContent() {
     setMode("joueur")
     setSelectedCharacters(characters)
     setUserSelected(true)
-    // Store ALL characters in sessionStorage for socket connection
+    // Persist mode and characters to localStorage
+    localStorage.setItem("combatTrackerMode", "joueur")
     if (characters.length > 0) {
-      sessionStorage.setItem("selectedCharacters", JSON.stringify(
-        characters.map(char => ({
-          odNumber: char.id,
-          name: char.name,
-          class: char.class,
-          level: char.level,
-          currentHp: char.current_hp,
-          maxHp: char.max_hp,
-          ac: char.ac,
-          initiative: char.initiative,
-          conditions: char.conditions || [],
-          exhaustionLevel: 0,
-        }))
-      ))
+      const charactersData = characters.map(char => ({
+        odNumber: char.id,
+        name: char.name,
+        class: char.class,
+        level: char.level,
+        currentHp: char.current_hp,
+        maxHp: char.max_hp,
+        ac: char.ac,
+        initiative: char.initiative,
+        conditions: char.conditions || [],
+        exhaustionLevel: 0,
+      }))
+      localStorage.setItem("combatTrackerCharacters", JSON.stringify(charactersData))
+      // Also keep in sessionStorage for backward compatibility with socket code
+      sessionStorage.setItem("selectedCharacters", JSON.stringify(charactersData))
+      // Join campaign as player with characters
+      const socket = getSocket()
+      if (socket?.connected) {
+        console.log('[Socket] User selected player with characters:', charactersData.map(c => c.name).join(', '))
+        socket.emit('join-campaign', { campaignId, role: 'player', characters: charactersData })
+      }
     }
   }
 
@@ -207,38 +267,67 @@ function CombatTrackerContent() {
 
   // Socket connection for real-time player tracking
   useEffect(() => {
+    console.log('[Socket] Setting up socket connection and listeners...')
     const socket = connectSocket()
 
-    socket.on('connect', () => {
-      setSocketConnected(true)
-      console.log('[Socket] Connected')
-
+    const joinCampaign = () => {
       // Join the campaign room
-      if (mode === 'joueur') {
-        // Get selected characters from sessionStorage
-        const storedCharacters = sessionStorage.getItem('selectedCharacters')
+      // Read mode from localStorage - if not set, don't join yet (wait for user selection)
+      const savedMode = localStorage.getItem('combatTrackerMode')
+
+      if (!savedMode) {
+        console.log('[Socket] No mode saved in localStorage, waiting for user selection')
+        return
+      }
+
+      if (savedMode === 'joueur') {
+        // Get selected characters from localStorage directly
+        const storedCharacters = localStorage.getItem('combatTrackerCharacters')
         if (storedCharacters) {
           const characters = JSON.parse(storedCharacters)
+          console.log('[Socket] Joining as player with characters:', characters.map((c: { name: string }) => c.name).join(', '))
           socket.emit('join-campaign', {
             campaignId,
             role: 'player',
             characters: characters
           })
-          // Clear sessionStorage after using it
-          sessionStorage.removeItem('selectedCharacters')
+        } else {
+          console.log('[Socket] Player mode but no characters found in localStorage')
         }
       } else {
         // DM joins without characters
+        console.log('[Socket] Joining as DM')
         socket.emit('join-campaign', {
           campaignId,
           role: 'dm',
         })
+        // Request connected players list after joining (backup in case initial event is missed)
+        setTimeout(() => {
+          socket.emit('request-connected-players')
+        }, 500)
       }
+    }
+
+    socket.on('connect', () => {
+      setSocketConnected(true)
+      console.log('[Socket] Connected')
+      joinCampaign()
     })
+
+    // If socket is already connected (e.g., after hot reload), join immediately
+    if (socket.connected) {
+      setSocketConnected(true)
+      joinCampaign()
+    }
 
     socket.on('disconnect', () => {
       setSocketConnected(false)
       console.log('[Socket] Disconnected')
+    })
+
+    // Debug: log all incoming events
+    socket.onAny((eventName, ...args) => {
+      console.log('[Socket] Event received:', eventName, args)
     })
 
     // Listen for connected players updates
@@ -248,15 +337,21 @@ function CombatTrackerContent() {
     })
 
     socket.on('player-connected', (data) => {
-      const characterNames = data.player.characters.map(c => c.name).join(', ')
-      console.log('[Socket] Player connected:', characterNames)
-      setConnectedPlayers(prev => {
-        // Avoid duplicates
-        if (prev.some(p => p.socketId === data.player.socketId)) return prev
-        return [...prev, data.player]
-      })
-      if (mode === 'mj') {
-        toast.success(`${characterNames} a rejoint la partie`)
+      try {
+        console.log('[Socket] player-connected event received:', data)
+        const characterNames = data.player.characters.map(c => c.name).join(', ')
+        console.log('[Socket] Player connected:', characterNames)
+        setConnectedPlayers(prev => {
+          console.log('[Socket] Updating connectedPlayers, prev:', prev.length, 'adding:', data.player.socketId)
+          // Avoid duplicates
+          if (prev.some(p => p.socketId === data.player.socketId)) return prev
+          return [...prev, data.player]
+        })
+        if (modeRef.current === 'mj') {
+          toast.success(`${characterNames} a rejoint la partie`)
+        }
+      } catch (error) {
+        console.error('[Socket] Error handling player-connected:', error)
       }
     })
 
@@ -264,7 +359,7 @@ function CombatTrackerContent() {
       console.log('[Socket] Player disconnected:', data.socketId)
       setConnectedPlayers(prev => {
         const player = prev.find(p => p.socketId === data.socketId)
-        if (player && mode === 'mj') {
+        if (player && modeRef.current === 'mj') {
           const characterNames = player.characters.map(c => c.name).join(', ')
           toast(`${characterNames} a quitté la partie`)
         }
@@ -282,7 +377,7 @@ function CombatTrackerContent() {
         if (data.participants) {
           setCombatParticipants(data.participants as CombatParticipant[])
         }
-        if (mode === 'joueur') {
+        if (modeRef.current === 'joueur') {
           toast.success("Le combat a commencé!")
         }
       } else if (data.type === 'stop') {
@@ -290,7 +385,7 @@ function CombatTrackerContent() {
         setCombatParticipants([])
         setCurrentTurn(0)
         setRoundNumber(1)
-        if (mode === 'joueur') {
+        if (modeRef.current === 'joueur') {
           toast("Le combat est terminé")
         }
       } else if (data.type === 'next-turn') {
@@ -299,7 +394,7 @@ function CombatTrackerContent() {
           setRoundNumber(data.roundNumber)
         }
         // Show toast for players when turn changes
-        if (mode === 'joueur') {
+        if (modeRef.current === 'joueur') {
           // Use ref to get current participants (avoids stale closure)
           const participant = combatParticipantsRef.current[data.currentTurn]
           if (participant) {
@@ -373,7 +468,7 @@ function CombatTrackerContent() {
     socket.on('request-state-sync', () => {
       console.log('[Socket] State sync requested')
       // Only DM responds to sync requests - use refs to get current values
-      if (mode === 'mj' && combatActiveRef.current) {
+      if (modeRef.current === 'mj' && combatActiveRef.current) {
         socket.emit('combat-update', {
           type: 'state-sync',
           combatActive: combatActiveRef.current,
@@ -404,6 +499,7 @@ function CombatTrackerContent() {
     })
 
     return () => {
+      console.log('[Socket] Cleaning up socket listeners...')
       socket.emit('leave-campaign')
       socket.off('connect')
       socket.off('disconnect')
@@ -419,11 +515,27 @@ function CombatTrackerContent() {
       socket.off('ambient-effect')
       disconnectSocket()
     }
-  }, [campaignId, mode])
+  }, [campaignId]) // Note: mode is accessed via modeRef to avoid reconnection on mode change
+
+  // Periodic sync for DM to ensure connected players list is up to date
+  useEffect(() => {
+    if (mode !== 'mj' || !socketConnected) return
+
+    const interval = setInterval(() => {
+      const socket = getSocket()
+      if (socket?.connected) {
+        socket.emit('request-connected-players')
+      }
+    }, 3000) // Re-request every 3 seconds for more responsive updates
+
+    return () => clearInterval(interval)
+  }, [mode, socketConnected])
 
   // Convert connected players to Character format for the UI
   // Flatten characters array from each connected player and add grouping metadata
-  const displayPlayers: Character[] = mode === 'mj' && connectedPlayers.length > 0
+  // MJ mode: only show connected players (empty if none connected)
+  // Player mode: show their own characters from players state
+  const displayPlayers: Character[] = mode === 'mj'
     ? connectedPlayers.flatMap(player =>
         player.characters.map((char, idx) => ({
           id: `p-${char.odNumber}`,
@@ -725,12 +837,21 @@ function CombatTrackerContent() {
   const updatePlayerInitiative = async (id: string, initiative: number) => {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, initiative } : p)))
 
+    // Also update connectedPlayers if they exist (for MJ view with connected players)
+    const numericId = getNumericId(id)
+    setConnectedPlayers((prev) => prev.map((player) => ({
+      ...player,
+      characters: player.characters.map((char) =>
+        char.odNumber === numericId ? { ...char, initiative } : char
+      )
+    })))
+
     // Update in database
     try {
       await fetch(`/api/campaigns/${campaignId}/characters`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: getNumericId(id), initiative }),
+        body: JSON.stringify({ characterId: numericId, initiative }),
       })
     } catch (error) {
       console.error('Failed to update character initiative:', error)
@@ -1119,7 +1240,18 @@ function CombatTrackerContent() {
         selectedCharacterName={selectedCharacterNames}
         onHistoryClick={() => setShowHistory(true)}
         onSettingsClick={() => setShowSettings(true)}
-        onLogout={() => setUserSelected(false)}
+        onLogout={() => {
+          // Leave campaign room before clearing state
+          const socket = getSocket()
+          if (socket?.connected) {
+            socket.emit('leave-campaign')
+          }
+          setUserSelected(false)
+          setConnectedPlayers([])
+          localStorage.removeItem("combatTrackerMode")
+          localStorage.removeItem("combatTrackerCharacters")
+          sessionStorage.removeItem("selectedCharacters")
+        }}
         hideActions={isMobile}
         ambientEffect={ambientEffect}
         onAmbientEffectChange={handleAmbientEffectChange}

@@ -89,6 +89,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                           key={player.id}
                           player={player}
                           isInCombat={isPlayerInCombat(player.id)}
+                          onUpdateInitiative={(init) => onUpdateInitiative(player.id, init)}
                         />
                       ))}
                     </div>

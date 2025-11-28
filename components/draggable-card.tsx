@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
@@ -15,13 +15,46 @@ interface DraggablePlayerCardProps {
   player: Character
   isInCombat: boolean
   compact?: boolean
+  onUpdateInitiative?: (initiative: number) => void
 }
 
-export function DraggablePlayerCard({ player, isInCombat, compact = false }: DraggablePlayerCardProps) {
+export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpdateInitiative }: DraggablePlayerCardProps) {
+  const [isEditingInit, setIsEditingInit] = useState(false)
+  const [initValue, setInitValue] = useState(String(player.initiative ?? ""))
+
+  // Sync local state with prop when it changes
+  useEffect(() => {
+    if (!isEditingInit) {
+      setInitValue(String(player.initiative ?? ""))
+    }
+  }, [player.initiative, isEditingInit])
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `drag-player-${player.id}`,
     disabled: isInCombat,
   })
+
+  const handleInitiativeChange = (value: string) => {
+    setInitValue(value)
+  }
+
+  const handleInitiativeBlur = () => {
+    setIsEditingInit(false)
+    const newInit = Math.min(30, Math.max(1, parseInt(initValue) || 1))
+    setInitValue(String(newInit))
+    if (onUpdateInitiative && newInit !== player.initiative) {
+      onUpdateInitiative(newInit)
+    }
+  }
+
+  const handleInitiativeKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleInitiativeBlur()
+    } else if (e.key === "Escape") {
+      setIsEditingInit(false)
+      setInitValue(String(player.initiative ?? ""))
+    }
+  }
 
   const style = transform
     ? {
@@ -46,13 +79,48 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false }: Dra
       )}
     >
       <div className="flex items-center gap-2">
-        <div className={cn(
-          "shrink-0 rounded-md flex items-center justify-center font-bold text-background",
-          "bg-gold",
-          compact ? "w-7 h-7 text-xs" : "w-9 h-9 text-sm"
-        )}>
-          {player.initiative || "?"}
-        </div>
+        {/* Initiative Badge - Clickable to edit */}
+        {isEditingInit ? (
+          <Input
+            type="number"
+            min={1}
+            max={30}
+            value={initValue}
+            onChange={(e) => handleInitiativeChange(e.target.value)}
+            onBlur={handleInitiativeBlur}
+            onKeyDown={handleInitiativeKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            autoFocus
+            className={cn(
+              "text-center font-bold p-0 bg-gold/20 border-gold text-gold",
+              compact ? "w-9 h-7 text-xs" : "w-11 h-9 text-sm"
+            )}
+          />
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (onUpdateInitiative && !isInCombat) {
+                setIsEditingInit(true)
+              }
+            }}
+            onPointerDown={(e) => {
+              if (onUpdateInitiative && !isInCombat) {
+                e.stopPropagation()
+              }
+            }}
+            className={cn(
+              "shrink-0 rounded-md flex items-center justify-center font-bold text-background",
+              "bg-gold transition-all",
+              compact ? "w-7 h-7 text-xs" : "w-9 h-9 text-sm",
+              onUpdateInitiative && !isInCombat && "cursor-pointer hover:bg-gold/80 hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-gold/50"
+            )}
+            title={onUpdateInitiative && !isInCombat ? "Cliquez pour modifier l'initiative" : undefined}
+          >
+            {player.initiative ?? "?"}
+          </button>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className={cn("font-medium text-foreground truncate", compact && "text-sm")}>
