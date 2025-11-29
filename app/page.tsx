@@ -18,6 +18,7 @@ import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
+import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import {
   Dialog,
   DialogContent,
@@ -116,6 +117,7 @@ function CombatTrackerContent() {
   // State for DM login
   const [dmError, setDmError] = useState<string | null>(null)
   const [dmLoading, setDmLoading] = useState(false)
+  const [pendingDmPassword, setPendingDmPassword] = useState<string | null>(null)
 
   // Persist combat state to sessionStorage
   useEffect(() => {
@@ -179,6 +181,7 @@ function CombatTrackerContent() {
   const handleSelectMJ = (password: string) => {
     setDmError(null)
     setDmLoading(true)
+    setPendingDmPassword(password) // Store password temporarily until validated
 
     // Join campaign as DM with password
     if (socketState.isConnected) {
@@ -188,6 +191,7 @@ function CombatTrackerContent() {
       // Socket not ready yet
       setDmLoading(false)
       setDmError("Connexion au serveur en cours...")
+      setPendingDmPassword(null)
     }
   }
 
@@ -342,8 +346,13 @@ function CombatTrackerContent() {
       // Persist mode to localStorage
       localStorage.setItem("combatTrackerMode", "mj")
       localStorage.removeItem("combatTrackerCharacters")
+      // Store password for auto-rejoin ONLY after successful validation
+      if (pendingDmPassword) {
+        sessionStorage.setItem('dnd-dm-password', pendingDmPassword)
+        setPendingDmPassword(null)
+      }
     }
-  }, [socketState.isJoined, socketState.mode, dmLoading])
+  }, [socketState.isJoined, socketState.mode, dmLoading, pendingDmPassword])
 
   // Handle join errors from socket context
   useEffect(() => {
@@ -351,6 +360,7 @@ function CombatTrackerContent() {
       console.log('[Socket] Join error:', socketState.joinError)
       setDmLoading(false)
       setDmError(socketState.joinError)
+      setPendingDmPassword(null) // Clear pending password on error
     }
   }, [socketState.joinError])
 
@@ -1100,6 +1110,21 @@ function CombatTrackerContent() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Ambient Effects Overlay */}
       <AmbientEffects effect={ambientEffect} onEffectEnd={handleEffectEnd} />
+
+      {/* DM Disconnect Overlay - Show for players when DM is disconnected */}
+      {socketState.dmDisconnected && mode === 'joueur' && socketState.dmDisconnectTime && (
+        <DmDisconnectOverlay
+          disconnectTime={socketState.dmDisconnectTime}
+          gracePeriodSeconds={60}
+          onTimeout={() => {
+            // Return to user selection
+            leaveCampaign()
+            setUserSelected(false)
+            localStorage.removeItem("combatTrackerMode")
+            localStorage.removeItem("combatTrackerCharacters")
+          }}
+        />
+      )}
 
       {/* Monster Drop Quantity Dialog */}
       <Dialog open={!!pendingDropMonster} onOpenChange={(open) => !open && setPendingDropMonster(null)}>

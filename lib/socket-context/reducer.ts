@@ -31,6 +31,8 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       return {
         ...state,
         mode: action.mode,
+        // Clear previous join error when starting a new join attempt
+        joinError: null,
       };
 
     case 'JOIN_SUCCESS':
@@ -65,11 +67,47 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
 
     // ============ CONNECTED PLAYERS ============
-    case 'SET_CONNECTED_PLAYERS':
+    case 'SET_CONNECTED_PLAYERS': {
+      // Merge incoming player data with existing state to preserve local changes
+      // (HP, conditions, exhaustion that were updated during combat)
+      const mergedPlayers = action.players.map((incomingPlayer) => {
+        const existingPlayer = state.connectedPlayers.find(
+          (p) => p.socketId === incomingPlayer.socketId
+        );
+
+        if (!existingPlayer) {
+          // New player, use incoming data as-is
+          return incomingPlayer;
+        }
+
+        // Existing player - merge characters, preserving local HP/conditions/exhaustion
+        return {
+          ...incomingPlayer,
+          characters: incomingPlayer.characters.map((incomingChar) => {
+            const existingChar = existingPlayer.characters.find(
+              (c) => String(c.odNumber) === String(incomingChar.odNumber)
+            );
+
+            if (!existingChar) {
+              return incomingChar;
+            }
+
+            // Preserve local combat state (HP, conditions, exhaustion)
+            return {
+              ...incomingChar,
+              currentHp: existingChar.currentHp,
+              conditions: existingChar.conditions,
+              exhaustionLevel: existingChar.exhaustionLevel,
+            };
+          }),
+        };
+      });
+
       return {
         ...state,
-        connectedPlayers: action.players,
+        connectedPlayers: mergedPlayers,
       };
+    }
 
     case 'PLAYER_CONNECTED': {
       const exists = state.connectedPlayers.some(
@@ -216,6 +254,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       // Update in players/monsters arrays
       let players = state.players;
       let monsters = state.monsters;
+      let connectedPlayers = state.connectedPlayers;
 
       if (participantType === 'player') {
         players = state.players.map((p) =>
@@ -223,6 +262,16 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
             ? { ...p, currentHp: Math.max(0, Math.min(p.maxHp, newHp)) }
             : p
         );
+
+        // Also update in connectedPlayers (for MJ view "Groupe" panel)
+        connectedPlayers = state.connectedPlayers.map((cp) => ({
+          ...cp,
+          characters: cp.characters.map((char) =>
+            String(char.odNumber) === participantId
+              ? { ...char, currentHp: Math.max(0, Math.min(char.maxHp, newHp)) }
+              : char
+          ),
+        }));
       } else {
         monsters = state.monsters.map((m) =>
           m.id === participantId
@@ -246,6 +295,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         ...state,
         players,
         monsters,
+        connectedPlayers,
         combatState: {
           ...state.combatState,
           participants,
@@ -259,11 +309,22 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       // Update in players/monsters arrays
       let players = state.players;
       let monsters = state.monsters;
+      let connectedPlayers = state.connectedPlayers;
 
       if (participantType === 'player') {
         players = state.players.map((p) =>
           p.id === participantId ? { ...p, conditions } : p
         );
+
+        // Also update in connectedPlayers (for MJ view "Groupe" panel)
+        connectedPlayers = state.connectedPlayers.map((cp) => ({
+          ...cp,
+          characters: cp.characters.map((char) =>
+            String(char.odNumber) === participantId
+              ? { ...char, conditions }
+              : char
+          ),
+        }));
       } else {
         monsters = state.monsters.map((m) =>
           m.id === participantId ? { ...m, conditions } : m
@@ -281,6 +342,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         ...state,
         players,
         monsters,
+        connectedPlayers,
         combatState: {
           ...state.combatState,
           participants,
@@ -294,11 +356,22 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       // Update in players/monsters arrays
       let players = state.players;
       let monsters = state.monsters;
+      let connectedPlayers = state.connectedPlayers;
 
       if (participantType === 'player') {
         players = state.players.map((p) =>
           p.id === participantId ? { ...p, exhaustionLevel } : p
         );
+
+        // Also update in connectedPlayers (for MJ view "Groupe" panel)
+        connectedPlayers = state.connectedPlayers.map((cp) => ({
+          ...cp,
+          characters: cp.characters.map((char) =>
+            String(char.odNumber) === participantId
+              ? { ...char, exhaustionLevel }
+              : char
+          ),
+        }));
       } else {
         monsters = state.monsters.map((m) =>
           m.id === participantId ? { ...m, exhaustionLevel } : m
@@ -316,6 +389,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         ...state,
         players,
         monsters,
+        connectedPlayers,
         combatState: {
           ...state.combatState,
           participants,
@@ -359,6 +433,21 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       return {
         ...state,
         pendingNotification: null,
+      };
+
+    // ============ DM DISCONNECT/RECONNECT ============
+    case 'DM_DISCONNECTED':
+      return {
+        ...state,
+        dmDisconnected: true,
+        dmDisconnectTime: action.timestamp,
+      };
+
+    case 'DM_RECONNECTED':
+      return {
+        ...state,
+        dmDisconnected: false,
+        dmDisconnectTime: null,
       };
 
     default:

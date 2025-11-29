@@ -27,8 +27,9 @@ interface SocketProviderProps {
   children: React.ReactNode;
 }
 
-// Session storage key for persisting state
+// Session storage keys for persisting state
 const SESSION_STORAGE_KEY = 'dnd-socket-session';
+const DM_PASSWORD_KEY = 'dnd-dm-password';
 
 function getPersistedState(): Partial<SocketState> {
   if (typeof window === 'undefined') return {};
@@ -38,7 +39,9 @@ function getPersistedState(): Partial<SocketState> {
       const parsed = JSON.parse(saved);
       return {
         mode: parsed.mode || null,
-        isJoined: parsed.isJoined || false,
+        // IMPORTANT: isJoined should NEVER be restored from storage
+        // On page load, we're not connected yet - auto-rejoin will handle reconnection
+        isJoined: false,
         campaignId: parsed.campaignId || 1,
       };
     }
@@ -46,6 +49,24 @@ function getPersistedState(): Partial<SocketState> {
     // Ignore parse errors
   }
   return {};
+}
+
+// Get stored DM password for auto-rejoin
+function getStoredDmPassword(): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(DM_PASSWORD_KEY);
+}
+
+// Store DM password for auto-rejoin
+function storeDmPassword(password: string): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(DM_PASSWORD_KEY, password);
+}
+
+// Clear DM password on logout
+function clearDmPassword(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(DM_PASSWORD_KEY);
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
@@ -65,14 +86,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
   }, [state]);
 
   // Persist relevant state to sessionStorage
+  // NOTE: isJoined is intentionally NOT persisted - it should always start as false
   useEffect(() => {
     if (typeof window === 'undefined') return;
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       mode: state.mode,
-      isJoined: state.isJoined,
       campaignId: state.campaignId,
     }));
-  }, [state.mode, state.isJoined, state.campaignId]);
+  }, [state.mode, state.campaignId]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -83,8 +104,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
       path: '/api/socketio',
       autoConnect: false,
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 10,        // Increased from 5
+      reconnectionDelay: 1000,         // Initial delay
+      reconnectionDelayMax: 10000,     // Max 10 seconds
+      randomizationFactor: 0.5,        // Add jitter to prevent thundering herd
     });
 
     socketRef.current = socket;
@@ -207,6 +230,15 @@ export function SocketProvider({ children }: SocketProviderProps) {
       dispatch({ type: 'SET_NOTIFICATION', notification: data });
     });
 
+    // ============ DM DISCONNECT/RECONNECT EVENTS ============
+    socket.on('dm-disconnected', (data) => {
+      dispatch({ type: 'DM_DISCONNECTED', timestamp: data.timestamp });
+    });
+
+    socket.on('dm-reconnected', () => {
+      dispatch({ type: 'DM_RECONNECTED' });
+    });
+
     // Connect the socket
     socket.connect();
 
@@ -229,6 +261,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('player-positions');
       socket.off('request-player-positions');
       socket.off('notification');
+      socket.off('dm-disconnected');
+      socket.off('dm-reconnected');
 
       socket.disconnect();
       socketRef.current = null;
@@ -260,6 +294,27 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
 
+  // Auto-rejoin campaign for DM when socket connects (using stored password)
+  useEffect(() => {
+    if (!state.isConnected || state.isJoined) return;
+    if (state.mode !== 'mj') return;
+
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    // Get stored password for auto-rejoin
+    const storedPassword = getStoredDmPassword();
+    if (storedPassword) {
+      console.log('[Socket] Auto-joining as DM with stored password');
+      socket.emit('join-campaign', {
+        campaignId: state.campaignId,
+        role: 'dm',
+        password: storedPassword,
+      });
+      // JOIN_SUCCESS will be dispatched when connected-players is received
+    }
+  }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
+
   // Periodic refresh of connected players for DM (in case socket reconnected and lost room membership)
   useEffect(() => {
     if (!state.isConnected || !state.isJoined || state.mode !== 'mj') return;
@@ -286,6 +341,9 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     dispatch({ type: 'SET_MODE', mode: params.role === 'dm' ? 'mj' : 'joueur' });
 
+    // NOTE: Don't store password here - only store after successful join
+    // This is handled in page.tsx to avoid storing wrong passwords
+
     socket.emit('join-campaign', {
       campaignId: stateRef.current.campaignId,
       role: params.role,
@@ -302,6 +360,9 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const leaveCampaign = useCallback(() => {
     const socket = socketRef.current;
     if (!socket?.connected) return;
+
+    // Clear stored DM password on logout
+    clearDmPassword();
 
     socket.emit('leave-campaign');
     dispatch({ type: 'LEAVE_CAMPAIGN' });

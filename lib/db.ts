@@ -863,3 +863,101 @@ export async function deleteFightPreset(presetId: number): Promise<boolean> {
   const result = await pool.query('DELETE FROM fight_presets WHERE id = $1', [presetId]);
   return (result.rowCount ?? 0) > 0;
 }
+
+// ============================================
+// Combat History & Backup Functions
+// ============================================
+
+export interface CombatHistoryEntry {
+  id: number;
+  campaign_id: number;
+  started_at: Date;
+  ended_at: Date | null;
+  final_state: unknown;
+  participants: unknown[];
+  total_rounds: number;
+  outcome: string | null;
+  notes: string | null;
+}
+
+export interface CombatStateBackup {
+  campaign_id: number;
+  state: unknown;
+  last_update: Date;
+}
+
+// Save combat to history when it ends
+export async function saveCombatHistory(
+  campaignId: number,
+  data: {
+    startedAt: Date;
+    finalState: unknown;
+    participants: unknown[];
+    totalRounds: number;
+    outcome?: string;
+    notes?: string;
+  }
+): Promise<number> {
+  const result = await pool.query(
+    `INSERT INTO combat_history
+     (campaign_id, started_at, ended_at, final_state, participants, total_rounds, outcome, notes)
+     VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7)
+     RETURNING id`,
+    [
+      campaignId,
+      data.startedAt,
+      JSON.stringify(data.finalState),
+      JSON.stringify(data.participants),
+      data.totalRounds,
+      data.outcome || null,
+      data.notes || null,
+    ]
+  );
+  return result.rows[0].id;
+}
+
+// Get combat history for a campaign
+export async function getCombatHistory(
+  campaignId: number,
+  limit = 20
+): Promise<CombatHistoryEntry[]> {
+  const result = await pool.query(
+    `SELECT * FROM combat_history
+     WHERE campaign_id = $1
+     ORDER BY started_at DESC
+     LIMIT $2`,
+    [campaignId, limit]
+  );
+  return result.rows;
+}
+
+// Save combat state backup (for Redis failure recovery)
+export async function saveCombatStateBackup(
+  campaignId: number,
+  state: unknown
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO combat_state_backup (campaign_id, state, last_update)
+     VALUES ($1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT (campaign_id) DO UPDATE SET
+       state = EXCLUDED.state,
+       last_update = CURRENT_TIMESTAMP`,
+    [campaignId, JSON.stringify(state)]
+  );
+}
+
+// Get combat state backup (fallback if Redis is empty)
+export async function getCombatStateBackup(
+  campaignId: number
+): Promise<CombatStateBackup | null> {
+  const result = await pool.query(
+    'SELECT * FROM combat_state_backup WHERE campaign_id = $1',
+    [campaignId]
+  );
+  return result.rows[0] || null;
+}
+
+// Clear combat state backup when combat ends
+export async function clearCombatStateBackup(campaignId: number): Promise<void> {
+  await pool.query('DELETE FROM combat_state_backup WHERE campaign_id = $1', [campaignId]);
+}
