@@ -3,11 +3,23 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
+import { getDmPassword } from './lib/db';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
-const DM_PASSWORD = process.env.DM_PASSWORD || 'defaultpassword';
+const DEFAULT_DM_PASSWORD = process.env.DM_PASSWORD || 'defaultpassword';
+
+// Get effective password: DB first, then .env fallback
+async function getEffectivePassword(campaignId: number): Promise<string> {
+  try {
+    const dbPassword = await getDmPassword(campaignId);
+    return dbPassword || DEFAULT_DM_PASSWORD;
+  } catch (error) {
+    console.error('[Auth] Error fetching password from DB, using default:', error);
+    return DEFAULT_DM_PASSWORD;
+  }
+}
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -153,14 +165,15 @@ app.prepare().then(() => {
     console.log(`[Socket.io] Client connected: ${socket.id}`);
 
     // Join a campaign room
-    socket.on('join-campaign', (data: JoinCampaignData) => {
+    socket.on('join-campaign', async (data: JoinCampaignData) => {
       const { campaignId, role, password, characters } = data;
       const room = `campaign-${campaignId}`;
 
       // DM role validation
       if (role === 'dm') {
-        // Check password
-        if (password !== DM_PASSWORD) {
+        // Check password (from DB or .env fallback)
+        const effectivePassword = await getEffectivePassword(campaignId);
+        if (password !== effectivePassword) {
           console.log(`[Socket.io] DM login failed for ${socket.id}: invalid password`);
           socket.emit('join-error', { error: 'invalid-password', message: 'Mot de passe incorrect' });
           return;
