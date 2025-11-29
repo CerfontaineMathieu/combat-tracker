@@ -122,6 +122,14 @@ interface ExhaustionChangeData {
   exhaustionLevel: number;
 }
 
+interface DeathSaveChangeData {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  deathSaves: { successes: number; failures: number };
+  isStabilized: boolean;
+  isDead: boolean;
+}
+
 interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
 }
@@ -362,6 +370,15 @@ app.prepare().then(() => {
         const room = `campaign-${socket.data.campaignId}`;
         io.to(room).emit('exhaustion-change', data);
         console.log(`[Socket.io] Exhaustion change in ${room}:`, data.participantId);
+      }
+    });
+
+    // Death saving throw changes
+    socket.on('death-save-change', (data: DeathSaveChangeData) => {
+      if (socket.data.campaignId) {
+        const room = `campaign-${socket.data.campaignId}`;
+        io.to(room).emit('death-save-change', data);
+        console.log(`[Socket.io] Death save change in ${room}:`, data.participantId);
       }
     });
 

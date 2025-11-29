@@ -66,6 +66,7 @@ function CombatTrackerContent() {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitDeathSaveChange,
     emitAmbientEffect,
   } = useSocketContext()
 
@@ -776,6 +777,30 @@ function CombatTrackerContent() {
     }
   }
 
+  // Update death saves for a participant (players only in practice)
+  const updateDeathSaves = (
+    id: string,
+    type: 'player' | 'monster',
+    deathSaves: { successes: number; failures: number },
+    isStabilized: boolean,
+    isDead: boolean
+  ) => {
+    setCombatParticipants((prev) =>
+      prev.map((p) =>
+        p.id === id ? { ...p, deathSaves, isStabilized, isDead } : p
+      )
+    )
+
+    // Emit death save change to sync with other clients
+    emitDeathSaveChange({
+      participantId: id,
+      participantType: type,
+      deathSaves,
+      isStabilized,
+      isDead,
+    })
+  }
+
   const addMonster = async (monster: Omit<Monster, "id">) => {
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/combat-monsters`, {
@@ -1175,6 +1200,7 @@ function CombatTrackerContent() {
                   if (type === "player") updatePlayerExhaustion(id, level)
                   else updateMonsterExhaustion(id, level)
                 }}
+                onUpdateDeathSaves={updateDeathSaves}
                 onRemoveFromCombat={removeFromCombat}
                 mode={mode}
                 ownCharacterIds={selectedCharacters.map(c => String(c.id))}
@@ -1253,6 +1279,7 @@ function CombatTrackerContent() {
                       if (type === "player") updatePlayerExhaustion(id, level)
                       else updateMonsterExhaustion(id, level)
                     } : undefined}
+                    onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                     onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                     mode={mode}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}

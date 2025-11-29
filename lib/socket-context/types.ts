@@ -9,6 +9,7 @@ import type {
   HpChangeData,
   ConditionChangeData,
   ExhaustionChangeData,
+  DeathSaveChangeData,
 } from '../socket-events';
 import type { Character, Monster, CombatParticipant } from '../types';
 
@@ -22,6 +23,7 @@ export type {
   HpChangeData,
   ConditionChangeData,
   ExhaustionChangeData,
+  DeathSaveChangeData,
 };
 
 // Typed socket
@@ -99,6 +101,7 @@ export type SocketAction =
   | { type: 'HP_CHANGE'; participantId: string; participantType: 'player' | 'monster'; newHp: number }
   | { type: 'CONDITION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; conditions: string[]; conditionDurations?: Record<string, number> }
   | { type: 'EXHAUSTION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; exhaustionLevel: number }
+  | { type: 'DEATH_SAVE_CHANGE'; participantId: string; participantType: 'player' | 'monster'; deathSaves: { successes: number; failures: number }; isStabilized: boolean; isDead: boolean }
 
   // Effects
   | { type: 'SET_AMBIENT_EFFECT'; effect: AmbientEffectData['effect'] }
@@ -175,6 +178,7 @@ export interface SocketContextType {
   emitHpChange: (data: HpChangeData) => void;
   emitConditionChange: (data: ConditionChangeData) => void;
   emitExhaustionChange: (data: ExhaustionChangeData) => void;
+  emitDeathSaveChange: (data: DeathSaveChangeData) => void;
 
   // Ambient effect
   emitAmbientEffect: (data: AmbientEffectData) => void;

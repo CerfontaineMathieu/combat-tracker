@@ -13,6 +13,7 @@ import type {
   HpChangeData,
   ConditionChangeData,
   ExhaustionChangeData,
+  DeathSaveChangeData,
   AmbientEffectData,
   PlayerPositionData,
   NotificationData,
@@ -160,6 +161,17 @@ export function SocketProvider({ children }: SocketProviderProps) {
       });
     });
 
+    socket.on('death-save-change', (data) => {
+      dispatch({
+        type: 'DEATH_SAVE_CHANGE',
+        participantId: data.participantId,
+        participantType: data.participantType,
+        deathSaves: data.deathSaves,
+        isStabilized: data.isStabilized,
+        isDead: data.isDead,
+      });
+    });
+
     socket.on('request-state-sync', () => {
       // DM should respond with current state
       if (stateRef.current.mode === 'mj' && stateRef.current.combatState.active) {
@@ -211,6 +223,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('hp-change');
       socket.off('condition-change');
       socket.off('exhaustion-change');
+      socket.off('death-save-change');
       socket.off('request-state-sync');
       socket.off('ambient-effect');
       socket.off('player-positions');
@@ -325,6 +338,13 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('exhaustion-change', data);
   }, []);
 
+  const emitDeathSaveChange = useCallback((data: DeathSaveChangeData) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    socket.emit('death-save-change', data);
+  }, []);
+
   const emitAmbientEffect = useCallback((data: AmbientEffectData) => {
     const socket = socketRef.current;
     if (!socket?.connected) return;
@@ -374,6 +394,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitDeathSaveChange,
     emitAmbientEffect,
     emitPlayerPositions,
     requestPlayerPositions,
