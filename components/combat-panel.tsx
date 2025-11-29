@@ -280,17 +280,11 @@ export function CombatPanel({
                       )}
 
                       {/* Death Saving Throws - MJ view */}
-                      {mode === "mj" && participant.type === "player" && participant.currentHp === 0 && !participant.isDead && onUpdateDeathSaves && (
+                      {mode === "mj" && participant.type === "player" && participant.currentHp === 0 && !participant.isDead && !participant.isStabilized && onUpdateDeathSaves && (
                         <div className="mt-2 p-2 bg-crimson/10 rounded-lg border border-crimson/30">
                           <div className="flex items-center gap-2 mb-2">
                             <Skull className="w-4 h-4 text-crimson" />
                             <span className="text-xs font-medium text-crimson">Jets de sauvegarde contre la mort</span>
-                            {participant.isStabilized && (
-                              <Badge className="ml-auto bg-gold/20 text-gold border-gold/30 text-xs">
-                                <Heart className="w-3 h-3 mr-1" />
-                                Stabilisé
-                              </Badge>
-                            )}
                           </div>
                           <div className="flex items-center gap-4">
                             {/* Successes */}
@@ -364,6 +358,14 @@ export function CombatPanel({
                         <div className="mt-2 flex items-center gap-2 text-crimson">
                           <Skull className="w-4 h-4" />
                           <span className="text-xs font-medium">Mort</span>
+                        </div>
+                      )}
+
+                      {/* Stabilized indicator - visible to all */}
+                      {participant.isStabilized && participant.currentHp === 0 && !participant.isDead && (
+                        <div className="mt-2 flex items-center gap-2 text-gold">
+                          <Heart className="w-4 h-4" />
+                          <span className="text-xs font-medium">Stabilisé</span>
                         </div>
                       )}
 

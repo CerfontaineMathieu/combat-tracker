@@ -580,6 +580,7 @@ function CombatTrackerContent() {
     if (!player) return
 
     const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + change))
+    const wasAtZeroHp = player.currentHp === 0
 
     // Add history entry for damage/heal
     if (combatActive && change !== 0) {
@@ -610,6 +611,11 @@ function CombatTrackerContent() {
         change,
         source: mode === 'mj' ? 'dm' : 'player',
       })
+
+      // Reset death saves when healed from 0 HP
+      if (wasAtZeroHp && newHp > 0) {
+        updateDeathSaves(id, 'player', { successes: 0, failures: 0 }, false, false)
+      }
     }
 
     // Note: Character HP is session-only (from Notion), no DB persistence
