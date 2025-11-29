@@ -323,6 +323,25 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
     }
 
+    case 'DEATH_SAVE_CHANGE': {
+      const { participantId, participantType, deathSaves, isStabilized, isDead } = action;
+
+      // Update in combat participants only (death saves are combat-specific)
+      const participants = state.combatState.participants.map((p) =>
+        p.id === participantId && p.type === participantType
+          ? { ...p, deathSaves, isStabilized, isDead }
+          : p
+      );
+
+      return {
+        ...state,
+        combatState: {
+          ...state.combatState,
+          participants,
+        },
+      };
+    }
+
     // ============ EFFECTS ============
     case 'SET_AMBIENT_EFFECT':
       return {

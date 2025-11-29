@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2 } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +37,7 @@ interface CombatPanelProps {
   onUpdateHp?: (id: string, change: number, type: "player" | "monster") => void
   onUpdateConditions?: (id: string, conditions: string[], type: "player" | "monster", conditionDurations?: Record<string, number>) => void
   onUpdateExhaustion?: (id: string, level: number, type: "player" | "monster") => void
+  onUpdateDeathSaves?: (id: string, type: "player" | "monster", deathSaves: { successes: number; failures: number }, isStabilized: boolean, isDead: boolean) => void
   onRemoveFromCombat?: (id: string) => void
   mode: "mj" | "joueur"
   ownCharacterIds?: string[] // IDs of characters owned by the current player
@@ -54,6 +55,7 @@ export function CombatPanel({
   onUpdateHp,
   onUpdateConditions,
   onUpdateExhaustion,
+  onUpdateDeathSaves,
   onRemoveFromCombat,
   mode,
   ownCharacterIds = [],
@@ -275,6 +277,103 @@ export function CombatPanel({
                             />
                           </div>
                         </div>
+                      )}
+
+                      {/* Death Saving Throws - MJ view */}
+                      {mode === "mj" && participant.type === "player" && participant.currentHp === 0 && !participant.isDead && !participant.isStabilized && onUpdateDeathSaves && (
+                        <div className="mt-2 p-2 bg-crimson/10 rounded-lg border border-crimson/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Skull className="w-4 h-4 text-crimson" />
+                            <span className="text-xs font-medium text-crimson">Jets de sauvegarde contre la mort</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {/* Successes */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-emerald mr-1">Succès:</span>
+                              {[0, 1, 2].map((i) => (
+                                <button
+                                  key={`success-${i}`}
+                                  onClick={() => {
+                                    const currentSuccesses = participant.deathSaves?.successes ?? 0
+                                    const newSuccesses = i < currentSuccesses ? i : i + 1
+                                    const isStabilized = newSuccesses >= 3
+                                    onUpdateDeathSaves(
+                                      participant.id,
+                                      participant.type,
+                                      { successes: Math.min(3, newSuccesses), failures: participant.deathSaves?.failures ?? 0 },
+                                      isStabilized,
+                                      false
+                                    )
+                                  }}
+                                  className={cn(
+                                    "w-5 h-5 rounded-full border-2 transition-all",
+                                    i < (participant.deathSaves?.successes ?? 0)
+                                      ? "bg-emerald border-emerald"
+                                      : "border-emerald/50 hover:border-emerald"
+                                  )}
+                                >
+                                  {i < (participant.deathSaves?.successes ?? 0) && (
+                                    <Check className="w-3 h-3 text-background mx-auto" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                            {/* Failures */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-crimson mr-1">Échecs:</span>
+                              {[0, 1, 2].map((i) => (
+                                <button
+                                  key={`failure-${i}`}
+                                  onClick={() => {
+                                    const currentFailures = participant.deathSaves?.failures ?? 0
+                                    const newFailures = i < currentFailures ? i : i + 1
+                                    const isDead = newFailures >= 3
+                                    onUpdateDeathSaves(
+                                      participant.id,
+                                      participant.type,
+                                      { successes: participant.deathSaves?.successes ?? 0, failures: Math.min(3, newFailures) },
+                                      participant.isStabilized ?? false,
+                                      isDead
+                                    )
+                                  }}
+                                  className={cn(
+                                    "w-5 h-5 rounded-full border-2 transition-all",
+                                    i < (participant.deathSaves?.failures ?? 0)
+                                      ? "bg-crimson border-crimson"
+                                      : "border-crimson/50 hover:border-crimson"
+                                  )}
+                                >
+                                  {i < (participant.deathSaves?.failures ?? 0) && (
+                                    <XCircle className="w-3 h-3 text-background mx-auto" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Dead indicator */}
+                      {participant.isDead && (
+                        <div className="mt-2 flex items-center gap-2 text-crimson">
+                          <Skull className="w-4 h-4" />
+                          <span className="text-xs font-medium">Mort</span>
+                        </div>
+                      )}
+
+                      {/* Stabilized indicator - visible to all */}
+                      {participant.isStabilized && participant.currentHp === 0 && !participant.isDead && (
+                        <div className="mt-2 flex items-center gap-2 text-gold">
+                          <Heart className="w-4 h-4" />
+                          <span className="text-xs font-medium">Stabilisé</span>
+                        </div>
+                      )}
+
+                      {/* Player view - dying indicator (minimal info) */}
+                      {mode === "joueur" && participant.type === "player" && participant.currentHp === 0 && !participant.isDead && !participant.isStabilized && (
+                        <Badge className="mt-2 bg-crimson/20 text-crimson border-crimson/30">
+                          Mourant
+                        </Badge>
                       )}
                     </div>
 

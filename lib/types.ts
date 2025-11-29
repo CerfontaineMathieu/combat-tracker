@@ -39,6 +39,13 @@ export interface CombatParticipant {
   exhaustionLevel: number
   type: "player" | "monster"
   xp?: number // XP value for monsters (from challenge_rating_xp)
+  // Death saving throws (players only)
+  deathSaves?: {
+    successes: number // 0-3
+    failures: number  // 0-3
+  }
+  isStabilized?: boolean
+  isDead?: boolean
 }
 
 export interface Note {

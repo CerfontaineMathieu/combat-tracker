@@ -138,6 +138,14 @@ export interface ExhaustionChangeData {
   exhaustionLevel: number;
 }
 
+export interface DeathSaveChangeData {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  deathSaves: { successes: number; failures: number };
+  isStabilized: boolean;
+  isDead: boolean;
+}
+
 export interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
 }
@@ -173,6 +181,7 @@ export interface ServerToClientEvents {
   // Condition and state events
   'condition-change': (data: ConditionChangeData) => void;
   'exhaustion-change': (data: ExhaustionChangeData) => void;
+  'death-save-change': (data: DeathSaveChangeData) => void;
   'ambient-effect': (data: AmbientEffectData) => void;
   // Map position events
   'player-positions': (data: PlayerPositionsData) => void;
@@ -197,6 +206,7 @@ export interface ClientToServerEvents {
   // Condition and state events
   'condition-change': (data: ConditionChangeData) => void;
   'exhaustion-change': (data: ExhaustionChangeData) => void;
+  'death-save-change': (data: DeathSaveChangeData) => void;
   'ambient-effect': (data: AmbientEffectData) => void;
   // Map position events
   'player-positions': (data: PlayerPositionsData) => void;

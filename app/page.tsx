@@ -66,6 +66,7 @@ function CombatTrackerContent() {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitDeathSaveChange,
     emitAmbientEffect,
   } = useSocketContext()
 
@@ -579,6 +580,7 @@ function CombatTrackerContent() {
     if (!player) return
 
     const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + change))
+    const wasAtZeroHp = player.currentHp === 0
 
     // Add history entry for damage/heal
     if (combatActive && change !== 0) {
@@ -609,6 +611,11 @@ function CombatTrackerContent() {
         change,
         source: mode === 'mj' ? 'dm' : 'player',
       })
+
+      // Reset death saves when healed from 0 HP
+      if (wasAtZeroHp && newHp > 0) {
+        updateDeathSaves(id, 'player', { successes: 0, failures: 0 }, false, false)
+      }
     }
 
     // Note: Character HP is session-only (from Notion), no DB persistence
@@ -774,6 +781,30 @@ function CombatTrackerContent() {
       console.error('Failed to update monster exhaustion:', error)
       toast.error("Erreur de sauvegarde")
     }
+  }
+
+  // Update death saves for a participant (players only in practice)
+  const updateDeathSaves = (
+    id: string,
+    type: 'player' | 'monster',
+    deathSaves: { successes: number; failures: number },
+    isStabilized: boolean,
+    isDead: boolean
+  ) => {
+    setCombatParticipants((prev) =>
+      prev.map((p) =>
+        p.id === id ? { ...p, deathSaves, isStabilized, isDead } : p
+      )
+    )
+
+    // Emit death save change to sync with other clients
+    emitDeathSaveChange({
+      participantId: id,
+      participantType: type,
+      deathSaves,
+      isStabilized,
+      isDead,
+    })
   }
 
   const addMonster = async (monster: Omit<Monster, "id">) => {
@@ -1175,6 +1206,7 @@ function CombatTrackerContent() {
                   if (type === "player") updatePlayerExhaustion(id, level)
                   else updateMonsterExhaustion(id, level)
                 }}
+                onUpdateDeathSaves={updateDeathSaves}
                 onRemoveFromCombat={removeFromCombat}
                 mode={mode}
                 ownCharacterIds={selectedCharacters.map(c => String(c.id))}
@@ -1253,6 +1285,7 @@ function CombatTrackerContent() {
                       if (type === "player") updatePlayerExhaustion(id, level)
                       else updateMonsterExhaustion(id, level)
                     } : undefined}
+                    onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                     onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                     mode={mode}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
