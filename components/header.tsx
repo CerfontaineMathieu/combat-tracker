@@ -5,7 +5,7 @@ import { Sword, Settings, Skull, Crown, User, LogOut, Map } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { AmbientControls, type AmbientEffect } from "@/components/ambient-effects"
+import { AmbientControls, CriticalButtons, type AmbientEffect } from "@/components/ambient-effects"
 
 interface HeaderProps {
   mode: "mj" | "joueur"
@@ -51,12 +51,18 @@ export function Header({
 
         {/* Ambient Controls - DM only */}
         {mode === "mj" && onAmbientEffectChange && (
-          <div className="hidden md:flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Ambiance:</span>
-            <AmbientControls
-              currentEffect={ambientEffect}
-              onChangeEffect={onAmbientEffectChange}
-            />
+          <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Ambiance:</span>
+              <AmbientControls
+                currentEffect={ambientEffect}
+                onChangeEffect={onAmbientEffectChange}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Critique:</span>
+              <CriticalButtons onTriggerEffect={onAmbientEffectChange} />
+            </div>
           </div>
         )}
 

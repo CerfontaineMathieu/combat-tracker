@@ -1021,7 +1021,14 @@ function CombatTrackerContent() {
   const handleAmbientEffectChange = (effect: AmbientEffect) => {
     setAmbientEffect(effect)
     // Emit to players
-    emitAmbientEffect(effect)
+    emitAmbientEffect({ effect })
+  }
+
+  // Handle critical effect end - reset to previous weather effect or 'none'
+  const handleEffectEnd = () => {
+    // Reset to 'none' after critical animation ends
+    setAmbientEffect('none')
+    emitAmbientEffect({ effect: 'none' })
   }
 
   // Load fight preset - replaces current monsters
@@ -1092,7 +1099,7 @@ function CombatTrackerContent() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Ambient Effects Overlay */}
-      <AmbientEffects effect={ambientEffect} />
+      <AmbientEffects effect={ambientEffect} onEffectEnd={handleEffectEnd} />
 
       {/* Monster Drop Quantity Dialog */}
       <Dialog open={!!pendingDropMonster} onOpenChange={(open) => !open && setPendingDropMonster(null)}>
