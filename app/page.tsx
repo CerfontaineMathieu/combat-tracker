@@ -469,6 +469,26 @@ function CombatTrackerContent() {
     toast("Combat terminé")
   }
 
+  const clearCombat = () => {
+    setCombatParticipants([])
+    if (combatActive) {
+      setCombatActive(false)
+      setCurrentTurn(0)
+      setRoundNumber(1)
+      setCombatHistory([])
+
+      // Emit socket event to sync with players
+      emitCombatUpdate({
+        type: 'stop',
+        combatActive: false,
+        currentTurn: 0,
+        roundNumber: 1,
+      })
+    }
+
+    toast("Combat vidé")
+  }
+
   const nextTurn = () => {
     const nextIndex = (currentTurn + 1) % combatParticipants.length
     // Increment round when cycling back to first participant
@@ -1141,6 +1161,7 @@ function CombatTrackerContent() {
                 onStartCombat={startCombat}
                 onStopCombat={stopCombat}
                 onNextTurn={nextTurn}
+                onClearCombat={mode === "mj" ? clearCombat : undefined}
                 onUpdateHp={(id, change, type) => {
                   if (type === "player") updatePlayerHp(id, change)
                   else updateMonsterHp(id, change)
@@ -1218,6 +1239,7 @@ function CombatTrackerContent() {
                     onStartCombat={mode === "mj" ? startCombat : undefined}
                     onStopCombat={mode === "mj" ? stopCombat : undefined}
                     onNextTurn={mode === "mj" ? nextTurn : undefined}
+                    onClearCombat={mode === "mj" ? clearCombat : undefined}
                     onUpdateHp={mode === "mj" ? (id, change, type) => {
                       if (type === "player") updatePlayerHp(id, change)
                       else updateMonsterHp(id, change)
@@ -1312,6 +1334,7 @@ function CombatTrackerContent() {
                   <CombatSetupPanel
                     onStartCombat={startCombat}
                     onRemoveFromCombat={removeFromCombat}
+                    onClearCombat={clearCombat}
                     onUpdateParticipantInitiative={updateParticipantInitiative}
                     onRandomizeInitiatives={randomizeInitiatives}
                     onLoadPreset={loadPresetParticipants}
