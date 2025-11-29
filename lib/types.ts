@@ -38,6 +38,7 @@ export interface CombatParticipant {
   conditionDurations?: Record<string, number> // conditionId -> remaining turns (only during combat)
   exhaustionLevel: number
   type: "player" | "monster"
+  xp?: number // XP value for monsters (from challenge_rating_xp)
 }
 
 export interface Note {

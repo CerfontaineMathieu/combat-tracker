@@ -921,6 +921,7 @@ function CombatTrackerContent() {
       conditions: [],
       exhaustionLevel: 0,
       type: "monster",
+      xp: dbMonster.challenge_rating_xp || undefined,
     }))
 
     setCombatParticipants(prev => {

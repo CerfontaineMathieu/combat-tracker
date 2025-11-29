@@ -61,6 +61,11 @@ export function CombatPanel({
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
   const [hpAmount, setHpAmount] = useState("")
 
+  // Calculate total XP from all monsters in combat (MJ only)
+  const totalXp = participants
+    .filter(p => p.type === "monster")
+    .reduce((sum, p) => sum + (p.xp || 0), 0)
+
   // Droppable zone for adding monsters during combat
   const { setNodeRef, isOver } = useDroppable({
     id: "combat-drop-zone",
@@ -97,11 +102,18 @@ export function CombatPanel({
             <Swords className="w-5 h-5" />
             Suivi de Combat
           </CardTitle>
-          {combatActive && (
-            <Badge className="bg-crimson/20 text-crimson border-crimson/30 animate-pulse">
-              Round {roundNumber}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {mode === "mj" && totalXp > 0 && (
+              <Badge variant="secondary" className="bg-gold/20 text-gold border-gold/30">
+                XP: {totalXp.toLocaleString()}
+              </Badge>
+            )}
+            {combatActive && (
+              <Badge className="bg-crimson/20 text-crimson border-crimson/30 animate-pulse">
+                Round {roundNumber}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col overflow-hidden">

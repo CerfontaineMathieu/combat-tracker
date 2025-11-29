@@ -109,6 +109,9 @@ export function CombatSetupPanel({
 
   const playerCount = combatParticipants.filter(p => p.type === "player").length
   const monsterCount = combatParticipants.filter(p => p.type === "monster").length
+  const totalXp = combatParticipants
+    .filter(p => p.type === "monster")
+    .reduce((sum, p) => sum + (p.xp || 0), 0)
   const canStartCombat = combatParticipants.length >= 2
 
   // Fetch presets when sheet opens
@@ -271,6 +274,11 @@ export function CombatSetupPanel({
                 <Skull className="w-3 h-3 mr-1" />
                 {monsterCount}
               </Badge>
+              {mode === "mj" && totalXp > 0 && (
+                <Badge variant="secondary" className="bg-gold/20 text-gold border-gold/30">
+                  XP: {totalXp.toLocaleString()}
+                </Badge>
+              )}
             </div>
           )}
         </div>
