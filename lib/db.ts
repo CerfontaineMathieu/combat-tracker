@@ -257,6 +257,7 @@ export interface Campaign {
   name: string;
   description: string | null;
   room_code: string | null;
+  dm_password: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -516,6 +517,23 @@ export async function updateCampaign(
 
 export async function deleteCampaign(id: number): Promise<boolean> {
   const result = await pool.query('DELETE FROM campaigns WHERE id = $1', [id]);
+  return (result.rowCount ?? 0) > 0;
+}
+
+// DM Password functions
+export async function getDmPassword(campaignId: number): Promise<string | null> {
+  const result = await pool.query(
+    'SELECT dm_password FROM campaigns WHERE id = $1',
+    [campaignId]
+  );
+  return result.rows[0]?.dm_password || null;
+}
+
+export async function setDmPassword(campaignId: number, password: string): Promise<boolean> {
+  const result = await pool.query(
+    'UPDATE campaigns SET dm_password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [password, campaignId]
+  );
   return (result.rowCount ?? 0) > 0;
 }
 

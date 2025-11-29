@@ -1378,6 +1378,7 @@ function CombatTrackerContent() {
       <SettingsPanel
         open={showSettings}
         onOpenChange={setShowSettings}
+        campaignId={campaignId}
         campaignName={campaignName}
         onCampaignNameChange={setCampaignName}
       />
