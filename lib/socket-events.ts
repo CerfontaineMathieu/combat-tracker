@@ -147,7 +147,7 @@ export interface DeathSaveChangeData {
 }
 
 export interface AmbientEffectData {
-  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
+  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success';
 }
 
 export interface PlayerPositionData {
