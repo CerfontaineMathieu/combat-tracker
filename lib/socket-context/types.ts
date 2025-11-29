@@ -65,6 +65,10 @@ export interface SocketState {
 
   // Notifications (toast queue)
   pendingNotification: NotificationData | null;
+
+  // DM disconnect tracking (for player overlay)
+  dmDisconnected: boolean;
+  dmDisconnectTime: number | null;
 }
 
 // Action types
@@ -106,7 +110,11 @@ export type SocketAction =
   // Effects
   | { type: 'SET_AMBIENT_EFFECT'; effect: AmbientEffectData['effect'] }
   | { type: 'SET_NOTIFICATION'; notification: NotificationData }
-  | { type: 'CLEAR_NOTIFICATION' };
+  | { type: 'CLEAR_NOTIFICATION' }
+
+  // DM disconnect/reconnect
+  | { type: 'DM_DISCONNECTED'; timestamp: number }
+  | { type: 'DM_RECONNECTED' };
 
 // Initial state
 export const initialSocketState: SocketState = {
@@ -144,6 +152,10 @@ export const initialSocketState: SocketState = {
 
   // Notifications
   pendingNotification: null,
+
+  // DM disconnect tracking
+  dmDisconnected: false,
+  dmDisconnectTime: null,
 };
 
 // Join campaign data

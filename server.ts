@@ -4,11 +4,32 @@ import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
 import { getDmPassword } from './lib/db';
+import {
+  getRedis,
+  getDmSession,
+  setDmSession,
+  deleteDmSession,
+  getConnectedPlayers,
+  addConnectedPlayer,
+  removeConnectedPlayer,
+  getCombatState,
+  setCombatState,
+  deleteCombatState,
+  type DmSession,
+  type ConnectedPlayer as RedisConnectedPlayer,
+  type CombatState,
+} from './lib/redis';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 const DEFAULT_DM_PASSWORD = process.env.DM_PASSWORD || 'defaultpassword';
+
+// Grace period before notifying players of DM disconnect (ms)
+const DM_DISCONNECT_GRACE_PERIOD = 5000; // 5 seconds
+
+// Store disconnect timers locally (not in Redis - they're ephemeral)
+const disconnectTimers = new Map<number, NodeJS.Timeout>();
 
 // Get effective password: DB first, then .env fallback
 async function getEffectivePassword(campaignId: number): Promise<string> {
@@ -24,29 +45,13 @@ async function getEffectivePassword(campaignId: number): Promise<string> {
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// Connected player info
-interface ConnectedPlayer {
-  socketId: string;
-  playerName?: string;
-  characters: Array<{
-    odNumber: string | number; // Notion UUID or legacy DB ID
-    name: string;
-    class: string;
-    level: number;
-    currentHp: number;
-    maxHp: number;
-    ac: number;
-    initiative: number;
-    conditions: string[];
-    exhaustionLevel?: number;
-  }>;
+// Note: ConnectedPlayer and DmSession types are now imported from ./lib/redis
+// In-memory Maps replaced with Redis for better reliability and multi-instance support
+
+// Generate a unique session token for DM sessions
+function generateSessionToken(socketId: string): string {
+  return `${socketId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
-
-// Store connected players per campaign
-const connectedPlayers = new Map<number, Map<string, ConnectedPlayer>>();
-
-// Store connected DM socket ID per campaign (only one allowed)
-const connectedDMs = new Map<number, string>();
 
 // Socket event types
 interface JoinCampaignData {
@@ -151,6 +156,7 @@ interface CampaignSocket extends Socket {
     campaignId?: number;
     role?: 'dm' | 'player';
     odNumber?: number; // Character ID if player
+    dmSessionToken?: string; // Token to validate DM session (prevents race conditions)
   };
 }
 
@@ -160,11 +166,21 @@ app.prepare().then(() => {
     handle(req, res, parsedUrl);
   });
 
+  // Initialize Redis connection
+  getRedis().then(() => {
+    console.log('[Server] Redis initialized');
+  }).catch((err) => {
+    console.error('[Server] Failed to initialize Redis:', err);
+  });
+
   const io = new SocketServer(server, {
     path: '/api/socketio',
     addTrailingSlash: false,
+    // Faster heartbeat for quicker disconnect detection
+    pingTimeout: 10000,   // Wait 10s for pong (default 20s)
+    pingInterval: 5000,   // Send ping every 5s (default 25s)
     cors: {
-      origin: dev ? ['http://localhost:3000'] : [],
+      origin: dev ? ['http://localhost:3000', 'http://localhost:3001'] : [],
       methods: ['GET', 'POST'],
     },
   });
@@ -187,17 +203,45 @@ app.prepare().then(() => {
           return;
         }
 
-        // Check if DM already connected
-        const existingDM = connectedDMs.get(campaignId);
-        if (existingDM && existingDM !== socket.id) {
-          console.log(`[Socket.io] DM login failed for ${socket.id}: DM already connected (${existingDM})`);
-          socket.emit('join-error', { error: 'dm-already-connected', message: 'Un Maître du Jeu est déjà connecté' });
-          return;
+        // Check if DM already connected (from Redis)
+        const existingDM = await getDmSession(campaignId);
+
+        // Check if there's a pending disconnect timer (DM is reconnecting)
+        const pendingTimer = disconnectTimers.get(campaignId);
+
+        if (existingDM && existingDM.socketId !== socket.id) {
+          if (pendingTimer) {
+            // DM is reconnecting within grace period - clear timer
+            clearTimeout(pendingTimer);
+            disconnectTimers.delete(campaignId);
+            console.log(`[Socket.io] DM reconnecting within grace period for campaign ${campaignId}`);
+
+            // Notify players that DM is back
+            io.to(room).emit('dm-reconnected');
+          } else {
+            // Another active DM - reject
+            console.log(`[Socket.io] DM login failed for ${socket.id}: DM already connected (${existingDM.socketId})`);
+            socket.emit('join-error', { error: 'dm-already-connected', message: 'Un Maître du Jeu est déjà connecté' });
+            return;
+          }
         }
 
-        // Register this socket as DM
-        connectedDMs.set(campaignId, socket.id);
+        // Generate and store session token
+        const sessionToken = generateSessionToken(socket.id);
+        socket.data.dmSessionToken = sessionToken;
+
+        // Register this socket as DM in Redis
+        await setDmSession(campaignId, {
+          socketId: socket.id,
+          sessionToken,
+          connectedAt: Date.now(),
+        });
         console.log(`[Socket.io] DM registered for campaign ${campaignId}: ${socket.id}`);
+
+        // If reconnecting with existing timer, notify players
+        if (pendingTimer) {
+          io.to(room).emit('dm-reconnected');
+        }
       }
 
       socket.join(room);
@@ -208,18 +252,13 @@ app.prepare().then(() => {
 
       // Handle player joining with characters
       if (role === 'player' && characters && characters.length > 0) {
-        // Initialize campaign's player map if needed
-        if (!connectedPlayers.has(campaignId)) {
-          connectedPlayers.set(campaignId, new Map());
-        }
-
-        const campaignPlayers = connectedPlayers.get(campaignId)!;
-        const playerData: ConnectedPlayer = {
+        const playerData: RedisConnectedPlayer = {
           socketId: socket.id,
           characters: characters
         };
 
-        campaignPlayers.set(socket.id, playerData);
+        // Store in Redis
+        await addConnectedPlayer(campaignId, playerData);
 
         const characterNames = characters.map(c => c.name).join(', ');
         console.log(`[Socket.io] Player with characters [${characterNames}] connected to campaign ${campaignId}`);
@@ -228,8 +267,8 @@ app.prepare().then(() => {
         io.to(room).emit('player-connected', { player: playerData });
         console.log(`[Socket.io] Emitted player-connected to room ${room}`);
 
-        // Send current connected players list to the new player
-        const allPlayers = Array.from(campaignPlayers.values());
+        // Send current connected players list to the new player (from Redis)
+        const allPlayers = await getConnectedPlayers(campaignId);
         console.log(`[Socket.io] Sending connected-players to new player ${socket.id}: ${allPlayers.length} players`);
         socket.emit('connected-players', { players: allPlayers });
       }
@@ -242,43 +281,59 @@ app.prepare().then(() => {
         socket.to(room).emit('request-state-sync');
       }
 
-      // If DM joins, send them the connected players list
+      // If DM joins, send them the connected players list and restore combat state
       if (role === 'dm') {
-        const campaignPlayers = connectedPlayers.get(campaignId);
-        const allPlayers = campaignPlayers ? Array.from(campaignPlayers.values()) : [];
+        const allPlayers = await getConnectedPlayers(campaignId);
         console.log(`[Socket.io] Sending connected-players to DM: ${allPlayers.length} players`, allPlayers.map(p => p.characters.map(c => c.name).join(', ')));
         socket.emit('connected-players', { players: allPlayers });
+
+        // Restore combat state from Redis if available
+        const combatState = await getCombatState(campaignId);
+        if (combatState && combatState.combatActive) {
+          console.log(`[Socket.io] Restoring combat state for DM in campaign ${campaignId}`);
+          socket.emit('combat-update', {
+            type: 'state-sync',
+            combatActive: combatState.combatActive,
+            currentTurn: combatState.currentTurn,
+            roundNumber: combatState.roundNumber,
+            participants: combatState.participants,
+          });
+        }
       }
     });
 
     // Leave campaign room
-    socket.on('leave-campaign', () => {
+    socket.on('leave-campaign', async () => {
       if (socket.data.campaignId) {
         const campaignId = socket.data.campaignId;
         const room = `campaign-${campaignId}`;
 
-        // Remove DM from connected DMs
+        // Remove DM from Redis (explicit leave, not disconnect)
         if (socket.data.role === 'dm') {
-          const currentDM = connectedDMs.get(campaignId);
-          if (currentDM === socket.id) {
-            connectedDMs.delete(campaignId);
-            console.log(`[Socket.io] DM left campaign ${campaignId}`);
+          const currentDM = await getDmSession(campaignId);
+          if (currentDM && currentDM.sessionToken === socket.data.dmSessionToken) {
+            await deleteDmSession(campaignId);
+            // Clear any pending disconnect timer
+            const pendingTimer = disconnectTimers.get(campaignId);
+            if (pendingTimer) {
+              clearTimeout(pendingTimer);
+              disconnectTimers.delete(campaignId);
+            }
+            // Notify players immediately (no grace period for explicit leave)
+            io.to(room).emit('dm-disconnected', { timestamp: Date.now() });
+            console.log(`[Socket.io] DM explicitly left campaign ${campaignId}`);
           }
         }
 
-        // Remove player from connected players
+        // Remove player from Redis
         if (socket.data.role === 'player') {
-          const campaignPlayers = connectedPlayers.get(campaignId);
-          if (campaignPlayers) {
-            const player = campaignPlayers.get(socket.id);
-            if (player) {
-              campaignPlayers.delete(socket.id);
-              io.to(room).emit('player-disconnected', {
-                socketId: socket.id,
-              });
-              const characterNames = player.characters.map(c => c.name).join(', ');
-              console.log(`[Socket.io] Player with characters [${characterNames}] left campaign ${campaignId}`);
-            }
+          const player = await removeConnectedPlayer(campaignId, socket.id);
+          if (player) {
+            io.to(room).emit('player-disconnected', {
+              socketId: socket.id,
+            });
+            const characterNames = player.characters.map(c => c.name).join(', ');
+            console.log(`[Socket.io] Player with characters [${characterNames}] left campaign ${campaignId}`);
           }
         }
 
@@ -289,23 +344,41 @@ app.prepare().then(() => {
     });
 
     // Request connected players list
-    socket.on('request-connected-players', (data?: { campaignId?: number }) => {
+    socket.on('request-connected-players', async (data?: { campaignId?: number }) => {
       const campaignId = data?.campaignId || socket.data.campaignId;
       if (campaignId) {
-        const campaignPlayers = connectedPlayers.get(campaignId);
-        const allPlayers = campaignPlayers ? Array.from(campaignPlayers.values()) : [];
+        const allPlayers = await getConnectedPlayers(campaignId);
         console.log(`[Socket.io] request-connected-players from ${socket.id} for campaign ${campaignId}: ${allPlayers.length} players`);
         socket.emit('connected-players', { players: allPlayers });
       }
     });
 
     // Combat state updates (start, stop, next turn)
-    socket.on('combat-update', (data: CombatUpdateData) => {
+    socket.on('combat-update', async (data: CombatUpdateData) => {
       if (socket.data.campaignId) {
         const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
         // Broadcast to all clients in room including sender
         io.to(room).emit('combat-update', data);
         console.log(`[Socket.io] Combat update in ${room}:`, data.type);
+
+        // Persist combat state to Redis
+        if (data.type === 'stop') {
+          // Clear combat state on stop
+          await deleteCombatState(campaignId);
+          console.log(`[Socket.io] Combat state cleared for campaign ${campaignId}`);
+        } else if (data.combatActive && data.participants) {
+          // Save combat state
+          await setCombatState(campaignId, {
+            combatActive: data.combatActive,
+            currentTurn: data.currentTurn,
+            roundNumber: data.roundNumber || 1,
+            participants: data.participants,
+            lastUpdate: Date.now(),
+          });
+          console.log(`[Socket.io] Combat state saved for campaign ${campaignId}`);
+        }
       }
     });
 
@@ -422,34 +495,51 @@ app.prepare().then(() => {
       }
     });
 
-    // Disconnect handling
-    socket.on('disconnect', () => {
+    // Disconnect handling with grace period for DM
+    socket.on('disconnect', async () => {
       if (socket.data.campaignId) {
         const campaignId = socket.data.campaignId;
         const room = `campaign-${campaignId}`;
 
-        // Remove DM from connected DMs
+        // Handle DM disconnect with grace period
         if (socket.data.role === 'dm') {
-          const currentDM = connectedDMs.get(campaignId);
-          if (currentDM === socket.id) {
-            connectedDMs.delete(campaignId);
-            console.log(`[Socket.io] DM disconnected from campaign ${campaignId}`);
+          const currentDM = await getDmSession(campaignId);
+
+          // Only process if this socket's token matches (prevents race condition)
+          if (currentDM && currentDM.sessionToken === socket.data.dmSessionToken) {
+            console.log(`[Socket.io] DM disconnected, starting ${DM_DISCONNECT_GRACE_PERIOD}ms grace period for campaign ${campaignId}`);
+
+            // Start grace period timer
+            const disconnectTimer = setTimeout(async () => {
+              // Double-check token still matches after timeout
+              const dm = await getDmSession(campaignId);
+              if (dm && dm.sessionToken === socket.data.dmSessionToken) {
+                // Grace period expired, DM didn't reconnect
+                await deleteDmSession(campaignId);
+                disconnectTimers.delete(campaignId);
+
+                // Notify players that DM is truly gone
+                io.to(room).emit('dm-disconnected', { timestamp: Date.now() });
+                console.log(`[Socket.io] DM grace period expired for campaign ${campaignId}, notifying players`);
+              }
+            }, DM_DISCONNECT_GRACE_PERIOD);
+
+            // Store timer for potential cancellation
+            disconnectTimers.set(campaignId, disconnectTimer);
+          } else {
+            console.log(`[Socket.io] DM disconnect ignored (stale socket) for campaign ${campaignId}`);
           }
         }
 
-        // Remove player from connected players
+        // Handle player disconnect (immediate, no grace period)
         if (socket.data.role === 'player') {
-          const campaignPlayers = connectedPlayers.get(campaignId);
-          if (campaignPlayers) {
-            const player = campaignPlayers.get(socket.id);
-            if (player) {
-              campaignPlayers.delete(socket.id);
-              io.to(room).emit('player-disconnected', {
-                socketId: socket.id,
-              });
-              const characterNames = player.characters.map(c => c.name).join(', ');
-              console.log(`[Socket.io] Player with characters [${characterNames}] disconnected from campaign ${campaignId}`);
-            }
+          const player = await removeConnectedPlayer(campaignId, socket.id);
+          if (player) {
+            io.to(room).emit('player-disconnected', {
+              socketId: socket.id,
+            });
+            const characterNames = player.characters.map(c => c.name).join(', ');
+            console.log(`[Socket.io] Player with characters [${characterNames}] disconnected from campaign ${campaignId}`);
           }
         }
 

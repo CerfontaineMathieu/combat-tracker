@@ -361,6 +361,21 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         pendingNotification: null,
       };
 
+    // ============ DM DISCONNECT/RECONNECT ============
+    case 'DM_DISCONNECTED':
+      return {
+        ...state,
+        dmDisconnected: true,
+        dmDisconnectTime: action.timestamp,
+      };
+
+    case 'DM_RECONNECTED':
+      return {
+        ...state,
+        dmDisconnected: false,
+        dmDisconnectTime: null,
+      };
+
     default:
       return state;
   }

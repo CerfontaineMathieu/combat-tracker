@@ -161,6 +161,11 @@ export interface PlayerPositionsData {
   positions: PlayerPositionData[];
 }
 
+// DM disconnect/reconnect events
+export interface DmDisconnectedData {
+  timestamp: number;
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -188,6 +193,9 @@ export interface ServerToClientEvents {
   'request-player-positions': () => void;
   // Join error event
   'join-error': (data: { error: string; message: string }) => void;
+  // DM disconnect/reconnect events
+  'dm-disconnected': (data: DmDisconnectedData) => void;
+  'dm-reconnected': () => void;
 }
 
 // Client to server events
