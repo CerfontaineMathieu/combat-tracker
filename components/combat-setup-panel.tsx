@@ -19,6 +19,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -60,6 +71,7 @@ interface FightPresetWithMonsters extends FightPreset {
 interface CombatSetupPanelProps {
   onStartCombat: () => void
   onRemoveFromCombat: (id: string) => void
+  onClearCombat?: () => void
   onUpdateParticipantInitiative?: (id: string, initiative: number) => void
   onRandomizeInitiatives?: () => void
   onLoadPreset?: (participants: CombatParticipant[]) => void
@@ -71,6 +83,7 @@ interface CombatSetupPanelProps {
 export function CombatSetupPanel({
   onStartCombat,
   onRemoveFromCombat,
+  onClearCombat,
   onUpdateParticipantInitiative,
   onRandomizeInitiatives,
   onLoadPreset,
@@ -291,14 +304,45 @@ export function CombatSetupPanel({
 
             {/* Initiative Controls */}
             {combatParticipants.length > 0 && onRandomizeInitiatives && (
-              <Button
-                variant="outline"
-                onClick={onRandomizeInitiatives}
-                className="w-full min-h-[40px] border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/10 text-purple-500"
-              >
-                <Dices className="w-4 h-4 mr-2" />
-                Randomiser les initiatives
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={onRandomizeInitiatives}
+                  className="flex-1 min-h-[40px] border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/10 text-purple-500"
+                >
+                  <Dices className="w-4 h-4 mr-2" />
+                  Randomiser les initiatives
+                </Button>
+                {onClearCombat && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="min-h-[40px] border-crimson/30 hover:border-crimson hover:bg-crimson/10 text-crimson"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-card border-border">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-crimson">Vider le combat ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action supprimera tous les monstres et joueurs du combat.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="border-border">Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={onClearCombat}
+                          className="bg-crimson hover:bg-crimson/80"
+                        >
+                          Vider
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             )}
 
             {/* Start Combat Button */}

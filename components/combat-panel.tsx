@@ -2,12 +2,23 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import type { CombatParticipant } from "@/lib/types"
@@ -22,6 +33,7 @@ interface CombatPanelProps {
   onStartCombat?: () => void
   onStopCombat?: () => void
   onNextTurn?: () => void
+  onClearCombat?: () => void
   onUpdateHp?: (id: string, change: number, type: "player" | "monster") => void
   onUpdateConditions?: (id: string, conditions: string[], type: "player" | "monster", conditionDurations?: Record<string, number>) => void
   onUpdateExhaustion?: (id: string, level: number, type: "player" | "monster") => void
@@ -38,6 +50,7 @@ export function CombatPanel({
   onStartCombat,
   onStopCombat,
   onNextTurn,
+  onClearCombat,
   onUpdateHp,
   onUpdateConditions,
   onUpdateExhaustion,
@@ -120,6 +133,35 @@ export function CombatPanel({
                   <SkipForward className="w-5 h-5 mr-2" />
                   Tour suivant
                 </Button>
+                {onClearCombat && participants.length > 0 && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="min-h-[48px] border-crimson/30 hover:border-crimson hover:bg-crimson/10 text-crimson active:scale-95 transition-smooth"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-card border-border">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-crimson">Vider le combat ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action supprimera tous les monstres et joueurs du combat.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="border-border">Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={onClearCombat}
+                          className="bg-crimson hover:bg-crimson/80"
+                        >
+                          Vider
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </>
             )}
           </div>
