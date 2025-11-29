@@ -217,13 +217,13 @@ export const CONDITIONS: Condition[] = [
   },
 ]
 
-// Exhaustion levels (Épuisement) - D&D 5e
+// Exhaustion levels (Épuisement) - D&D 2024
 export const EXHAUSTION_LEVELS = [
-  { level: 1, effect: "Désavantage aux jets de caractéristique" },
-  { level: 2, effect: "Vitesse réduite de moitié" },
-  { level: 3, effect: "Désavantage aux jets d'attaque et de sauvegarde" },
-  { level: 4, effect: "Maximum de points de vie réduit de moitié" },
-  { level: 5, effect: "Vitesse réduite à 0" },
+  { level: 1, effect: "-2 aux jets de d20, -1,5m de vitesse" },
+  { level: 2, effect: "-4 aux jets de d20, -3m de vitesse" },
+  { level: 3, effect: "-6 aux jets de d20, -4,5m de vitesse" },
+  { level: 4, effect: "-8 aux jets de d20, -6m de vitesse" },
+  { level: 5, effect: "-10 aux jets de d20, -7,5m de vitesse" },
   { level: 6, effect: "Mort" },
 ] as const
 
