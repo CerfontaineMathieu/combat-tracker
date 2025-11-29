@@ -39,7 +39,9 @@ function getPersistedState(): Partial<SocketState> {
       const parsed = JSON.parse(saved);
       return {
         mode: parsed.mode || null,
-        isJoined: parsed.isJoined || false,
+        // IMPORTANT: isJoined should NEVER be restored from storage
+        // On page load, we're not connected yet - auto-rejoin will handle reconnection
+        isJoined: false,
         campaignId: parsed.campaignId || 1,
       };
     }
@@ -84,14 +86,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
   }, [state]);
 
   // Persist relevant state to sessionStorage
+  // NOTE: isJoined is intentionally NOT persisted - it should always start as false
   useEffect(() => {
     if (typeof window === 'undefined') return;
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       mode: state.mode,
-      isJoined: state.isJoined,
       campaignId: state.campaignId,
     }));
-  }, [state.mode, state.isJoined, state.campaignId]);
+  }, [state.mode, state.campaignId]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -339,10 +341,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     dispatch({ type: 'SET_MODE', mode: params.role === 'dm' ? 'mj' : 'joueur' });
 
-    // Store password for DM auto-rejoin on page refresh
-    if (params.role === 'dm' && params.password) {
-      storeDmPassword(params.password);
-    }
+    // NOTE: Don't store password here - only store after successful join
+    // This is handled in page.tsx to avoid storing wrong passwords
 
     socket.emit('join-campaign', {
       campaignId: stateRef.current.campaignId,

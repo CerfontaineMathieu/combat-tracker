@@ -26,7 +26,8 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const DEFAULT_DM_PASSWORD = process.env.DM_PASSWORD || 'defaultpassword';
 
 // Grace period before notifying players of DM disconnect (ms)
-const DM_DISCONNECT_GRACE_PERIOD = 5000; // 5 seconds
+// 30 seconds to handle page refreshes (especially in dev mode with recompilation)
+const DM_DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
 
 // Store disconnect timers locally (not in Redis - they're ephemeral)
 const disconnectTimers = new Map<number, NodeJS.Timeout>();
@@ -210,6 +211,10 @@ app.prepare().then(() => {
         const pendingTimer = disconnectTimers.get(campaignId);
 
         if (existingDM && existingDM.socketId !== socket.id) {
+          // Check if the existing DM socket is still actually connected
+          const existingSocket = io.sockets.sockets.get(existingDM.socketId);
+          const isStaleSession = !existingSocket || !existingSocket.connected;
+
           if (pendingTimer) {
             // DM is reconnecting within grace period - clear timer
             clearTimeout(pendingTimer);
@@ -218,6 +223,12 @@ app.prepare().then(() => {
 
             // Notify players that DM is back
             io.to(room).emit('dm-reconnected');
+          } else if (isStaleSession) {
+            // Stale session (server restarted or socket died) - allow takeover
+            console.log(`[Socket.io] Stale DM session detected for campaign ${campaignId}, allowing takeover`);
+            await deleteDmSession(campaignId);
+            // Also clear stale player data since they're likely disconnected too
+            // (optional: could keep players if we want to preserve state)
           } else {
             // Another active DM - reject
             console.log(`[Socket.io] DM login failed for ${socket.id}: DM already connected (${existingDM.socketId})`);
