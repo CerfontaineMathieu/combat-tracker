@@ -361,12 +361,23 @@ function CombatTrackerContent() {
       setDmLoading(false)
       setDmError(socketState.joinError)
       setPendingDmPassword(null) // Clear pending password on error
+
+      // Show toast for player join errors (e.g., character already in use)
+      if (mode === 'joueur' || !userSelected) {
+        toast.error(socketState.joinError, { duration: 5000 })
+        // Clear stored characters so user has to re-select
+        localStorage.removeItem('combatTrackerCharacters')
+        localStorage.removeItem('combatTrackerMode')
+        setUserSelected(false)
+        setMode('mj')
+      }
     }
-  }, [socketState.joinError])
+  }, [socketState.joinError, mode, userSelected])
 
   // Auto-join campaign on socket connect if user already selected (page refresh)
   useEffect(() => {
-    if (!socketState.isConnected || socketState.isJoined) return
+    // Don't auto-join if already joined or if there was a join error (prevents infinite retry loop)
+    if (!socketState.isConnected || socketState.isJoined || socketState.joinError) return
 
     const savedMode = localStorage.getItem('combatTrackerMode')
     if (!savedMode) return
@@ -380,7 +391,7 @@ function CombatTrackerContent() {
       }
     }
     // Note: DM auto-rejoin is not supported (requires password)
-  }, [socketState.isConnected, socketState.isJoined, joinCampaign])
+  }, [socketState.isConnected, socketState.isJoined, socketState.joinError, joinCampaign])
 
   // Convert connected players to Character format for the UI
   // Flatten characters array from each connected player and add grouping metadata
