@@ -166,8 +166,9 @@ export function BestiaryPanel({ onAddMonsterToCombat, mode }: BestiaryPanelProps
                     className="p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 border border-transparent hover:border-gold/30 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
+                      {/* Hide image on mobile to save space */}
                       {monster.image_url && (
-                        <div className="w-10 h-10 rounded overflow-hidden border border-border shrink-0">
+                        <div className="w-10 h-10 rounded overflow-hidden border border-border shrink-0 hidden sm:block">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={monster.image_url}

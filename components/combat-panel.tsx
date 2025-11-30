@@ -206,11 +206,11 @@ export function CombatPanel({
                     index === 0 && "animate-fade-in"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    {/* Initiative Badge */}
+                  <div className="flex items-center gap-2 md:gap-3">
+                    {/* Initiative Badge - smaller on mobile */}
                     <div
                       className={cn(
-                        "w-11 h-11 rounded-lg flex items-center justify-center font-bold text-lg shrink-0 transition-smooth",
+                        "w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center font-bold text-sm md:text-lg shrink-0 transition-smooth",
                         index === currentTurn
                           ? participant.type === "monster"
                             ? "bg-crimson text-white"
@@ -238,7 +238,7 @@ export function CombatPanel({
                           <Crown className="w-4 h-4 text-gold flex-shrink-0 animate-bounce" />
                         )}
                         {participant.type === "monster" && (
-                          <Badge variant="outline" className="text-xs border-crimson/50 text-crimson">
+                          <Badge variant="outline" className="text-xs border-crimson/50 text-crimson hidden sm:flex">
                             Monstre
                           </Badge>
                         )}
@@ -383,15 +383,15 @@ export function CombatPanel({
                       )}
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions - more compact on mobile */}
                     {mode === "mj" && (
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex gap-0.5 md:gap-1 shrink-0">
                         {/* Remove from combat */}
                         {onRemoveFromCombat && (
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-10 w-10 text-muted-foreground hover:text-crimson hover:bg-crimson/10 transition-smooth"
+                            className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground hover:text-crimson hover:bg-crimson/10 transition-smooth"
                             onClick={() => onRemoveFromCombat(participant.id)}
                           >
                             <X className="w-4 h-4" />
@@ -428,7 +428,7 @@ export function CombatPanel({
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-10 w-10 border-border hover:border-purple-500 hover:text-purple-500 bg-transparent transition-smooth"
+                                className="h-8 w-8 md:h-10 md:w-10 border-border hover:border-purple-500 hover:text-purple-500 bg-transparent transition-smooth"
                               >
                                 <Zap className="w-4 h-4" />
                               </Button>
@@ -442,7 +442,7 @@ export function CombatPanel({
                             <Button
                               size="sm"
                               variant="outline"
-                              className="min-h-[40px] border-border hover:border-gold hover:text-gold bg-transparent transition-smooth"
+                              className="h-8 md:min-h-[40px] px-2 md:px-3 border-border hover:border-gold hover:text-gold bg-transparent transition-smooth text-xs md:text-sm"
                               onClick={() => setSelectedParticipant(participant)}
                             >
                               PV
