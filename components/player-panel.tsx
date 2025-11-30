@@ -230,7 +230,9 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
               <Button
                 onClick={() => {
                   if (playerToAdd && onAddToCombat) {
-                    const init = parseInt(initiativeValue) || 0
+                    // Clamp initiative between 1-20 like on desktop
+                    const parsed = parseInt(initiativeValue)
+                    const init = isNaN(parsed) || parsed < 1 ? 1 : Math.min(20, parsed)
                     onUpdateInitiative(playerToAdd.id, init)
                     onAddToCombat({ ...playerToAdd, initiative: init })
                     setPlayerToAdd(null)
