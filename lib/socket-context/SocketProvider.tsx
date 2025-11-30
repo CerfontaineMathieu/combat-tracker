@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useReducer, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { socketReducer } from './reducer';
 import type {
@@ -445,8 +445,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('notification', data);
   }, []);
 
-  // Context value
-  const value: SocketContextType = {
+  // Context value - memoized to ensure proper React re-renders when state changes
+  const value: SocketContextType = useMemo(() => ({
     state,
     dispatch,
     joinCampaign,
@@ -461,7 +461,22 @@ export function SocketProvider({ children }: SocketProviderProps) {
     requestPlayerPositions,
     requestConnectedPlayers,
     emitNotification,
-  };
+  }), [
+    state,
+    dispatch,
+    joinCampaign,
+    leaveCampaign,
+    emitCombatUpdate,
+    emitHpChange,
+    emitConditionChange,
+    emitExhaustionChange,
+    emitDeathSaveChange,
+    emitAmbientEffect,
+    emitPlayerPositions,
+    requestPlayerPositions,
+    requestConnectedPlayers,
+    emitNotification,
+  ]);
 
   return (
     <SocketContext.Provider value={value}>

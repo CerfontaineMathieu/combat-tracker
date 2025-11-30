@@ -1207,6 +1207,7 @@ function CombatTrackerContent() {
           <div className="h-full animate-fade-in">
             {activeTab === "players" && (
               <PlayerPanel
+                key={`players-${socketState.connectedPlayers.length}`}
                 players={displayPlayers}
                 onUpdateHp={updatePlayerHp}
                 onUpdateInitiative={updatePlayerInitiative}
