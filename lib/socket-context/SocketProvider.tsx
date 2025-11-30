@@ -197,14 +197,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     socket.on('request-state-sync', () => {
       // DM should respond with current state
-      if (stateRef.current.mode === 'mj' && stateRef.current.combatState.active) {
-        socket.emit('combat-update', {
-          type: 'state-sync',
-          combatActive: stateRef.current.combatState.active,
-          currentTurn: stateRef.current.combatState.currentTurn,
-          roundNumber: stateRef.current.combatState.roundNumber,
-          participants: stateRef.current.combatState.participants,
-        });
+      if (stateRef.current.mode === 'mj') {
+        // Send combat state if active
+        if (stateRef.current.combatState.active) {
+          socket.emit('combat-update', {
+            type: 'state-sync',
+            combatActive: stateRef.current.combatState.active,
+            currentTurn: stateRef.current.combatState.currentTurn,
+            roundNumber: stateRef.current.combatState.roundNumber,
+            participants: stateRef.current.combatState.participants,
+          });
+        }
+        // Always send current ambient effect (even if "none")
+        socket.emit('ambient-effect', { effect: stateRef.current.ambientEffect });
       }
     });
 
