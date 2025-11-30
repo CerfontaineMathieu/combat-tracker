@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
+import { playSound } from "@/lib/sounds"
 
 export type AmbientEffect = "none" | "rain" | "fog" | "fire" | "snow" | "sandstorm" | "crit-fail" | "crit-success"
 
@@ -27,6 +28,10 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
   useEffect(() => {
     if (effect === "crit-fail" || effect === "crit-success") {
       setShowCritical(true)
+
+      // Play sound effect
+      playSound(effect === "crit-fail" ? "critFail" : "critSuccess")
+
       const timer = setTimeout(() => {
         setShowCritical(false)
         onEffectEnd?.()

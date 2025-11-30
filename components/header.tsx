@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu, QrCode } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu, QrCode, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { AmbientControls, CriticalButtons, type AmbientEffect } from "@/components/ambient-effects"
+import { isSoundMuted, setSoundMuted } from "@/lib/sounds"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { QrCodeDialog } from "@/components/qr-code-dialog"
 
@@ -32,6 +33,18 @@ export function Header({
   onAmbientEffectChange,
 }: HeaderProps) {
   const [showQrDialog, setShowQrDialog] = useState(false)
+  const [soundMuted, setSoundMutedState] = useState(() => {
+    if (typeof window !== "undefined") {
+      return isSoundMuted()
+    }
+    return false
+  })
+
+  const toggleSoundMute = () => {
+    const newValue = !soundMuted
+    setSoundMutedState(newValue)
+    setSoundMuted(newValue)
+  }
 
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40 safe-area-top">
@@ -87,7 +100,18 @@ export function Header({
                   </div>
                   <div className="flex flex-col gap-2">
                     <span className="text-xs text-muted-foreground font-medium">Critique</span>
-                    <CriticalButtons onTriggerEffect={onAmbientEffectChange} />
+                    <div className="flex items-center gap-2">
+                      <CriticalButtons onTriggerEffect={onAmbientEffectChange} />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleSoundMute}
+                        className="h-8 w-8"
+                        title={soundMuted ? "Activer les sons" : "Couper les sons"}
+                      >
+                        {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </PopoverContent>
@@ -104,6 +128,19 @@ export function Header({
               title="Code QR de connexion"
             >
               <QrCode className="w-4 h-4" />
+            </Button>
+          )}
+
+          {/* Sound Mute Button - Player only (DM has it in ambient popover) */}
+          {mode === "joueur" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSoundMute}
+              className="h-9 w-9 hover:bg-primary/20 transition-smooth"
+              title={soundMuted ? "Activer les sons" : "Couper les sons"}
+            >
+              {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </Button>
           )}
 
