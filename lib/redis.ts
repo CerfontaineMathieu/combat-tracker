@@ -150,6 +150,27 @@ export async function clearConnectedPlayers(campaignId: number): Promise<void> {
   await client.del(KEYS.players(campaignId));
 }
 
+// Update a specific character's HP across all connected players
+export async function updateCharacterHp(campaignId: number, characterId: string, newHp: number): Promise<void> {
+  const client = await getRedis();
+  const players = await getConnectedPlayers(campaignId);
+
+  for (const player of players) {
+    let updated = false;
+    for (const char of player.characters) {
+      if (String(char.odNumber) === characterId) {
+        char.currentHp = newHp;
+        updated = true;
+        break;
+      }
+    }
+    if (updated) {
+      await client.hSet(KEYS.players(campaignId), player.socketId, JSON.stringify(player));
+      break;
+    }
+  }
+}
+
 // ============================================
 // Combat State Operations
 // ============================================
