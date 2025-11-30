@@ -1,85 +1,87 @@
 "use client"
 
-import { useState } from "react"
-import { Skull, Plus, Trash2, Minus, Database, Swords, GripVertical } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Skull, Plus, Minus, Search, ChevronLeft, Database } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MonsterDatabase } from "@/components/monster-database"
-import { FightPresetsPanel } from "@/components/fight-presets-panel"
+import { MonsterDetail } from "@/components/monster-detail"
 import { cn } from "@/lib/utils"
-import type { Monster, DbMonster, CombatParticipant } from "@/lib/types"
-import { DraggableMonsterCard } from "@/components/draggable-card"
+import type { DbMonster } from "@/lib/types"
 
 interface BestiaryPanelProps {
-  monsters: Monster[]
-  onAddMonster: (monster: Omit<Monster, "id">) => void
-  onRemoveMonster: (id: string) => void
-  onUpdateHp: (id: string, change: number) => void
-  onLoadPreset?: (monsters: Monster[]) => void
+  onAddMonsterToCombat?: (dbMonster: DbMonster, quantity: number) => void
   mode: "mj" | "joueur"
-  combatActive?: boolean
-  combatParticipants?: CombatParticipant[]
-  campaignId?: number
 }
 
-export function BestiaryPanel({ monsters, onAddMonster, onRemoveMonster, onUpdateHp, onLoadPreset, mode, combatActive = false, combatParticipants = [], campaignId }: BestiaryPanelProps) {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newMonster, setNewMonster] = useState({
-    name: "",
-    maxHp: "",
-    ac: "",
-    initiative: "",
-    notes: "",
-  })
+export function BestiaryPanel({ onAddMonsterToCombat, mode }: BestiaryPanelProps) {
+  const [monsters, setMonsters] = useState<DbMonster[]>([])
+  const [filteredMonsters, setFilteredMonsters] = useState<DbMonster[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedMonster, setSelectedMonster] = useState<DbMonster | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const isMonsterInCombat = (monsterId: string) => {
-    return combatParticipants.some(p => p.id === monsterId)
-  }
+  // Quantity dialog state
+  const [quantityDialogMonster, setQuantityDialogMonster] = useState<DbMonster | null>(null)
+  const [quantity, setQuantity] = useState(1)
 
-  const handleAddMonster = () => {
-    if (newMonster.name && newMonster.maxHp) {
-      onAddMonster({
-        name: newMonster.name,
-        hp: Number.parseInt(newMonster.maxHp),
-        maxHp: Number.parseInt(newMonster.maxHp),
-        ac: Number.parseInt(newMonster.ac) || 10,
-        initiative: Number.parseInt(newMonster.initiative) || 0,
-        notes: newMonster.notes,
-        status: "actif",
-        conditions: [],
-        exhaustionLevel: 0,
-      })
-      setNewMonster({ name: "", maxHp: "", ac: "", initiative: "", notes: "" })
-      setIsAddDialogOpen(false)
+  // Fetch monsters from API
+  useEffect(() => {
+    async function fetchMonsters() {
+      try {
+        setLoading(true)
+        const response = await fetch("/api/monsters")
+        if (!response.ok) {
+          throw new Error("Failed to fetch monsters")
+        }
+        const data = await response.json()
+        setMonsters(data)
+        setFilteredMonsters(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error loading monsters")
+      } finally {
+        setLoading(false)
+      }
     }
+    fetchMonsters()
+  }, [])
+
+  // Filter monsters based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredMonsters(monsters)
+    } else {
+      const query = searchQuery.toLowerCase()
+      setFilteredMonsters(
+        monsters.filter(
+          (m) =>
+            m.name.toLowerCase().includes(query) ||
+            m.creature_type?.toLowerCase().includes(query)
+        )
+      )
+    }
+  }, [searchQuery, monsters])
+
+  // Handle opening quantity dialog
+  const handleAddClick = (monster: DbMonster, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setQuantityDialogMonster(monster)
+    setQuantity(1)
   }
 
-  const getHpColor = (current: number, max: number) => {
-    const ratio = current / max
-    if (ratio > 0.5) return "bg-emerald"
-    if (ratio > 0.25) return "bg-gold"
-    return "bg-crimson"
-  }
-
-  const handleAddFromDatabase = (dbMonster: DbMonster) => {
-    onAddMonster({
-      name: dbMonster.name,
-      hp: dbMonster.hit_points || 10,
-      maxHp: dbMonster.hit_points || 10,
-      ac: dbMonster.armor_class || 10,
-      initiative: dbMonster.dexterity_mod || 0,
-      notes: dbMonster.actions?.map(a => a.name).join(", ") || "",
-      status: "actif",
-      conditions: [],
-      exhaustionLevel: 0,
-    })
+  // Confirm adding monster(s) to combat
+  const handleConfirmAdd = () => {
+    if (quantityDialogMonster && onAddMonsterToCombat && quantity > 0) {
+      onAddMonsterToCombat(quantityDialogMonster, quantity)
+      setQuantityDialogMonster(null)
+      setQuantity(1)
+      // Go back to list view if we were in detail view
+      setSelectedMonster(null)
+    }
   }
 
   // Players should not see the bestiary at all
@@ -96,245 +98,169 @@ export function BestiaryPanel({ monsters, onAddMonster, onRemoveMonster, onUpdat
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
-        <Tabs defaultValue="combat" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2 mb-3 shrink-0">
-            <TabsTrigger value="combat" className="flex items-center gap-1 min-h-[40px]">
-              <Swords className="w-4 h-4" />
-              Combat
-            </TabsTrigger>
-            <TabsTrigger value="database" className="flex items-center gap-1 min-h-[40px]">
-              <Database className="w-4 h-4" />
-              Base de données
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="combat" className="flex-1 overflow-hidden mt-0 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
-              {/* Fight Presets - Save/Load */}
-              {campaignId && onLoadPreset && !combatActive && (
-                <FightPresetsPanel
-                  campaignId={campaignId}
-                  currentMonsters={monsters}
-                  onLoadPreset={onLoadPreset}
-                />
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <Database className="w-6 h-6 animate-pulse mr-2" />
+            Chargement du bestiaire...
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <Database className="w-12 h-12 opacity-30 mb-3" />
+            <p className="text-crimson">{error}</p>
+            <p className="text-sm">Vérifiez que la base de données est accessible</p>
+          </div>
+        ) : selectedMonster ? (
+          // Detail view
+          <div className="h-full flex flex-col">
+            <div className="flex items-center gap-2 mb-3 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMonster(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Retour
+              </Button>
+              {onAddMonsterToCombat && (
+                <Button
+                  size="sm"
+                  className="ml-auto min-h-[44px] bg-crimson hover:bg-crimson/80"
+                  onClick={() => handleAddClick(selectedMonster)}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Ajouter au combat
+                </Button>
               )}
-              <div className="flex-1" />
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="min-h-[44px] bg-crimson hover:bg-crimson/80 active:scale-95 transition-smooth"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Création manuelle
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-card border-border max-w-[calc(100vw-2rem)]">
-                  <DialogHeader>
-                    <DialogTitle className="text-gold">Ajouter un monstre</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Nom</Label>
-                      <Input
-                        id="name"
-                        value={newMonster.name}
-                        onChange={(e) => setNewMonster({ ...newMonster, name: e.target.value })}
-                        placeholder="Gobelin, Orc..."
-                        className="bg-background min-h-[44px] mt-1"
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label htmlFor="hp">PV max</Label>
-                        <Input
-                          id="hp"
-                          type="number"
-                          value={newMonster.maxHp}
-                          onChange={(e) => setNewMonster({ ...newMonster, maxHp: e.target.value })}
-                          placeholder="10"
-                          className="bg-background min-h-[44px] mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="ac">CA</Label>
-                        <Input
-                          id="ac"
-                          type="number"
-                          value={newMonster.ac}
-                          onChange={(e) => setNewMonster({ ...newMonster, ac: e.target.value })}
-                          placeholder="13"
-                          className="bg-background min-h-[44px] mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="initiative">Initiative</Label>
-                        <Input
-                          id="initiative"
-                          type="number"
-                          value={newMonster.initiative}
-                          onChange={(e) => setNewMonster({ ...newMonster, initiative: e.target.value })}
-                          placeholder="12"
-                          className="bg-background min-h-[44px] mt-1"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="notes">Notes</Label>
-                      <Textarea
-                        id="notes"
-                        value={newMonster.notes}
-                        onChange={(e) => setNewMonster({ ...newMonster, notes: e.target.value })}
-                        placeholder="Capacités spéciales, tactiques..."
-                        className="bg-background resize-none mt-1"
-                        rows={3}
-                      />
-                    </div>
-                    <Button
-                      onClick={handleAddMonster}
-                      className="w-full min-h-[48px] bg-primary hover:bg-primary/80 active:scale-95 transition-smooth"
-                    >
-                      Ajouter au combat
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <MonsterDetail monster={selectedMonster} />
+            </div>
+          </div>
+        ) : (
+          // List view
+          <div className="h-full flex flex-col">
+            {/* Search */}
+            <div className="relative mb-3 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un monstre..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-background min-h-[44px]"
+              />
             </div>
 
-            {/* Build mode: show draggable monster cards */}
-            {!combatActive ? (
-              <ScrollArea className="flex-1">
-                <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1 pr-2">
-                  <GripVertical className="w-3 h-3" />
-                  Glissez les monstres dans la zone de combat
-                </p>
-                <div className="space-y-2 pr-2">
-                  {monsters.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8 animate-fade-in">
-                      <Skull className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p>Aucun monstre</p>
-                      <p className="text-sm">Ajoutez des créatures depuis la base de données</p>
-                    </div>
-                  ) : (
-                    monsters.map((monster) => (
-                      <DraggableMonsterCard
-                        key={monster.id}
-                        monster={monster}
-                        isInCombat={isMonsterInCombat(monster.id)}
-                      />
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            ) : (
-              /* Combat active: show regular monster management */
-              <ScrollArea className="flex-1">
-                <div className="space-y-2 pr-2">
-                  {monsters.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8 animate-fade-in">
-                      <Skull className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p>Aucun monstre</p>
-                      <p className="text-sm">Ajoutez des créatures depuis la base de données</p>
-                    </div>
-                  ) : (
-                    monsters.map((monster, index) => (
-                    <div
-                      key={monster.id}
-                      className={cn(
-                        "p-3 bg-secondary/30 rounded-lg border border-border/50",
-                        monster.hp === 0 && "opacity-50",
-                        index === 0 && "animate-fade-in"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold text-crimson">{monster.name}</h3>
-                          <div className="flex gap-2 mt-1 flex-wrap">
-                            <Badge variant="outline" className="text-xs border-gold/50 text-gold">
-                              CA {monster.ac}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs border-border">
-                              Init {monster.initiative}
-                            </Badge>
-                          </div>
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-10 w-10 text-muted-foreground hover:text-crimson transition-smooth shrink-0"
-                          onClick={() => onRemoveMonster(monster.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+            {/* Results count */}
+            <div className="text-xs text-muted-foreground mb-2 shrink-0">
+              {filteredMonsters.length} monstre{filteredMonsters.length !== 1 ? "s" : ""} trouvé{filteredMonsters.length !== 1 ? "s" : ""}
+            </div>
 
-                      {/* HP Bar */}
-                      <div className="space-y-1 mb-3">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">PV</span>
-                          <span
-                            className={cn(
-                              monster.hp <= monster.maxHp * 0.25 && "text-crimson font-semibold"
-                            )}
-                          >
-                            {monster.hp} / {monster.maxHp}
-                          </span>
-                        </div>
-                        <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full transition-all duration-500 ease-out",
-                              getHpColor(monster.hp, monster.maxHp)
-                            )}
-                            style={{ width: `${Math.max(0, (monster.hp / monster.maxHp) * 100)}%` }}
+            {/* Monster list */}
+            <ScrollArea className="flex-1">
+              <div className="space-y-2 pr-2">
+                {filteredMonsters.map((monster) => (
+                  <div
+                    key={monster.id}
+                    onClick={() => setSelectedMonster(monster)}
+                    className="p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 border border-transparent hover:border-gold/30 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      {monster.image_url && (
+                        <div className="w-10 h-10 rounded overflow-hidden border border-border shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={monster.image_url}
+                            alt=""
+                            className="w-full h-full object-cover"
                           />
                         </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{monster.name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0">
+                            PV {monster.hit_points}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs border-gold/30 text-gold px-1.5 py-0">
+                            CA {monster.armor_class}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground truncate">
+                            {monster.creature_type}
+                          </span>
+                        </div>
                       </div>
-
-                      {/* Quick Actions */}
-                      <div className="flex gap-1">
+                      {onAddMonsterToCombat && (
                         <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 min-h-[40px] text-xs border-crimson/30 hover:bg-crimson/20 hover:text-crimson bg-transparent active:scale-95 transition-smooth"
-                          onClick={() => onUpdateHp(monster.id, -1)}
+                          size="icon"
+                          className="h-10 w-10 shrink-0 bg-crimson hover:bg-crimson/80"
+                          onClick={(e) => handleAddClick(monster, e)}
                         >
-                          <Minus className="w-3 h-3 mr-1" />1
+                          <Plus className="w-5 h-5" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 min-h-[40px] text-xs border-crimson/30 hover:bg-crimson/20 hover:text-crimson bg-transparent active:scale-95 transition-smooth"
-                          onClick={() => onUpdateHp(monster.id, -5)}
-                        >
-                          <Minus className="w-3 h-3 mr-1" />5
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 min-h-[40px] text-xs border-emerald/30 hover:bg-emerald/20 hover:text-emerald bg-transparent active:scale-95 transition-smooth"
-                          onClick={() => onUpdateHp(monster.id, 5)}
-                        >
-                          <Plus className="w-3 h-3 mr-1" />5
-                        </Button>
-                      </div>
-
-                      {monster.notes && (
-                        <p className="text-xs text-muted-foreground mt-2 italic">{monster.notes}</p>
                       )}
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
             </ScrollArea>
-            )}
-          </TabsContent>
-
-          <TabsContent value="database" className="flex-1 overflow-hidden mt-0">
-            <MonsterDatabase onAddToCombat={handleAddFromDatabase} />
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </CardContent>
+
+      {/* Quantity Dialog */}
+      <Dialog open={!!quantityDialogMonster} onOpenChange={(open) => !open && setQuantityDialogMonster(null)}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-crimson">
+              Ajouter {quantityDialogMonster?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                disabled={quantity <= 1}
+              >
+                <Minus className="w-5 h-5" />
+              </Button>
+              <div className="text-4xl font-bold w-16 text-center">{quantity}</div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12"
+                onClick={() => setQuantity(Math.min(20, quantity + 1))}
+                disabled={quantity >= 20}
+              >
+                <Plus className="w-5 h-5" />
+              </Button>
+            </div>
+            {quantityDialogMonster && (
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                <p>PV: {quantityDialogMonster.hit_points} | CA: {quantityDialogMonster.armor_class}</p>
+                {quantityDialogMonster.challenge_rating_xp && (
+                  <p className="mt-1">XP: {quantityDialogMonster.challenge_rating_xp * quantity}</p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setQuantityDialogMonster(null)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleConfirmAdd}
+              className="bg-crimson hover:bg-crimson/80"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter {quantity}x
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
