@@ -270,6 +270,13 @@ function CombatTrackerContent() {
             ac: number
             initiative: number
             conditions: string[]
+            passive_perception: number | null
+            strength: number | null
+            dexterity: number | null
+            constitution: number | null
+            intelligence: number | null
+            wisdom: number | null
+            charisma: number | null
           }) => ({
             id: c.id,
             name: c.name,
@@ -282,6 +289,13 @@ function CombatTrackerContent() {
             conditions: c.conditions || [],
             exhaustionLevel: 0,
             isConnected: false,
+            passivePerception: c.passive_perception,
+            strength: c.strength,
+            dexterity: c.dexterity,
+            constitution: c.constitution,
+            intelligence: c.intelligence,
+            wisdom: c.wisdom,
+            charisma: c.charisma,
           }))
           setPlayers(mappedCharacters)
           setAllCampaignCharacters(mappedCharacters)
@@ -423,6 +437,8 @@ function CombatTrackerContent() {
       player.characters.forEach((char, idx) => {
         const id = String(char.odNumber)
         connectedCharacterIds.add(id)
+        // Get static data from campaign characters (includes stats from Notion)
+        const campaignChar = allCampaignCharacters.find(c => c.id === id)
         connectedCharactersMap.set(id, {
           id,
           name: char.name,
@@ -439,6 +455,14 @@ function CombatTrackerContent() {
           playerSocketId: player.socketId,
           isFirstInGroup: idx === 0,
           groupSize: player.characters.length,
+          // Include stats from Notion (campaign characters)
+          passivePerception: campaignChar?.passivePerception,
+          strength: campaignChar?.strength,
+          dexterity: campaignChar?.dexterity,
+          constitution: campaignChar?.constitution,
+          intelligence: campaignChar?.intelligence,
+          wisdom: campaignChar?.wisdom,
+          charisma: campaignChar?.charisma,
         })
       })
     })

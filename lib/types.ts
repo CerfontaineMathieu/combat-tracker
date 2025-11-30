@@ -15,6 +15,14 @@ export interface Character {
   playerSocketId?: string
   isFirstInGroup?: boolean
   groupSize?: number
+  // Combat stats (synced from Notion)
+  passivePerception?: number | null
+  strength?: number | null
+  dexterity?: number | null
+  constitution?: number | null
+  intelligence?: number | null
+  wisdom?: number | null
+  charisma?: number | null
 }
 
 export interface Monster {

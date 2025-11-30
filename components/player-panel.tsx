@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse } from "lucide-react"
+import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Eye } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,12 @@ import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
+
+function formatMod(score: number | null | undefined): string {
+  if (score == null) return "-"
+  const mod = Math.floor((score - 10) / 2)
+  return mod >= 0 ? `+${mod}` : `${mod}`
+}
 
 interface PlayerPanelProps {
   players: Character[]
@@ -155,6 +161,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                   </div>
                                   <p className="text-xs text-muted-foreground">
                                     {player.class} Niv. {player.level} • CA {player.ac}
+                                    {player.passivePerception && ` • PP ${player.passivePerception}`}
                                   </p>
                                 </div>
                                 <Button
@@ -330,6 +337,12 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         <Badge variant="outline" className="border-gold/50 text-gold">
                           CA {player.ac}
                         </Badge>
+                        {mode === "mj" && player.passivePerception && (
+                          <Badge variant="outline" className="border-sky-500/50 text-sky-500">
+                            <Eye className="w-3 h-3 mr-1" />
+                            PP {player.passivePerception}
+                          </Badge>
+                        )}
                         {/* Only show expand chevron for DM or player's own characters */}
                         {(mode === "mj" || ownCharacterIds.includes(player.id)) && (
                           expandedPlayer === player.id ? (
@@ -414,17 +427,38 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         </div>
                       )}
 
-                      {/* Initiative */}
-                      <div className="mb-3">
-                        <label className="text-xs text-muted-foreground mb-1 block">Initiative</label>
-                        <Input
-                          type="number"
-                          value={player.initiative || ""}
-                          onChange={(e) => onUpdateInitiative(player.id, Number.parseInt(e.target.value) || 0)}
-                          className="min-h-[40px] text-sm bg-background"
-                          placeholder="0"
-                        />
-                      </div>
+                      {/* Combat Stats Section - DM Only */}
+                      {(player.passivePerception || player.strength) && (
+                        <div className="mb-3 p-2 bg-secondary/30 rounded-lg">
+                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Stats de combat</h4>
+
+                          {/* Passive Perception */}
+                          {player.passivePerception && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <Eye className="w-4 h-4 text-gold" />
+                              <span className="text-sm">PP {player.passivePerception}</span>
+                            </div>
+                          )}
+
+                          {/* Ability Scores Grid */}
+                          <div className="grid grid-cols-6 gap-1 text-center text-xs">
+                            {[
+                              { label: "FOR", value: player.strength },
+                              { label: "DEX", value: player.dexterity },
+                              { label: "CON", value: player.constitution },
+                              { label: "INT", value: player.intelligence },
+                              { label: "SAG", value: player.wisdom },
+                              { label: "CHA", value: player.charisma },
+                            ].map((stat) => (
+                              <div key={stat.label} className="p-1 bg-background/50 rounded">
+                                <div className="text-muted-foreground">{stat.label}</div>
+                                <div className="font-medium">{stat.value ?? "-"}</div>
+                                <div className="text-gold text-xs">{formatMod(stat.value)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Full HP Button */}
                       <Button
