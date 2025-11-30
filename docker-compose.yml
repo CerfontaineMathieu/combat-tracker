@@ -12,6 +12,8 @@ services:
       - DATABASE_URL=postgresql://dnd:dnd@db:5432/dnd_tracker
       # Redis URL for session/state management
       - REDIS_URL=redis://redis:6379
+      # Local IP for QR code (set to your machine's local IP)
+      - LOCAL_IP=${LOCAL_IP:-192.168.1.2}
     depends_on:
       db:
         condition: service_healthy
