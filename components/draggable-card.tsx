@@ -41,7 +41,9 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
 
   const handleInitiativeBlur = () => {
     setIsEditingInit(false)
-    const newInit = Math.min(30, Math.max(1, parseInt(initValue) || 1))
+    const parsed = parseInt(initValue)
+    // Allow 0 as a valid value (unset), otherwise clamp between 1-20
+    const newInit = isNaN(parsed) || parsed < 0 ? 0 : Math.min(20, parsed)
     setInitValue(String(newInit))
     if (onUpdateInitiative && newInit !== player.initiative) {
       onUpdateInitiative(newInit)
@@ -95,7 +97,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
           <Input
             type="number"
             min={1}
-            max={30}
+            max={20}
             value={initValue}
             onChange={(e) => handleInitiativeChange(e.target.value)}
             onBlur={handleInitiativeBlur}
@@ -132,7 +134,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
             title={onUpdateInitiative && !isInCombat ? "Cliquez pour modifier l'initiative" : undefined}
             disabled={isInCombat}
           >
-            {player.initiative ?? "?"}
+            {player.initiative || "?"}
           </button>
         )}
         <div className="flex-1 min-w-0">
@@ -332,7 +334,7 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
 
   const handleInitiativeBlur = () => {
     setIsEditingInit(false)
-    const newInit = Math.min(30, Math.max(1, parseInt(initValue) || 1))
+    const newInit = Math.min(20, Math.max(1, parseInt(initValue) || 1))
     setInitValue(String(newInit))
     if (onUpdateInitiative && newInit !== participant.initiative) {
       onUpdateInitiative(newInit)
@@ -378,7 +380,7 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
           <Input
             type="number"
             min={1}
-            max={30}
+            max={20}
             value={initValue}
             onChange={(e) => handleInitiativeChange(e.target.value)}
             onBlur={handleInitiativeBlur}
@@ -409,9 +411,9 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
         )}
 
         {/* Info */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">#{index + 1}</span>
+            <span className="text-xs text-muted-foreground shrink-0">#{index + 1}</span>
             <h3 className={cn(
               "font-semibold truncate",
               isPlayer ? "text-foreground" : "text-crimson"
@@ -419,7 +421,7 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
               {participant.name}
             </h3>
             {!isPlayer && (
-              <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0">
+              <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0 shrink-0 hidden sm:flex">
                 Monstre
               </Badge>
             )}
@@ -451,11 +453,11 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
           )}
         </div>
 
-        {/* Remove Button */}
+        {/* Remove Button - always visible on mobile, hover on desktop */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-crimson hover:bg-crimson/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="h-8 w-8 text-muted-foreground hover:text-crimson hover:bg-crimson/10 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation()
             onRemove()

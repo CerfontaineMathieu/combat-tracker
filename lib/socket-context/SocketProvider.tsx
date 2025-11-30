@@ -311,7 +311,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
         role: 'dm',
         password: storedPassword,
       });
-      // JOIN_SUCCESS will be dispatched when connected-players is received
+      // Dispatch JOIN_SUCCESS immediately so periodic refresh starts
+      // Server will send connected-players which will update the player list
+      dispatch({ type: 'JOIN_SUCCESS' });
+    } else {
+      console.log('[Socket] No stored DM password, cannot auto-rejoin');
     }
   }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
 

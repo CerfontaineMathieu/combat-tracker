@@ -1,17 +1,26 @@
 "use client"
 
 import { useState } from "react"
-import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi } from "lucide-react"
+import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import type { Character, CombatParticipant } from "@/lib/types"
 import { DraggablePlayerCard } from "@/components/draggable-card"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
+
+const QUICK_HP_VALUES = [1, 3, 5, 10]
 
 interface PlayerPanelProps {
   players: Character[]
@@ -29,6 +38,8 @@ interface PlayerPanelProps {
 export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
+  const [playerToAdd, setPlayerToAdd] = useState<Character | null>(null)
+  const [initiativeValue, setInitiativeValue] = useState("")
 
   const getHpColor = (current: number, max: number) => {
     const ratio = current / max
@@ -147,23 +158,23 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                   </p>
                                 </div>
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant={canAdd ? "default" : "ghost"}
                                   className={cn(
-                                    "ml-2 shrink-0",
+                                    "ml-2 shrink-0 h-10 w-10",
                                     canAdd
                                       ? isDisconnected
                                         ? "bg-muted hover:bg-muted/80 text-muted-foreground"
                                         : "bg-gold hover:bg-gold/80 text-background"
                                       : "text-muted-foreground"
                                   )}
-                                  onClick={() => canAdd && onAddToCombat(player)}
+                                  onClick={() => canAdd && setPlayerToAdd(player)}
                                   disabled={!canAdd}
                                 >
                                   {inCombat ? (
-                                    <Check className="w-4 h-4" />
+                                    <Check className="w-5 h-5" />
                                   ) : (
-                                    <UserPlus className="w-4 h-4" />
+                                    <UserPlus className="w-5 h-5" />
                                   )}
                                 </Button>
                               </div>
@@ -188,9 +199,60 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
             </div>
           </ScrollArea>
         </CardContent>
+
+        {/* Initiative Dialog for mobile */}
+        <Dialog open={!!playerToAdd} onOpenChange={(open) => !open && setPlayerToAdd(null)}>
+          <DialogContent className="bg-card border-border max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="text-gold">
+                Ajouter {playerToAdd?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Initiative (1-20)
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={initiativeValue}
+                onChange={(e) => setInitiativeValue(e.target.value)}
+                placeholder="Entrez l'initiative..."
+                className="text-center text-lg font-bold bg-gold/10 border-gold text-gold"
+                autoFocus
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setPlayerToAdd(null)}>
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  if (playerToAdd && onAddToCombat) {
+                    const init = parseInt(initiativeValue) || 0
+                    onUpdateInitiative(playerToAdd.id, init)
+                    onAddToCombat({ ...playerToAdd, initiative: init })
+                    setPlayerToAdd(null)
+                    setInitiativeValue("")
+                  }
+                }}
+                className="bg-gold hover:bg-gold/80 text-background"
+              >
+                <UserPlus className="w-4 h-4 mr-1" />
+                Ajouter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Card>
     )
   }
+
+  // During combat, only show players who are in the combat
+  const playersToShow = combatActive
+    ? players.filter(p => combatParticipants.some(cp => cp.id === p.id))
+    : players
 
   return (
     <Card className="bg-card border-border h-full flex flex-col">
@@ -203,14 +265,14 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full px-6 pb-6">
           <div className="space-y-3">
-            {players.length === 0 ? (
+            {playersToShow.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Aucun joueur</p>
+                <p>{combatActive ? "Aucun joueur dans le combat" : "Aucun joueur"}</p>
               </div>
             ) : (() => {
               // Group characters by playerSocketId
-              const groupedPlayers: Record<string, Character[]> = players.reduce((groups, player) => {
+              const groupedPlayers: Record<string, Character[]> = playersToShow.reduce((groups, player) => {
                 const key = player.playerSocketId || player.id
                 if (!groups[key]) groups[key] = []
                 groups[key].push(player)
@@ -241,8 +303,19 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                 >
                   {/* Main Row */}
                   <div
-                    className="p-3 cursor-pointer hover:bg-secondary/50 transition-smooth min-h-[72px] active:bg-secondary/60"
-                    onClick={() => setExpandedPlayer(expandedPlayer === player.id ? null : player.id)}
+                    className={cn(
+                      "p-3 transition-smooth min-h-[72px]",
+                      // Only allow expansion for DM or player's own characters
+                      (mode === "mj" || ownCharacterIds.includes(player.id))
+                        ? "cursor-pointer hover:bg-secondary/50 active:bg-secondary/60"
+                        : ""
+                    )}
+                    onClick={() => {
+                      // Only allow expansion for DM or player's own characters
+                      if (mode === "mj" || ownCharacterIds.includes(player.id)) {
+                        setExpandedPlayer(expandedPlayer === player.id ? null : player.id)
+                      }
+                    }}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div>
@@ -255,10 +328,13 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         <Badge variant="outline" className="border-gold/50 text-gold">
                           CA {player.ac}
                         </Badge>
-                        {expandedPlayer === player.id ? (
-                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                        {/* Only show expand chevron for DM or player's own characters */}
+                        {(mode === "mj" || ownCharacterIds.includes(player.id)) && (
+                          expandedPlayer === player.id ? (
+                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          )
                         )}
                       </div>
                     </div>
@@ -336,60 +412,98 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Initiative</label>
-                          <Input
-                            type="number"
-                            value={player.initiative || ""}
-                            onChange={(e) => onUpdateInitiative(player.id, Number.parseInt(e.target.value) || 0)}
-                            className="min-h-[44px] text-sm bg-background"
-                            placeholder="0"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Modifier PV</label>
-                          <Input
-                            type="number"
-                            value={hpChange[player.id] || ""}
-                            onChange={(e) => setHpChange({ ...hpChange, [player.id]: e.target.value })}
-                            className="min-h-[44px] text-sm bg-background"
-                            placeholder="0"
-                          />
-                        </div>
+                      {/* Initiative */}
+                      <div className="mb-3">
+                        <label className="text-xs text-muted-foreground mb-1 block">Initiative</label>
+                        <Input
+                          type="number"
+                          value={player.initiative || ""}
+                          onChange={(e) => onUpdateInitiative(player.id, Number.parseInt(e.target.value) || 0)}
+                          className="min-h-[40px] text-sm bg-background"
+                          placeholder="0"
+                        />
                       </div>
+
+                      {/* Full HP Button */}
+                      <Button
+                        size="sm"
+                        className="w-full mb-2 min-h-[36px] bg-emerald/20 hover:bg-emerald/30 text-emerald border border-emerald/30 active:scale-95"
+                        onClick={() => {
+                          const hpToRestore = player.maxHp - player.currentHp
+                          if (hpToRestore > 0) onUpdateHp(player.id, hpToRestore)
+                        }}
+                        disabled={player.currentHp >= player.maxHp}
+                      >
+                        <HeartPulse className="w-4 h-4 mr-1" />
+                        Vie complète
+                      </Button>
+
+                      {/* Quick HP Buttons */}
+                      <div className="grid grid-cols-4 gap-1 mb-1">
+                        {QUICK_HP_VALUES.map((value) => (
+                          <Button
+                            key={`damage-${value}`}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs text-crimson border-crimson/30 hover:bg-crimson/10 active:scale-95"
+                            onClick={() => onUpdateHp(player.id, -value)}
+                          >
+                            -{value}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 mb-2">
+                        {QUICK_HP_VALUES.map((value) => (
+                          <Button
+                            key={`heal-${value}`}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs text-emerald border-emerald/30 hover:bg-emerald/10 active:scale-95"
+                            onClick={() => onUpdateHp(player.id, value)}
+                          >
+                            +{value}
+                          </Button>
+                        ))}
+                      </div>
+
+                      {/* Custom Amount */}
                       <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          value={hpChange[player.id] || ""}
+                          onChange={(e) => setHpChange({ ...hpChange, [player.id]: e.target.value })}
+                          className="min-h-[40px] text-sm bg-background"
+                          placeholder="Autre..."
+                        />
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="destructive"
-                          className="flex-1 min-h-[44px] bg-crimson hover:bg-crimson/80 active:scale-95 transition-smooth"
+                          className="shrink-0 h-10 w-10 bg-crimson hover:bg-crimson/80 active:scale-95"
                           onClick={() => {
                             const value = Number.parseInt(hpChange[player.id] || "0")
                             if (value) onUpdateHp(player.id, -Math.abs(value))
                             setHpChange({ ...hpChange, [player.id]: "" })
                           }}
                         >
-                          <Minus className="w-4 h-4 mr-1" />
-                          Dégâts
+                          <Minus className="w-4 h-4" />
                         </Button>
                         <Button
-                          size="sm"
-                          className="flex-1 min-h-[44px] bg-emerald hover:bg-emerald/80 text-background active:scale-95 transition-smooth"
+                          size="icon"
+                          className="shrink-0 h-10 w-10 bg-emerald hover:bg-emerald/80 text-background active:scale-95"
                           onClick={() => {
                             const value = Number.parseInt(hpChange[player.id] || "0")
                             if (value) onUpdateHp(player.id, Math.abs(value))
                             setHpChange({ ...hpChange, [player.id]: "" })
                           }}
                         >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Soins
+                          <Plus className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                   )}
 
-                  {/* Expanded Actions - Player Mode (Damage Reporting) */}
-                  {expandedPlayer === player.id && mode === "joueur" && (
+                  {/* Expanded Actions - Player Mode (Damage Reporting) - Only for own characters */}
+                  {expandedPlayer === player.id && mode === "joueur" && ownCharacterIds.includes(player.id) && (
                     <div className="px-3 pb-3 pt-2 border-t border-border/50 bg-secondary/20 animate-slide-down">
                       <p className="text-xs text-muted-foreground mb-2">Signaler des dégâts ou soins</p>
                       <div className="flex gap-2 mb-2">

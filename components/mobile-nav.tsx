@@ -29,7 +29,7 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
       ]
 
   const playerTabs = [
-    { id: "players" as const, label: "Groupe", icon: Users },
+    { id: "players" as const, label: "Perso", icon: Users },
     { id: "combat" as const, label: "Combat", icon: Swords },
   ]
 

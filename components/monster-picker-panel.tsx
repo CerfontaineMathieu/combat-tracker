@@ -38,29 +38,29 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
       }
     : undefined
 
+  const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
+      {...(isMobileDevice ? {} : { ...attributes, ...listeners })}
       className={cn(
-        "group w-full text-left p-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 border-2 transition-all touch-none select-none",
+        "group w-full text-left p-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 border-2 transition-all select-none",
         isDragging
           ? "opacity-50 border-crimson/50 z-50"
           : "border-transparent hover:border-crimson/30",
-        "cursor-grab active:cursor-grabbing"
+        !isMobileDevice && "touch-none cursor-grab active:cursor-grabbing"
       )}
     >
       <div className="flex items-center gap-2">
-        {/* Drag Handle - visible on hover */}
-        <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Drag Handle - visible on hover, hidden on mobile */}
+        <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
           <GripVertical className="w-4 h-4 text-muted-foreground" />
         </div>
 
         {/* Monster Info */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-
           {monster.image_url && (
             <div className="w-8 h-8 rounded overflow-hidden border border-border shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -71,7 +71,7 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
               />
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="font-medium text-sm truncate">{monster.name}</div>
             <div className="text-xs text-muted-foreground truncate">
               {monster.creature_type}
@@ -81,7 +81,7 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
 
         {/* Stats and Action Buttons */}
         <div className="flex items-center gap-1 shrink-0">
-          <Badge variant="outline" className="text-xs border-crimson/30 text-crimson">
+          <Badge variant="outline" className="text-xs border-crimson/30 text-crimson hidden sm:flex">
             PV {monster.hit_points}
           </Badge>
           <Button
@@ -97,14 +97,13 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
           </Button>
           <Button
             size="icon"
-            variant="ghost"
-            className="h-8 w-8 text-crimson hover:bg-crimson/20"
+            className="h-9 w-9 bg-crimson hover:bg-crimson/80 text-white"
             onClick={(e) => {
               e.stopPropagation()
               onAddClick(monster, e)
             }}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5" />
           </Button>
         </div>
       </div>

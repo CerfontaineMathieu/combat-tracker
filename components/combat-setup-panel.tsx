@@ -79,6 +79,7 @@ interface CombatSetupPanelProps {
   mode: "mj" | "joueur"
   campaignId?: number
   ownCharacterIds?: string[] // IDs of characters owned by the current player
+  connectedPlayerIds?: string[] // IDs of currently connected players
 }
 
 export function CombatSetupPanel({
@@ -91,6 +92,7 @@ export function CombatSetupPanel({
   mode,
   campaignId,
   ownCharacterIds = [],
+  connectedPlayerIds = [],
 }: CombatSetupPanelProps) {
   const isMobile = useIsMobile()
   const { combatParticipants, isOverCombatZone } = useCombatDnd()
@@ -204,16 +206,23 @@ export function CombatSetupPanel({
 
         // Convert preset monsters to CombatParticipant format
         const participants: CombatParticipant[] = (preset.monsters || []).flatMap((pm) => {
-          return Array.from({ length: pm.quantity }, (_, i) => ({
-            id: `preset-${pm.id}-${i}`,
-            name: pm.quantity > 1 ? `${pm.name} ${i + 1}` : pm.name,
-            initiative: pm.initiative,
-            currentHp: pm.hp,
-            maxHp: pm.max_hp,
-            conditions: [],
-            exhaustionLevel: 0,
-            type: pm.participant_type,
-          }))
+          const isPlayer = pm.participant_type === 'player'
+          return Array.from({ length: pm.quantity }, (_, i) => {
+            // Use reference_id for players to maintain identity, otherwise generate unique ID
+            const participantId = isPlayer && pm.reference_id ? pm.reference_id : `preset-${pm.id}-${i}`
+            return {
+              id: participantId,
+              name: pm.quantity > 1 ? `${pm.name} ${i + 1}` : pm.name,
+              initiative: pm.initiative,
+              currentHp: pm.hp,
+              maxHp: pm.max_hp,
+              conditions: [],
+              exhaustionLevel: 0,
+              type: pm.participant_type || 'monster',
+              // Check if player is actually connected
+              isConnected: isPlayer ? connectedPlayerIds.includes(participantId) : undefined,
+            }
+          })
         })
 
         onLoadPreset(participants)
@@ -261,28 +270,24 @@ export function CombatSetupPanel({
   }
 
   return (
-    <Card className="bg-card border-border h-full flex flex-col">
+    <Card className="bg-card border-border h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-3 shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="flex items-center gap-2 text-gold">
-            <Swords className="w-5 h-5" />
-            Préparation du Combat
+            <Swords className="w-5 h-5 shrink-0" />
+            <span className="hidden sm:inline">Préparation du Combat</span>
+            <span className="sm:hidden">Préparation</span>
           </CardTitle>
           {combatParticipants.length > 0 && (
-            <div className="flex gap-2">
-              <Badge variant="outline" className="border-gold/30 text-gold">
+            <div className="flex gap-1 sm:gap-2 shrink-0">
+              <Badge variant="outline" className="border-gold/30 text-gold text-xs">
                 <Users className="w-3 h-3 mr-1" />
                 {playerCount}
               </Badge>
-              <Badge variant="outline" className="border-crimson/30 text-crimson">
+              <Badge variant="outline" className="border-crimson/30 text-crimson text-xs">
                 <Skull className="w-3 h-3 mr-1" />
                 {monsterCount}
               </Badge>
-              {mode === "mj" && totalXp > 0 && (
-                <Badge variant="secondary" className="bg-gold/20 text-gold border-gold/30">
-                  XP: {totalXp.toLocaleString()}
-                </Badge>
-              )}
             </div>
           )}
         </div>

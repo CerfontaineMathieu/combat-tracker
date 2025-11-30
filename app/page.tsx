@@ -5,6 +5,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { Header } from "@/components/header"
 import { MobileNav, type MobileTab } from "@/components/mobile-nav"
 import { PlayerPanel } from "@/components/player-panel"
+import { MyCharactersPanel } from "@/components/my-characters-panel"
 import { CombatPanel } from "@/components/combat-panel"
 import { CombatSetupPanel } from "@/components/combat-setup-panel"
 import { CombatDndProvider } from "@/components/combat-dnd-context"
@@ -107,6 +108,8 @@ function CombatTrackerContent() {
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [combatHistory, setCombatHistory] = useState<HistoryEntry[]>([])
+  // Track initiative overrides for players (session-only, not persisted)
+  const [playerInitiatives, setPlayerInitiatives] = useState<Record<string, number>>({})
   const [ambientEffect, setAmbientEffect] = useState<AmbientEffect>(() => {
     if (typeof window === 'undefined') return "none"
     return (sessionStorage.getItem('dnd-ambientEffect') as AmbientEffect) || "none"
@@ -428,7 +431,8 @@ function CombatTrackerContent() {
           currentHp: char.currentHp,
           maxHp: char.maxHp,
           ac: char.ac,
-          initiative: char.initiative,
+          // Use initiative override if set, otherwise use character's initiative
+          initiative: playerInitiatives[id] ?? char.initiative,
           conditions: char.conditions || [],
           exhaustionLevel: char.exhaustionLevel || 0,
           isConnected: true,
@@ -446,7 +450,12 @@ function CombatTrackerContent() {
         return connectedCharactersMap.get(char.id)!
       }
       // Otherwise, use static data with isConnected: false
-      return { ...char, isConnected: false }
+      // Apply initiative override if set
+      return {
+        ...char,
+        isConnected: false,
+        initiative: playerInitiatives[char.id] ?? char.initiative,
+      }
     })
 
     // Sort: connected first, then by name
@@ -456,6 +465,28 @@ function CombatTrackerContent() {
       return a.name.localeCompare(b.name)
     })
   })()
+
+  // Sync combat participants' isConnected status with displayPlayers
+  useEffect(() => {
+    if (combatParticipants.length === 0) return
+
+    const connectedIds = new Set(displayPlayers.filter(p => p.isConnected).map(p => p.id))
+
+    setCombatParticipants(prev => {
+      let hasChanges = false
+      const updated = prev.map(participant => {
+        if (participant.type === 'player') {
+          const shouldBeConnected = connectedIds.has(participant.id)
+          if (participant.isConnected !== shouldBeConnected) {
+            hasChanges = true
+            return { ...participant, isConnected: shouldBeConnected }
+          }
+        }
+        return participant
+      })
+      return hasChanges ? updated : prev
+    })
+  }, [displayPlayers])
 
   // Helper to add history entry
   const addHistoryEntry = (entry: Omit<HistoryEntry, "id" | "timestamp">) => {
@@ -636,7 +667,8 @@ function CombatTrackerContent() {
   }
 
   const updatePlayerHp = async (id: string, change: number) => {
-    const player = players.find(p => p.id === id)
+    // Look in displayPlayers which has the merged data from socket and campaign
+    const player = displayPlayers.find(p => p.id === id)
     if (!player) return
 
     const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + change))
@@ -658,19 +690,20 @@ function CombatTrackerContent() {
     setPlayers((prev) =>
       prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p)),
     )
+
+    // Always emit HP change to sync with other clients (including socket state)
+    emitHpChange({
+      participantId: id,
+      participantType: 'player',
+      newHp,
+      change,
+      source: mode === 'mj' ? 'dm' : 'player',
+    })
+
     if (combatActive) {
       setCombatParticipants((prev) =>
         prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p)),
       )
-
-      // Emit HP change to sync with other clients
-      emitHpChange({
-        participantId: id,
-        participantType: 'player',
-        newHp,
-        change,
-        source: mode === 'mj' ? 'dm' : 'player',
-      })
 
       // Reset death saves when healed from 0 HP
       if (wasAtZeroHp && newHp > 0) {
@@ -745,8 +778,8 @@ function CombatTrackerContent() {
   }
 
   const updatePlayerInitiative = async (id: string, initiative: number) => {
-    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, initiative } : p)))
-    // Note: Character initiative is session-only (from Notion), no DB persistence
+    // Store initiative override (session-only, not persisted)
+    setPlayerInitiatives(prev => ({ ...prev, [id]: initiative }))
   }
 
   const updatePlayerConditions = async (id: string, conditions: string[], conditionDurations?: Record<string, number>) => {
@@ -938,10 +971,11 @@ function CombatTrackerContent() {
       id: player.id,
       name: player.name,
       initiative: player.initiative,
+      // Use current HP (persisted in session) instead of resetting to max
       currentHp: player.currentHp,
       maxHp: player.maxHp,
-      conditions: player.conditions,
-      exhaustionLevel: player.exhaustionLevel || 0,
+      conditions: player.conditions || [],  // Keep current conditions
+      exhaustionLevel: player.exhaustionLevel || 0,  // Keep current exhaustion
       type: "player",
       isConnected: player.isConnected,
     }
@@ -1302,7 +1336,7 @@ function CombatTrackerContent() {
             onReorderParticipants={reorderParticipants}
           >
             <div className="h-full animate-fade-in">
-              {activeTab === "players" && (
+              {activeTab === "players" && mode === "mj" && (
                 <PlayerPanel
                   key={`players-${socketState.connectedPlayers.length}`}
                   players={displayPlayers}
@@ -1313,7 +1347,14 @@ function CombatTrackerContent() {
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   combatParticipants={combatParticipants}
-                  onAddToCombat={mode === "mj" && !combatActive ? addPlayerToCombat : undefined}
+                  onAddToCombat={!combatActive ? addPlayerToCombat : undefined}
+                />
+              )}
+              {activeTab === "players" && mode === "joueur" && (
+                <MyCharactersPanel
+                  characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
+                  onUpdateHp={updatePlayerHp}
+                  combatActive={combatActive}
                 />
               )}
               {activeTab === "combat" && (
@@ -1355,6 +1396,7 @@ function CombatTrackerContent() {
                   mode={mode}
                   campaignId={campaignId}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                  connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
                 />
               )}
               {activeTab === "bestiary" && mode === "mj" && (
@@ -1400,8 +1442,19 @@ function CombatTrackerContent() {
                   </div>
                 )}
 
-                {/* Center Panel - Combat (full width for players, 6 cols for MJ) */}
-                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-12 overflow-auto"}>
+                {/* Left Panel - My Characters (player only during combat) */}
+                {mode === "joueur" && (
+                  <div className="col-span-3 overflow-auto">
+                    <MyCharactersPanel
+                      characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
+                      onUpdateHp={updatePlayerHp}
+                      combatActive={combatActive}
+                    />
+                  </div>
+                )}
+
+                {/* Center Panel - Combat (9 cols for players with side panel, 6 cols for MJ) */}
+                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-9 overflow-auto"}>
                   <CombatPanel
                     participants={combatParticipants}
                     combatActive={combatActive}
@@ -1441,30 +1494,27 @@ function CombatTrackerContent() {
               </div>
             </CombatDndProvider>
           ) : mode === "joueur" ? (
-            /* Player waiting screen - combat not started yet */
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gold/10 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gold animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-semibold text-foreground">En attente du combat...</h2>
-                <p className="text-muted-foreground max-w-md">
-                  Le Maître du Jeu prépare le combat. La bataille commencera bientôt !
-                </p>
-                {selectedCharacters.length > 0 && (
-                  <div className="mt-6 p-4 bg-secondary/30 rounded-lg border border-border">
-                    <p className="text-sm text-muted-foreground mb-2">Vos personnages :</p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {selectedCharacters.map((char) => (
-                        <span key={char.id} className="px-3 py-1 bg-gold/10 text-gold rounded-full text-sm font-medium">
-                          {char.name}
-                        </span>
-                      ))}
-                    </div>
+            /* Player waiting screen - show MyCharactersPanel with waiting message */
+            <div className="grid grid-cols-12 gap-4 h-full">
+              <div className="col-span-4 overflow-auto">
+                <MyCharactersPanel
+                  characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
+                  onUpdateHp={updatePlayerHp}
+                  combatActive={false}
+                />
+              </div>
+              <div className="col-span-8 flex items-center justify-center">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gold/10 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gold animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
-                )}
+                  <h2 className="text-xl font-semibold text-foreground">En attente du combat...</h2>
+                  <p className="text-muted-foreground max-w-md">
+                    Le Maître du Jeu prépare le combat. La bataille commencera bientôt !
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
@@ -1513,6 +1563,7 @@ function CombatTrackerContent() {
                     mode={mode}
                     campaignId={campaignId}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                    connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
                   />
                 </div>
 

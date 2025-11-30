@@ -15,6 +15,7 @@ import {
   getCombatState,
   setCombatState,
   deleteCombatState,
+  updateCharacterHp,
   type DmSession,
   type ConnectedPlayer as RedisConnectedPlayer,
   type CombatState,
@@ -249,10 +250,8 @@ app.prepare().then(() => {
         });
         console.log(`[Socket.io] DM registered for campaign ${campaignId}: ${socket.id}`);
 
-        // If reconnecting with existing timer, notify players
-        if (pendingTimer) {
-          io.to(room).emit('dm-reconnected');
-        }
+        // Notify players that DM is connected (covers reconnect, stale takeover, etc.)
+        io.to(room).emit('dm-reconnected');
       }
 
       socket.join(room);
@@ -318,9 +317,19 @@ app.prepare().then(() => {
       // Notify others in the room
       socket.to(room).emit('user-joined', { role });
 
-      // If player joins, request state sync from DM
+      // If player joins, request state sync from DM and send DM status
       if (role === 'player') {
         socket.to(room).emit('request-state-sync');
+
+        // Check if DM is connected and notify the player
+        const dmSession = await getDmSession(campaignId);
+        if (dmSession) {
+          const dmSocket = io.sockets.sockets.get(dmSession.socketId);
+          if (dmSocket?.connected) {
+            // DM is connected, clear any disconnect overlay on the player
+            socket.emit('dm-reconnected');
+          }
+        }
       }
 
       // If DM joins, send them the connected players list and restore combat state
@@ -425,9 +434,17 @@ app.prepare().then(() => {
     });
 
     // HP changes
-    socket.on('hp-change', (data: HpChangeData) => {
+    socket.on('hp-change', async (data: HpChangeData) => {
       if (socket.data.campaignId) {
         const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
+        // Persist player HP changes to Redis for session persistence
+        if (data.participantType === 'player') {
+          await updateCharacterHp(campaignId, data.participantId, data.newHp);
+          console.log(`[Socket.io] Persisted HP for character ${data.participantId}: ${data.newHp}`);
+        }
+
         // Broadcast to all clients in room
         io.to(room).emit('hp-change', data);
         console.log(`[Socket.io] HP change in ${room}:`, data);

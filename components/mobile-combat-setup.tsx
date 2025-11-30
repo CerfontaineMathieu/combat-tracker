@@ -73,6 +73,7 @@ interface MobileCombatSetupProps {
   onRandomizeInitiatives?: () => void
   onLoadPreset?: (participants: CombatParticipant[]) => void
   campaignId?: number
+  connectedPlayerIds?: string[] // IDs of currently connected players
 }
 
 export function MobileCombatSetup({
@@ -83,6 +84,7 @@ export function MobileCombatSetup({
   onRandomizeInitiatives,
   onLoadPreset,
   campaignId,
+  connectedPlayerIds = [],
 }: MobileCombatSetupProps) {
   // Save/Load state
   const [presets, setPresets] = useState<FightPreset[]>([])
@@ -187,16 +189,23 @@ export function MobileCombatSetup({
 
         // Convert preset monsters to CombatParticipant format
         const participants: CombatParticipant[] = (preset.monsters || []).flatMap((pm) => {
-          return Array.from({ length: pm.quantity }, (_, i) => ({
-            id: `preset-${pm.id}-${i}`,
-            name: pm.quantity > 1 ? `${pm.name} ${i + 1}` : pm.name,
-            initiative: pm.initiative,
-            currentHp: pm.hp,
-            maxHp: pm.max_hp,
-            conditions: [],
-            exhaustionLevel: 0,
-            type: pm.participant_type,
-          }))
+          const isPlayer = pm.participant_type === 'player'
+          return Array.from({ length: pm.quantity }, (_, i) => {
+            // Use reference_id for players to maintain identity, otherwise generate unique ID
+            const participantId = isPlayer && pm.reference_id ? pm.reference_id : `preset-${pm.id}-${i}`
+            return {
+              id: participantId,
+              name: pm.quantity > 1 ? `${pm.name} ${i + 1}` : pm.name,
+              initiative: pm.initiative,
+              currentHp: pm.hp,
+              maxHp: pm.max_hp,
+              conditions: [],
+              exhaustionLevel: 0,
+              type: pm.participant_type || 'monster',
+              // Check if player is actually connected
+              isConnected: isPlayer ? connectedPlayerIds.includes(participantId) : undefined,
+            }
+          })
         })
 
         onLoadPreset(participants)

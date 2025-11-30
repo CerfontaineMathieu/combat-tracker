@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils"
 import type { CombatParticipant } from "@/lib/types"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
+
+const QUICK_HP_VALUES = [1, 3, 5, 10]
 
 interface CombatPanelProps {
   participants: CombatParticipant[]
@@ -210,8 +212,12 @@ export function CombatPanel({
                       className={cn(
                         "w-11 h-11 rounded-lg flex items-center justify-center font-bold text-lg shrink-0 transition-smooth",
                         index === currentTurn
-                          ? "bg-gold text-background"
-                          : "bg-muted text-muted-foreground"
+                          ? participant.type === "monster"
+                            ? "bg-crimson text-white"
+                            : "bg-gold text-background"
+                          : participant.type === "monster"
+                            ? "bg-crimson/60 text-white"
+                            : "bg-gold/60 text-background"
                       )}
                     >
                       {participant.initiative}
@@ -251,8 +257,8 @@ export function CombatPanel({
                         </div>
                       )}
 
-                      {/* HP Bar - Visible for DM (all), monsters, or the player's own characters */}
-                      {(mode === "mj" || participant.type === "monster" || ownCharacterIds.includes(participant.id)) && (
+                      {/* HP Bar - Visible for DM (all) or the player's own characters only */}
+                      {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
                         <div className="mt-1.5">
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-muted-foreground">PV</span>
@@ -447,30 +453,49 @@ export function CombatPanel({
                               <DialogTitle className="text-gold">{participant.name}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-                              {/* Quick shortcuts */}
+                              {/* Full HP Button */}
+                              <Button
+                                className="w-full min-h-[40px] bg-emerald/20 hover:bg-emerald/30 text-emerald border border-emerald/30 active:scale-95"
+                                onClick={() => {
+                                  const hpToRestore = participant.maxHp - participant.currentHp
+                                  if (hpToRestore > 0) onUpdateHp?.(participant.id, hpToRestore, participant.type)
+                                }}
+                                disabled={participant.currentHp >= participant.maxHp}
+                              >
+                                <HeartPulse className="w-4 h-4 mr-2" />
+                                Vie complète
+                              </Button>
+
+                              {/* Quick HP Buttons */}
                               <div>
                                 <label className="text-sm text-muted-foreground mb-2 block">
                                   Raccourcis rapides
                                 </label>
-                                <div className="flex gap-2">
-                                  <Button
-                                    onClick={() => {
-                                      onUpdateHp?.(participant.id, -5, participant.type)
-                                    }}
-                                    className="flex-1 min-h-[44px] bg-crimson hover:bg-crimson/80 active:scale-95 transition-smooth"
-                                  >
-                                    <Minus className="w-4 h-4 mr-1" />
-                                    5 Dégâts
-                                  </Button>
-                                  <Button
-                                    onClick={() => {
-                                      onUpdateHp?.(participant.id, 5, participant.type)
-                                    }}
-                                    className="flex-1 min-h-[44px] bg-emerald hover:bg-emerald/80 text-background active:scale-95 transition-smooth"
-                                  >
-                                    <Plus className="w-4 h-4 mr-1" />
-                                    5 Soins
-                                  </Button>
+                                <div className="grid grid-cols-4 gap-1 mb-1">
+                                  {QUICK_HP_VALUES.map((value) => (
+                                    <Button
+                                      key={`damage-${value}`}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-10 text-crimson border-crimson/30 hover:bg-crimson/10 hover:border-crimson/50 active:scale-95"
+                                      onClick={() => onUpdateHp?.(participant.id, -value, participant.type)}
+                                    >
+                                      -{value}
+                                    </Button>
+                                  ))}
+                                </div>
+                                <div className="grid grid-cols-4 gap-1">
+                                  {QUICK_HP_VALUES.map((value) => (
+                                    <Button
+                                      key={`heal-${value}`}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-10 text-emerald border-emerald/30 hover:bg-emerald/10 hover:border-emerald/50 active:scale-95"
+                                      onClick={() => onUpdateHp?.(participant.id, value, participant.type)}
+                                    >
+                                      +{value}
+                                    </Button>
+                                  ))}
                                 </div>
                               </div>
 
@@ -479,31 +504,31 @@ export function CombatPanel({
                                 <label className="text-sm text-muted-foreground mb-2 block">
                                   Montant personnalisé
                                 </label>
-                                <Input
-                                  type="number"
-                                  value={hpAmount}
-                                  onChange={(e) => setHpAmount(e.target.value)}
-                                  placeholder="Entrez un nombre"
-                                  className="bg-background min-h-[44px]"
-                                />
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={handleDamage}
-                                  disabled={!hpAmount}
-                                  className="flex-1 min-h-[48px] bg-crimson hover:bg-crimson/80 active:scale-95 transition-smooth disabled:opacity-50"
-                                >
-                                  <Minus className="w-4 h-4 mr-1" />
-                                  Dégâts
-                                </Button>
-                                <Button
-                                  onClick={handleHeal}
-                                  disabled={!hpAmount}
-                                  className="flex-1 min-h-[48px] bg-emerald hover:bg-emerald/80 text-background active:scale-95 transition-smooth disabled:opacity-50"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Soins
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Input
+                                    type="number"
+                                    value={hpAmount}
+                                    onChange={(e) => setHpAmount(e.target.value)}
+                                    placeholder="Autre..."
+                                    className="bg-background min-h-[44px]"
+                                  />
+                                  <Button
+                                    onClick={handleDamage}
+                                    disabled={!hpAmount}
+                                    size="icon"
+                                    className="shrink-0 h-11 w-11 bg-crimson hover:bg-crimson/80 active:scale-95 disabled:opacity-50"
+                                  >
+                                    <Minus className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    onClick={handleHeal}
+                                    disabled={!hpAmount}
+                                    size="icon"
+                                    className="shrink-0 h-11 w-11 bg-emerald hover:bg-emerald/80 text-background active:scale-95 disabled:opacity-50"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </DialogContent>
