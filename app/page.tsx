@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Header } from "@/components/header"
 import { MobileNav, type MobileTab } from "@/components/mobile-nav"
@@ -18,7 +18,8 @@ import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
-import type { Character, Monster, CombatParticipant, DbMonster } from "@/lib/types"
+import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory } from "@/lib/types"
+import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import {
@@ -70,6 +71,7 @@ function CombatTrackerContent() {
     emitConditionChange,
     emitExhaustionChange,
     emitDeathSaveChange,
+    emitInventoryUpdate,
     emitAmbientEffect,
   } = useSocketContext()
 
@@ -168,19 +170,44 @@ function CombatTrackerContent() {
             const charactersData = JSON.parse(savedCharacters)
             // Also restore to sessionStorage for socket connection
             sessionStorage.setItem("selectedCharacters", savedCharacters)
-            // Convert back to SelectedCharacters format for state
-            setSelectedCharacters(charactersData.map((char: { odNumber: string | number; name: string; class: string; level: number; currentHp: number; maxHp: number; ac: number; initiative: number; conditions: string[] }) => ({
-              id: char.odNumber,
-              name: char.name,
-              class: char.class,
-              level: char.level,
-              current_hp: char.currentHp,
-              max_hp: char.maxHp,
-              ac: char.ac,
-              initiative: char.initiative,
-              conditions: char.conditions,
-            })))
-            setUserSelected(true)
+
+            // Reload inventories from database to ensure fresh data
+            const loadInventoriesAndRestore = async () => {
+              const charactersWithInventories = await Promise.all(
+                charactersData.map(async (char: { odNumber: string | number; name: string; class: string; level: number; currentHp: number; maxHp: number; ac: number; initiative: number; conditions: string[]; inventory?: CharacterInventory }) => {
+                  console.log('[Inventory] Loading inventory for character:', char.odNumber)
+                  let inventory = DEFAULT_INVENTORY
+                  try {
+                    const response = await fetch(`/api/characters/${char.odNumber}/inventory`)
+                    if (response.ok) {
+                      inventory = await response.json()
+                      console.log('[Inventory] Loaded from database:', char.odNumber, inventory)
+                    } else {
+                      console.warn('[Inventory] Failed to load - HTTP', response.status, 'for character:', char.odNumber)
+                    }
+                  } catch (error) {
+                    console.error('Failed to load inventory for character:', char.odNumber, error)
+                  }
+
+                  return {
+                    id: char.odNumber,
+                    name: char.name,
+                    class: char.class,
+                    level: char.level,
+                    current_hp: char.currentHp,
+                    max_hp: char.maxHp,
+                    ac: char.ac,
+                    initiative: char.initiative,
+                    conditions: char.conditions,
+                    inventory,
+                  }
+                })
+              )
+              setSelectedCharacters(charactersWithInventories)
+              setUserSelected(true)
+            }
+
+            loadInventoriesAndRestore()
           } catch {
             // Invalid data, clear it
             localStorage.removeItem("combatTrackerCharacters")
@@ -211,33 +238,60 @@ function CombatTrackerContent() {
     }
   }
 
+  // Load inventory from database for a character
+  const loadCharacterInventory = async (characterId: string): Promise<CharacterInventory> => {
+    console.log('[Inventory] Loading inventory for character:', characterId)
+    try {
+      const response = await fetch(`/api/characters/${characterId}/inventory`)
+      if (response.ok) {
+        const inventory = await response.json()
+        console.log('[Inventory] Loaded from database:', characterId, inventory)
+        return inventory
+      } else {
+        console.warn('[Inventory] Failed to load - HTTP', response.status, 'for character:', characterId)
+      }
+    } catch (error) {
+      console.error('Failed to load inventory for character:', characterId, error)
+    }
+    console.log('[Inventory] Returning default inventory for:', characterId)
+    return DEFAULT_INVENTORY
+  }
+
   // Handle players selection (multiple characters)
-  const handleSelectPlayers = (characters: SelectedCharacters) => {
+  const handleSelectPlayers = async (characters: SelectedCharacters) => {
     setMode("joueur")
     setSelectedCharacters(characters)
     setUserSelected(true)
     // Persist mode and characters to localStorage
     localStorage.setItem("combatTrackerMode", "joueur")
     if (characters.length > 0) {
-      const charactersData = characters.map(char => ({
-        odNumber: char.id,
-        name: char.name,
-        class: char.class,
-        level: char.level,
-        currentHp: char.current_hp,
-        maxHp: char.max_hp,
-        ac: char.ac,
-        initiative: char.initiative,
-        conditions: char.conditions || [],
-        exhaustionLevel: 0,
-      }))
-      localStorage.setItem("combatTrackerCharacters", JSON.stringify(charactersData))
+      // Load inventories from database for each character
+      const charactersWithInventories = await Promise.all(
+        characters.map(async (char) => {
+          const inventory = await loadCharacterInventory(char.id)
+          return {
+            odNumber: char.id,
+            name: char.name,
+            class: char.class,
+            level: char.level,
+            currentHp: char.current_hp,
+            maxHp: char.max_hp,
+            ac: char.ac,
+            initiative: char.initiative,
+            conditions: char.conditions || [],
+            exhaustionLevel: 0,
+            inventory,
+          }
+        })
+      )
+
+      localStorage.setItem("combatTrackerCharacters", JSON.stringify(charactersWithInventories))
       // Also keep in sessionStorage for backward compatibility
-      sessionStorage.setItem("selectedCharacters", JSON.stringify(charactersData))
+      sessionStorage.setItem("selectedCharacters", JSON.stringify(charactersWithInventories))
       // Join campaign as player with characters
       if (socketState.isConnected) {
-        console.log('[Socket] User selected player with characters:', charactersData.map(c => c.name).join(', '))
-        joinCampaign({ role: 'player', characters: charactersData })
+        console.log('[Socket] User selected player with characters:', charactersWithInventories.map(c => c.name).join(', '))
+        joinCampaign({ role: 'player', characters: charactersWithInventories })
       }
     }
   }
@@ -245,6 +299,7 @@ function CombatTrackerContent() {
   // Fetch campaign data on mount
   useEffect(() => {
     async function fetchCampaignData() {
+      console.log('[Campaign] Fetching campaign data...')
       try {
         setLoading(true)
 
@@ -259,30 +314,36 @@ function CombatTrackerContent() {
         const charactersRes = await fetch('/api/characters/notion')
         if (charactersRes.ok) {
           const charactersData = await charactersRes.json()
-          // Map Notion fields to frontend fields
-          const mappedCharacters = charactersData.map((c: {
-            id: string
-            name: string
-            class: string
-            level: number
-            current_hp: number
-            max_hp: number
-            ac: number
-            initiative: number
-            conditions: string[]
-          }) => ({
-            id: c.id,
-            name: c.name,
-            class: c.class,
-            level: c.level,
-            currentHp: c.current_hp,
-            maxHp: c.max_hp,
-            ac: c.ac,
-            initiative: c.initiative,
-            conditions: c.conditions || [],
-            exhaustionLevel: 0,
-            isConnected: false,
-          }))
+          // Map Notion fields to frontend fields and load inventories
+          const mappedCharacters = await Promise.all(
+            charactersData.map(async (c: {
+              id: string
+              name: string
+              class: string
+              level: number
+              current_hp: number
+              max_hp: number
+              ac: number
+              initiative: number
+              conditions: string[]
+            }) => {
+              const inventory = await loadCharacterInventory(c.id)
+              return {
+                id: c.id,
+                name: c.name,
+                class: c.class,
+                level: c.level,
+                currentHp: c.current_hp,
+                maxHp: c.max_hp,
+                ac: c.ac,
+                initiative: c.initiative,
+                conditions: c.conditions || [],
+                exhaustionLevel: 0,
+                isConnected: false,
+                inventory,
+              }
+            })
+          )
           setPlayers(mappedCharacters)
           setAllCampaignCharacters(mappedCharacters)
         }
@@ -435,6 +496,7 @@ function CombatTrackerContent() {
           initiative: playerInitiatives[id] ?? char.initiative,
           conditions: char.conditions || [],
           exhaustionLevel: char.exhaustionLevel || 0,
+          inventory: char.inventory || DEFAULT_INVENTORY,
           isConnected: true,
           playerSocketId: player.socketId,
           isFirstInGroup: idx === 0,
@@ -447,7 +509,15 @@ function CombatTrackerContent() {
     const allPlayers: Character[] = allCampaignCharacters.map(char => {
       // If connected, use real-time data
       if (connectedCharacterIds.has(char.id)) {
-        return connectedCharactersMap.get(char.id)!
+        const connectedChar = connectedCharactersMap.get(char.id)!
+        // Merge with local player state to preserve inventory updates
+        const localPlayer = players.find(p => p.id === char.id)
+        return {
+          ...connectedChar,
+          // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
+          // Only fall back to connectedChar inventory if player is not in local state yet
+          inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
+        }
       }
       // Otherwise, use static data with isConnected: false
       // Apply initiative override if set
@@ -466,17 +536,20 @@ function CombatTrackerContent() {
     })
   })()
 
+  // Memoize connected player IDs to avoid infinite loops
+  const connectedPlayerIds = useMemo(() => {
+    return new Set(displayPlayers.filter(p => p.isConnected).map(p => p.id))
+  }, [displayPlayers.map(p => `${p.id}:${p.isConnected}`).join(',')])
+
   // Sync combat participants' isConnected status with displayPlayers
   useEffect(() => {
     if (combatParticipants.length === 0) return
-
-    const connectedIds = new Set(displayPlayers.filter(p => p.isConnected).map(p => p.id))
 
     setCombatParticipants(prev => {
       let hasChanges = false
       const updated = prev.map(participant => {
         if (participant.type === 'player') {
-          const shouldBeConnected = connectedIds.has(participant.id)
+          const shouldBeConnected = connectedPlayerIds.has(participant.id)
           if (participant.isConnected !== shouldBeConnected) {
             hasChanges = true
             return { ...participant, isConnected: shouldBeConnected }
@@ -486,7 +559,7 @@ function CombatTrackerContent() {
       })
       return hasChanges ? updated : prev
     })
-  }, [displayPlayers])
+  }, [connectedPlayerIds, combatParticipants.length])
 
   // Helper to add history entry
   const addHistoryEntry = (entry: Omit<HistoryEntry, "id" | "timestamp">) => {
@@ -817,6 +890,78 @@ function CombatTrackerContent() {
     }
 
     // Note: Character exhaustion is session-only (from Notion), no DB persistence
+  }
+
+  const updatePlayerInventory = async (id: string, inventory: CharacterInventory) => {
+    console.log('[Inventory] Updating inventory for character:', id, inventory)
+
+    // Update local state - ensure character exists in players state
+    setPlayers((prev) => {
+      const existingPlayer = prev.find(p => p.id === id)
+      if (existingPlayer) {
+        // Update existing player
+        return prev.map((p) => (p.id === id ? { ...p, inventory } : p))
+      } else {
+        // Player not in state yet (connected via WebSocket) - find from displayPlayers and add
+        const connectedPlayer = displayPlayers.find(p => p.id === id)
+        if (connectedPlayer) {
+          console.log('[Inventory] Adding connected player to local state:', connectedPlayer.name)
+          return [...prev, { ...connectedPlayer, inventory: inventory || DEFAULT_INVENTORY }]
+        }
+        // Player not found anywhere - this shouldn't happen, but handle it gracefully
+        console.warn('[Inventory] Player not found in displayPlayers:', id)
+        return prev
+      }
+    })
+
+    // Update combat participants if active
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, inventory } : p))
+      )
+    }
+
+    // Emit socket event
+    emitInventoryUpdate({
+      participantId: id,
+      participantType: 'player',
+      inventory,
+      source: mode === 'mj' ? 'dm' : 'player',
+    })
+
+    // Persist to localStorage for player's own characters
+    if (mode === 'joueur' && selectedCharacters.some(sc => String(sc.id) === id)) {
+      const storedCharacters = localStorage.getItem('combatTrackerCharacters')
+      if (storedCharacters) {
+        try {
+          const characters = JSON.parse(storedCharacters)
+          const updatedCharacters = characters.map((char: any) =>
+            String(char.odNumber) === id ? { ...char, inventory } : char
+          )
+          localStorage.setItem('combatTrackerCharacters', JSON.stringify(updatedCharacters))
+        } catch (error) {
+          console.error('Failed to persist inventory to localStorage:', error)
+        }
+      }
+    }
+
+    // Persist to database
+    console.log('[Inventory] Persisting to database:', `/api/characters/${id}/inventory`)
+    try {
+      const response = await fetch(`/api/characters/${id}/inventory`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inventory),
+      })
+      if (response.ok) {
+        const saved = await response.json()
+        console.log('[Inventory] Successfully saved to database:', saved)
+      } else {
+        console.error('[Inventory] Failed to save - HTTP', response.status, await response.text())
+      }
+    } catch (error) {
+      console.error('Failed to persist inventory to database:', error)
+    }
   }
 
   const updateMonsterConditions = async (id: string, conditions: string[], conditionDurations?: Record<string, number>) => {
@@ -1344,6 +1489,7 @@ function CombatTrackerContent() {
                   onUpdateInitiative={updatePlayerInitiative}
                   onUpdateConditions={updatePlayerConditions}
                   onUpdateExhaustion={updatePlayerExhaustion}
+                  onUpdateInventory={updatePlayerInventory}
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   combatParticipants={combatParticipants}
@@ -1354,6 +1500,7 @@ function CombatTrackerContent() {
                 <MyCharactersPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onUpdateHp={updatePlayerHp}
+                  onUpdateInventory={updatePlayerInventory}
                   combatActive={combatActive}
                 />
               )}
@@ -1434,6 +1581,7 @@ function CombatTrackerContent() {
                       onUpdateInitiative={updatePlayerInitiative}
                       onUpdateConditions={updatePlayerConditions}
                       onUpdateExhaustion={updatePlayerExhaustion}
+                      onUpdateInventory={updatePlayerInventory}
                       mode={mode}
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
@@ -1448,6 +1596,7 @@ function CombatTrackerContent() {
                     <MyCharactersPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onUpdateHp={updatePlayerHp}
+                      onUpdateInventory={updatePlayerInventory}
                       combatActive={combatActive}
                     />
                   </div>
@@ -1500,6 +1649,7 @@ function CombatTrackerContent() {
                 <MyCharactersPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onUpdateHp={updatePlayerHp}
+                  onUpdateInventory={updatePlayerInventory}
                   combatActive={false}
                 />
               </div>
@@ -1543,6 +1693,7 @@ function CombatTrackerContent() {
                       onUpdateInitiative={updatePlayerInitiative}
                       onUpdateConditions={updatePlayerConditions}
                       onUpdateExhaustion={updatePlayerExhaustion}
+                      onUpdateInventory={updatePlayerInventory}
                       mode={mode}
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}

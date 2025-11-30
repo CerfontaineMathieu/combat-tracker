@@ -10,8 +10,9 @@ import type {
   ConditionChangeData,
   ExhaustionChangeData,
   DeathSaveChangeData,
+  InventoryUpdateData,
 } from '../socket-events';
-import type { Character, Monster, CombatParticipant } from '../types';
+import type { Character, Monster, CombatParticipant, CharacterInventory } from '../types';
 
 // Re-export types from socket-events for convenience
 export type {
@@ -24,6 +25,7 @@ export type {
   ConditionChangeData,
   ExhaustionChangeData,
   DeathSaveChangeData,
+  InventoryUpdateData,
 };
 
 // Typed socket
@@ -106,6 +108,9 @@ export type SocketAction =
   | { type: 'CONDITION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; conditions: string[]; conditionDurations?: Record<string, number> }
   | { type: 'EXHAUSTION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; exhaustionLevel: number }
   | { type: 'DEATH_SAVE_CHANGE'; participantId: string; participantType: 'player' | 'monster'; deathSaves: { successes: number; failures: number }; isStabilized: boolean; isDead: boolean }
+
+  // Inventory
+  | { type: 'INVENTORY_UPDATE'; participantId: string; inventory: CharacterInventory }
 
   // Effects
   | { type: 'SET_AMBIENT_EFFECT'; effect: AmbientEffectData['effect'] }
@@ -191,6 +196,9 @@ export interface SocketContextType {
   emitConditionChange: (data: ConditionChangeData) => void;
   emitExhaustionChange: (data: ExhaustionChangeData) => void;
   emitDeathSaveChange: (data: DeathSaveChangeData) => void;
+
+  // Inventory actions
+  emitInventoryUpdate: (data: InventoryUpdateData) => void;
 
   // Ambient effect
   emitAmbientEffect: (data: AmbientEffectData) => void;

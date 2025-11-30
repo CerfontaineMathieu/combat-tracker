@@ -465,6 +465,43 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         dmDisconnectTime: null,
       };
 
+    // ============ INVENTORY ============
+    case 'INVENTORY_UPDATE': {
+      const { participantId, inventory } = action
+
+      // Update in players array
+      const players = state.players.map((p) =>
+        p.id === participantId ? { ...p, inventory } : p
+      )
+
+      // Update in connectedPlayers
+      const connectedPlayers = state.connectedPlayers.map((cp) => ({
+        ...cp,
+        characters: cp.characters.map((char) =>
+          String(char.odNumber) === participantId
+            ? { ...char, inventory }
+            : char
+        ),
+      }))
+
+      // Update in combat participants
+      const participants = state.combatState.participants.map((p) =>
+        p.id === participantId && p.type === 'player'
+          ? { ...p, inventory }
+          : p
+      )
+
+      return {
+        ...state,
+        players,
+        connectedPlayers,
+        combatState: {
+          ...state.combatState,
+          participants,
+        },
+      }
+    }
+
     default:
       return state;
   }
