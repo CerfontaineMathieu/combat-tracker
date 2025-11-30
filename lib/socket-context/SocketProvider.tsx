@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useReducer, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { socketReducer } from './reducer';
 import type {
@@ -315,9 +315,9 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
 
-  // Periodic refresh of connected players for DM (in case socket reconnected and lost room membership)
+  // Periodic refresh of connected players for all modes (in case socket reconnected and lost room membership)
   useEffect(() => {
-    if (!state.isConnected || !state.isJoined || state.mode !== 'mj') return;
+    if (!state.isConnected || !state.isJoined) return;
 
     const socket = socketRef.current;
     if (!socket) return;
@@ -331,7 +331,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('request-connected-players', { campaignId: state.campaignId });
 
     return () => clearInterval(interval);
-  }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
+  }, [state.isConnected, state.isJoined, state.campaignId]);
 
   // ============ ACTION FUNCTIONS ============
 
@@ -445,8 +445,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('notification', data);
   }, []);
 
-  // Context value
-  const value: SocketContextType = {
+  // Context value - memoized to ensure proper React re-renders when state changes
+  const value: SocketContextType = useMemo(() => ({
     state,
     dispatch,
     joinCampaign,
@@ -461,7 +461,22 @@ export function SocketProvider({ children }: SocketProviderProps) {
     requestPlayerPositions,
     requestConnectedPlayers,
     emitNotification,
-  };
+  }), [
+    state,
+    dispatch,
+    joinCampaign,
+    leaveCampaign,
+    emitCombatUpdate,
+    emitHpChange,
+    emitConditionChange,
+    emitExhaustionChange,
+    emitDeathSaveChange,
+    emitAmbientEffect,
+    emitPlayerPositions,
+    requestPlayerPositions,
+    requestConnectedPlayers,
+    emitNotification,
+  ]);
 
   return (
     <SocketContext.Provider value={value}>

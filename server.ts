@@ -268,6 +268,20 @@ app.prepare().then(() => {
           characters: characters
         };
 
+        // Remove any stale entries for the same characters (from previous sessions/reconnects)
+        const existingPlayers = await getConnectedPlayers(campaignId);
+        const newCharacterIds = new Set(characters.map((c: { odNumber: string }) => String(c.odNumber)));
+        for (const existingPlayer of existingPlayers) {
+          // Check if any character in this player entry matches our new characters
+          const hasMatchingChar = existingPlayer.characters.some(
+            (c: { odNumber: string }) => newCharacterIds.has(String(c.odNumber))
+          );
+          if (hasMatchingChar && existingPlayer.socketId !== socket.id) {
+            console.log(`[Socket.io] Removing stale player entry ${existingPlayer.socketId} (same characters)`);
+            await removeConnectedPlayer(campaignId, existingPlayer.socketId);
+          }
+        }
+
         // Store in Redis
         await addConnectedPlayer(campaignId, playerData);
 

@@ -384,28 +384,25 @@ function CombatTrackerContent() {
 
   // Convert connected players to Character format for the UI
   // Flatten characters array from each connected player and add grouping metadata
-  // MJ mode: only show connected players (empty if none connected)
-  // Player mode: show their own characters from players state
-  const displayPlayers: Character[] = mode === 'mj'
-    ? socketState.connectedPlayers.flatMap(player =>
-        player.characters.map((char, idx) => ({
-          id: String(char.odNumber), // Use Notion UUID directly (stored as odNumber for compatibility)
-          name: char.name,
-          class: char.class,
-          level: char.level,
-          currentHp: char.currentHp,
-          maxHp: char.maxHp,
-          ac: char.ac,
-          initiative: char.initiative,
-          conditions: char.conditions || [],
-          exhaustionLevel: char.exhaustionLevel || 0,
-          // Add metadata for grouping
-          playerSocketId: player.socketId,
-          isFirstInGroup: idx === 0,
-          groupSize: player.characters.length,
-        }))
-      )
-    : players
+  // Both MJ and Player modes show connected players from socket state
+  const displayPlayers: Character[] = socketState.connectedPlayers.flatMap(player =>
+    player.characters.map((char, idx) => ({
+      id: String(char.odNumber), // Use Notion UUID directly (stored as odNumber for compatibility)
+      name: char.name,
+      class: char.class,
+      level: char.level,
+      currentHp: char.currentHp,
+      maxHp: char.maxHp,
+      ac: char.ac,
+      initiative: char.initiative,
+      conditions: char.conditions || [],
+      exhaustionLevel: char.exhaustionLevel || 0,
+      // Add metadata for grouping
+      playerSocketId: player.socketId,
+      isFirstInGroup: idx === 0,
+      groupSize: player.characters.length,
+    }))
+  )
 
   // Helper to add history entry
   const addHistoryEntry = (entry: Omit<HistoryEntry, "id" | "timestamp">) => {
@@ -1207,6 +1204,7 @@ function CombatTrackerContent() {
           <div className="h-full animate-fade-in">
             {activeTab === "players" && (
               <PlayerPanel
+                key={`players-${socketState.connectedPlayers.length}`}
                 players={displayPlayers}
                 onUpdateHp={updatePlayerHp}
                 onUpdateInitiative={updatePlayerInitiative}
