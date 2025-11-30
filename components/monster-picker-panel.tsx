@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
-import { Search, Database, Plus, Minus, ChevronLeft, GripVertical, Eye, MousePointer } from "lucide-react"
+import { Search, Database, Plus, Minus, GripVertical, Eye, MousePointer } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -267,49 +267,41 @@ export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
     </Dialog>
   )
 
-  // Detail view
-  if (selectedMonster) {
-    return (
-      <>
-        {quantityDialog}
-        <Card className="bg-card border-border h-full flex flex-col">
-          <CardHeader className="pb-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedMonster(null)}
-                className="text-muted-foreground hover:text-foreground -ml-2"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Retour
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
-            <div className="mb-3">
-              <Button
-                size="sm"
-                className="w-full bg-crimson hover:bg-crimson/80"
-                onClick={(e) => handleAddClick(selectedMonster, e)}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Ajouter au combat
-              </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MonsterDetail monster={selectedMonster} />
-            </div>
-          </CardContent>
-        </Card>
-      </>
-    )
-  }
+  // Monster Detail Modal
+  const monsterDetailDialog = (
+    <Dialog open={!!selectedMonster} onOpenChange={(open) => !open && setSelectedMonster(null)}>
+      <DialogContent className="bg-card border-border !max-w-3xl w-[95vw] sm:!max-w-3xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0 border-b border-border">
+          <DialogTitle className="text-gold text-xl">
+            {selectedMonster?.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {selectedMonster && <MonsterDetail monster={selectedMonster} />}
+        </div>
+        <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
+          <Button variant="ghost" onClick={() => setSelectedMonster(null)}>
+            Fermer
+          </Button>
+          {selectedMonster && (
+            <Button
+              className="bg-crimson hover:bg-crimson/80"
+              onClick={(e) => handleAddClick(selectedMonster, e)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter au combat
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 
   // List view
   return (
     <>
       {quantityDialog}
+      {monsterDetailDialog}
       <Card className="bg-card border-border h-full flex flex-col">
         <CardHeader className="pb-3 shrink-0">
           <CardTitle className="flex items-center gap-2 text-crimson">

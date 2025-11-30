@@ -125,6 +125,265 @@ function safeParseJSON(text: string, fallback: any = []): any {
 }
 
 /**
+ * D&D action name pattern - matches things like:
+ * - "Morsure"
+ * - "Attaques multiples"
+ * - "Toile d'araignée (Recharge 5-6)"
+ * - "Souffle de feu (Recharge 5–6)"
+ *
+ * Must be at least 4 characters to avoid false positives like "Au c."
+ */
+const ACTION_NAME_PATTERN = /^([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]{2,}(?:[\s'''-]+[a-zàâäéèêëïîôùûüÿœæçA-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ]+)*(?:\s*\([^)]+\))?)\.\s+/;
+
+/**
+ * Check if a line looks like it starts a new ability/action
+ * D&D ability names are typically short (1-4 words), capitalized, followed by ". "
+ */
+function looksLikeNewAbility(line: string): boolean {
+  return ACTION_NAME_PATTERN.test(line);
+}
+
+/**
+ * Extract action name from the start of a line
+ * Returns [name, rest] or null if no match
+ */
+function extractActionName(text: string): [string, string] | null {
+  const match = text.match(ACTION_NAME_PATTERN);
+  if (!match) return null;
+
+  const name = match[1].trim();
+  const rest = text.substring(match[0].length);
+  return [name, rest];
+}
+
+/**
+ * Check if a potential action name looks like a weapon/sub-attack
+ * Weapon names are short (1-2 words) and their descriptions start with attack patterns
+ */
+function isWeaponSubAttack(name: string, description: string): boolean {
+  const wordCount = name.split(/\s+/).length;
+  if (wordCount > 2) return false;
+
+  // Check if description starts with attack patterns
+  const attackPatterns = [
+    /^Attaque\s+(au\s+corps\s+à\s+corps|à\s+distance)/i,
+    /^(Melee|Ranged)\s+(Weapon|Spell)\s+Attack/i,
+  ];
+
+  return attackPatterns.some(pattern => pattern.test(description));
+}
+
+/**
+ * Split continuous text into individual actions by detecting action name patterns
+ * Handles text where actions are not separated by newlines
+ * Merges weapon sub-attacks into their parent action
+ */
+function splitActionsFromContinuousText(text: string): Array<{ name: string; description: string }> {
+  const result: Array<{ name: string; description: string }> = [];
+
+  // Pattern to find action names within text (not just at start)
+  // Look for: period + space(s) + Capital letter word(s) + optional (Recharge X-Y) + period + space
+  // Name must be at least 4 characters to avoid false positives
+  const splitPattern = /\.\s+([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]{2,}(?:[\s'''-]+[a-zàâäéèêëïîôùûüÿœæçA-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ]+)*(?:\s*\([^)]+\))?)\.\s+/g;
+
+  // First, try to extract the first action
+  const firstMatch = extractActionName(text);
+  if (!firstMatch) {
+    // No action pattern found, return as single item
+    return [{ name: text.substring(0, 50).trim(), description: text }];
+  }
+
+  let [firstName, remaining] = firstMatch;
+  const segments: Array<{ name: string; startDesc: number }> = [{ name: firstName, startDesc: 0 }];
+
+  // Find all subsequent action patterns in the remaining text
+  let match;
+  const searchText = '. ' + remaining; // Add prefix to match pattern at start
+
+  // Reset pattern
+  splitPattern.lastIndex = 0;
+
+  while ((match = splitPattern.exec(searchText)) !== null) {
+    const actionName = match[1];
+    segments.push({ name: actionName, startDesc: match.index + match[0].length - 2 }); // -2 for '. ' prefix
+  }
+
+  // Now build the result by extracting descriptions between actions
+  // But merge weapon sub-attacks into their parent action
+  for (let i = 0; i < segments.length; i++) {
+    const currentName = segments[i].name;
+    let description: string;
+
+    if (i === 0) {
+      // First action: description is from start until next action (or end)
+      if (segments.length > 1) {
+        // Find where the next action name starts in 'remaining'
+        const nextActionStart = remaining.indexOf(segments[1].name + '.');
+        description = nextActionStart > 0 ? remaining.substring(0, nextActionStart).trim() : remaining;
+      } else {
+        description = remaining;
+      }
+    } else {
+      // Subsequent actions: need to find their description in the original remaining text
+      const currentStart = remaining.indexOf(segments[i].name + '.');
+      if (currentStart === -1) continue;
+
+      const descStart = currentStart + segments[i].name.length + 2; // +2 for '. '
+
+      if (i < segments.length - 1) {
+        const nextStart = remaining.indexOf(segments[i + 1].name + '.', descStart);
+        description = nextStart > 0 ? remaining.substring(descStart, nextStart).trim() : remaining.substring(descStart).trim();
+      } else {
+        description = remaining.substring(descStart).trim();
+      }
+    }
+
+    // Clean up description - remove trailing periods if doubled
+    description = description.replace(/\.{2,}\s*$/, '.').trim();
+
+    // Check if this is a weapon sub-attack that should be merged with previous action
+    if (result.length > 0 && isWeaponSubAttack(currentName, description)) {
+      // Merge with previous action
+      result[result.length - 1].description += ` **${currentName}.** ${description}`;
+    } else {
+      result.push({ name: currentName, description });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Parse plain text actions into structured array
+ * Uses smart detection to identify new abilities vs continuation lines
+ * Falls back to continuous text parsing if newline-based parsing yields poor results
+ */
+function parseActionsText(actionsText: string): Array<{ name: string; description: string }> {
+  if (!actionsText || actionsText.trim() === '') return [];
+
+  // Normalize text - join lines first, then try to parse
+  const normalizedText = actionsText.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Use continuous text parser which handles both cases
+  return splitActionsFromContinuousText(normalizedText);
+}
+
+/**
+ * Parse plain text legendary actions into structured array with cost extraction
+ * Uses continuous text parsing and extracts cost from action names
+ */
+function parseLegendaryActionsText(actionsText: string): Array<{ name: string; description: string; cost: number }> {
+  if (!actionsText || actionsText.trim() === '') return [];
+
+  // Normalize and parse as continuous text
+  const normalizedText = actionsText.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  const actions = splitActionsFromContinuousText(normalizedText);
+
+  // Add cost extraction
+  return actions.map((action) => {
+    let name = action.name;
+    let cost = 1;
+
+    // Extract cost from pattern like "(coûte 2 actions)"
+    const costMatch = name.match(/\(coûte? (\d+) actions?\)/);
+    if (costMatch) {
+      cost = parseInt(costMatch[1], 10);
+      name = name.replace(/\s*\(coûte? \d+ actions?\)/, '').trim();
+    }
+
+    return { name, description: action.description, cost };
+  });
+}
+
+/**
+ * Parse plain text description/traits into structured object
+ * Extracts structured fields (Compétences, Sens, Langues, etc.) and special abilities
+ */
+function parseTraitsText(descriptionText: string): {
+  skills: string[];
+  senses: string[];
+  languages: string[];
+  damage_resistances: string[];
+  damage_immunities: string[];
+  condition_immunities: string[];
+  special_abilities: Array<{ name: string; description: string }>;
+} {
+  const traits = {
+    skills: [] as string[],
+    senses: [] as string[],
+    languages: [] as string[],
+    damage_resistances: [] as string[],
+    damage_immunities: [] as string[],
+    condition_immunities: [] as string[],
+    special_abilities: [] as Array<{ name: string; description: string }>,
+  };
+
+  if (!descriptionText || descriptionText.trim() === '') return traits;
+
+  // Normalize text
+  let text = descriptionText.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Extract structured fields using French keywords
+  // Order matters - extract from most specific to least specific
+
+  // Jets de sauvegarde (Saving Throws) - extract first as it often appears before skills
+  const savesMatch = text.match(/Jets?\s+de\s+sauvegarde\s+([A-Za-zÀ-ÿ]+\s*[+-]?\d+(?:,\s*[A-Za-zÀ-ÿ]+\s*[+-]?\d+)*)/i);
+  if (savesMatch) {
+    text = text.replace(savesMatch[0], ' ');
+  }
+
+  // Compétences (Skills)
+  const skillsMatch = text.match(/Compétences?\s+([^.]*?)(?=\s*(?:Résistances?|Immunités?|Vulnérabilités?|Sens|Langues|Jets?\s+de|[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]*\.|$))/i);
+  if (skillsMatch) {
+    traits.skills = skillsMatch[1].split(/,\s*/).map(s => s.trim()).filter(Boolean);
+    text = text.replace(skillsMatch[0], ' ');
+  }
+
+  // Résistances aux dégâts (Damage Resistances)
+  const dmgResMatch = text.match(/Résistances?\s+aux\s+dégâts?\s+([^.]*?)(?=\s*(?:Immunités?|Vulnérabilités?|Sens|Langues|Compétences?|[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]*\.|$))/i);
+  if (dmgResMatch) {
+    traits.damage_resistances = dmgResMatch[1].split(/,\s*/).map(s => s.trim()).filter(Boolean);
+    text = text.replace(dmgResMatch[0], ' ');
+  }
+
+  // Immunités aux dégâts (Damage Immunities)
+  const dmgImmMatch = text.match(/Immunités?\s+aux\s+dégâts?\s+([^.]*?)(?=\s*(?:Immunités?\s+aux\s+états?|Résistances?|Vulnérabilités?|Sens|Langues|Compétences?|[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]*\.|$))/i);
+  if (dmgImmMatch) {
+    traits.damage_immunities = dmgImmMatch[1].split(/,\s*/).map(s => s.trim()).filter(Boolean);
+    text = text.replace(dmgImmMatch[0], ' ');
+  }
+
+  // Immunités aux états (Condition Immunities)
+  const condImmMatch = text.match(/Immunités?\s+aux\s+états?\s+([^.]*?)(?=\s*(?:Résistances?|Vulnérabilités?|Sens|Langues|Compétences?|[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]*\.|$))/i);
+  if (condImmMatch) {
+    traits.condition_immunities = condImmMatch[1].split(/,\s*/).map(s => s.trim()).filter(Boolean);
+    text = text.replace(condImmMatch[0], ' ');
+  }
+
+  // Sens (Senses)
+  const sensesMatch = text.match(/Sens\s+([^.]*?)(?=\s*(?:Langues|Compétences?|Résistances?|Immunités?|[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]*\.|$))/i);
+  if (sensesMatch) {
+    traits.senses = sensesMatch[1].split(/,\s*/).map(s => s.trim()).filter(Boolean);
+    text = text.replace(sensesMatch[0], ' ');
+  }
+
+  // Langues (Languages)
+  const langMatch = text.match(/Langues?\s+([^.]*?)(?=\s*(?:Sens|Compétences?|Résistances?|Immunités?|[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸŒÆÇ][a-zàâäéèêëïîôùûüÿœæç]*\.|$))/i);
+  if (langMatch) {
+    traits.languages = [langMatch[1].trim()];
+    text = text.replace(langMatch[0], ' ');
+  }
+
+  // Clean up remaining text and parse as special abilities
+  text = text.replace(/\s+/g, ' ').trim();
+  if (text) {
+    traits.special_abilities = splitActionsFromContinuousText(text);
+  }
+
+  return traits;
+}
+
+/**
  * Helper function to extract select property
  */
 function extractSelect(selectProp: any): string {
@@ -171,24 +430,17 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
   const descriptionText = extractText(props.Description?.rich_text || []);
 
   // Convert plain text to JSON structure or parse existing JSON
+  // Use proper parsing functions that mirror the PostgreSQL parsing logic
   const actions = actionsText
-    ? (safeParseJSON(actionsText, null) || [{ name: 'Actions', description: actionsText }])
+    ? (safeParseJSON(actionsText, null) || parseActionsText(actionsText))
     : [];
 
   const legendary_actions = legendaryActionsText
-    ? (safeParseJSON(legendaryActionsText, null) || [{ name: 'Actions légendaires', description: legendaryActionsText }])
+    ? (safeParseJSON(legendaryActionsText, null) || parseLegendaryActionsText(legendaryActionsText))
     : [];
 
   const traits = descriptionText
-    ? (safeParseJSON(descriptionText, null) || {
-        skills: [],
-        senses: [],
-        languages: [],
-        damage_resistances: [],
-        damage_immunities: [],
-        condition_immunities: [],
-        special_abilities: descriptionText ? [{ name: 'Description', description: descriptionText }] : [],
-      })
+    ? (safeParseJSON(descriptionText, null) || parseTraitsText(descriptionText))
     : {
         skills: [],
         senses: [],
