@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Users, Skull, ArrowDown, Dices, Save, FolderOpen, Trash2, Loader2 } from "lucide-react"
+import { Swords, Play, Users, Skull, ArrowDown, Dices, Save, FolderOpen, Trash2, Loader2, MousePointer, AlertTriangle, WifiOff } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -91,6 +92,7 @@ export function CombatSetupPanel({
   campaignId,
   ownCharacterIds = [],
 }: CombatSetupPanelProps) {
+  const isMobile = useIsMobile()
   const { combatParticipants, isOverCombatZone } = useCombatDnd()
 
   const { setNodeRef, isOver } = useDroppable({
@@ -112,7 +114,9 @@ export function CombatSetupPanel({
   const totalXp = combatParticipants
     .filter(p => p.type === "monster")
     .reduce((sum, p) => sum + (p.xp || 0), 0)
-  const canStartCombat = combatParticipants.length >= 2
+  const disconnectedPlayers = combatParticipants.filter(p => p.type === "player" && p.isConnected === false)
+  const hasDisconnectedPlayers = disconnectedPlayers.length > 0
+  const canStartCombat = combatParticipants.length >= 2 && !hasDisconnectedPlayers
 
   // Fetch presets when sheet opens
   useEffect(() => {
@@ -353,6 +357,21 @@ export function CombatSetupPanel({
               </div>
             )}
 
+            {/* Disconnected Players Warning */}
+            {hasDisconnectedPlayers && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-500">
+                    Joueurs hors ligne dans le combat
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {disconnectedPlayers.map(p => p.name).join(", ")} {disconnectedPlayers.length === 1 ? "n'est pas connecté" : "ne sont pas connectés"}. Attendez leur connexion ou retirez-les du combat.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Start Combat Button */}
             <Button
               onClick={onStartCombat}
@@ -365,9 +384,11 @@ export function CombatSetupPanel({
               )}
             >
               <Play className="w-5 h-5 mr-2" />
-              {canStartCombat
-                ? `Commencer le combat (${combatParticipants.length} participants)`
-                : "Ajoutez des participants pour commencer"}
+              {hasDisconnectedPlayers
+                ? "Joueurs hors ligne - Impossible de commencer"
+                : canStartCombat
+                  ? `Commencer le combat (${combatParticipants.length} participants)`
+                  : "Ajoutez des participants pour commencer"}
             </Button>
           </div>
         )}
@@ -406,10 +427,12 @@ export function CombatSetupPanel({
               </p>
               <p className="text-sm mt-1">
                 {mode === "mj"
-                  ? "Glissez les joueurs et monstres ici pour construire le combat"
+                  ? isMobile
+                    ? "Ajoutez des joueurs et monstres via les autres onglets"
+                    : "Glissez les joueurs et monstres ici pour construire le combat"
                   : "En attente de la configuration du combat..."}
               </p>
-              {mode === "mj" && (
+              {mode === "mj" && !isMobile && (
                 <p className="text-xs mt-3 text-muted-foreground/70">
                   Réorganisez l&apos;ordre d&apos;initiative en glissant les cartes
                 </p>
@@ -449,7 +472,7 @@ export function CombatSetupPanel({
         </div>
 
         {/* Helper Text */}
-        {mode === "mj" && combatParticipants.length > 0 && (
+        {mode === "mj" && combatParticipants.length > 0 && !isMobile && (
           <p className="text-xs text-muted-foreground text-center mt-3 shrink-0">
             Glissez pour réorganiser l&apos;ordre d&apos;initiative
           </p>
