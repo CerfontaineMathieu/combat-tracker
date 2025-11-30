@@ -315,9 +315,9 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
 
-  // Periodic refresh of connected players for DM (in case socket reconnected and lost room membership)
+  // Periodic refresh of connected players for all modes (in case socket reconnected and lost room membership)
   useEffect(() => {
-    if (!state.isConnected || !state.isJoined || state.mode !== 'mj') return;
+    if (!state.isConnected || !state.isJoined) return;
 
     const socket = socketRef.current;
     if (!socket) return;
@@ -331,7 +331,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('request-connected-players', { campaignId: state.campaignId });
 
     return () => clearInterval(interval);
-  }, [state.isConnected, state.isJoined, state.mode, state.campaignId]);
+  }, [state.isConnected, state.isJoined, state.campaignId]);
 
   // ============ ACTION FUNCTIONS ============
 

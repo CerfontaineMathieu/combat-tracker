@@ -33,6 +33,8 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         mode: action.mode,
         // Clear previous join error when starting a new join attempt
         joinError: null,
+        // Clear stale connected players when starting a new session
+        connectedPlayers: [],
       };
 
     case 'JOIN_SUCCESS':
@@ -110,13 +112,26 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
     }
 
     case 'PLAYER_CONNECTED': {
-      const exists = state.connectedPlayers.some(
+      // Check if player with same socketId already exists
+      const existsBySocket = state.connectedPlayers.some(
         (p) => p.socketId === action.player.socketId
       );
-      if (exists) return state;
+      if (existsBySocket) return state;
+
+      // Remove any existing entries with same character IDs (stale reconnections)
+      const newCharacterIds = new Set(
+        action.player.characters.map((c) => String(c.odNumber))
+      );
+      const filteredPlayers = state.connectedPlayers.filter((p) => {
+        const hasMatchingChar = p.characters.some((c) =>
+          newCharacterIds.has(String(c.odNumber))
+        );
+        return !hasMatchingChar;
+      });
+
       return {
         ...state,
-        connectedPlayers: [...state.connectedPlayers, action.player],
+        connectedPlayers: [...filteredPlayers, action.player],
       };
     }
 
