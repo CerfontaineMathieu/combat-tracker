@@ -56,7 +56,7 @@ function getNumericId(prefixedId: string): number {
 
 function CombatTrackerContent() {
   const isMobile = useIsMobile()
-  const [activeTab, setActiveTab] = useState<MobileTab>("combat")
+  const [activeTab, setActiveTab] = useState<MobileTab>("setup")
 
   // Socket context
   const {
@@ -81,6 +81,7 @@ function CombatTrackerContent() {
   const campaignId = DEFAULT_CAMPAIGN_ID
   const [campaignName, setCampaignName] = useState("")
   const [players, setPlayers] = useState<Character[]>([])
+  const [allCampaignCharacters, setAllCampaignCharacters] = useState<Character[]>([])
   const [monsters, setMonsters] = useState<Monster[]>([])
   const [combatActive, setCombatActive] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -140,6 +141,17 @@ function CombatTrackerContent() {
   useEffect(() => {
     sessionStorage.setItem('dnd-ambientEffect', ambientEffect)
   }, [ambientEffect])
+
+  // Switch mobile tab when combat starts/stops (DM only)
+  useEffect(() => {
+    if (isMobile && mode === "mj") {
+      if (combatActive && activeTab === "setup") {
+        setActiveTab("combat")
+      } else if (!combatActive && activeTab === "combat") {
+        setActiveTab("setup")
+      }
+    }
+  }, [combatActive, isMobile, mode, activeTab])
 
   // Restore mode from localStorage on mount
   useEffect(() => {
@@ -245,7 +257,7 @@ function CombatTrackerContent() {
         if (charactersRes.ok) {
           const charactersData = await charactersRes.json()
           // Map Notion fields to frontend fields
-          setPlayers(charactersData.map((c: {
+          const mappedCharacters = charactersData.map((c: {
             id: string
             name: string
             class: string
@@ -266,7 +278,10 @@ function CombatTrackerContent() {
             initiative: c.initiative,
             conditions: c.conditions || [],
             exhaustionLevel: 0,
-          })))
+            isConnected: false,
+          }))
+          setPlayers(mappedCharacters)
+          setAllCampaignCharacters(mappedCharacters)
         }
 
         // Fetch combat monsters
@@ -394,27 +409,53 @@ function CombatTrackerContent() {
     // Note: DM auto-rejoin is not supported (requires password)
   }, [socketState.isConnected, socketState.isJoined, socketState.joinError, joinCampaign])
 
-  // Convert connected players to Character format for the UI
-  // Flatten characters array from each connected player and add grouping metadata
-  // Both MJ and Player modes show connected players from socket state
-  const displayPlayers: Character[] = socketState.connectedPlayers.flatMap(player =>
-    player.characters.map((char, idx) => ({
-      id: String(char.odNumber), // Use Notion UUID directly (stored as odNumber for compatibility)
-      name: char.name,
-      class: char.class,
-      level: char.level,
-      currentHp: char.currentHp,
-      maxHp: char.maxHp,
-      ac: char.ac,
-      initiative: char.initiative,
-      conditions: char.conditions || [],
-      exhaustionLevel: char.exhaustionLevel || 0,
-      // Add metadata for grouping
-      playerSocketId: player.socketId,
-      isFirstInGroup: idx === 0,
-      groupSize: player.characters.length,
-    }))
-  )
+  // Build displayPlayers by merging all campaign characters with connected players
+  // Connected players get real-time data, disconnected players show from allCampaignCharacters
+  const displayPlayers: Character[] = (() => {
+    // Get connected character IDs and their data
+    const connectedCharacterIds = new Set<string>()
+    const connectedCharactersMap = new Map<string, Character>()
+
+    socketState.connectedPlayers.forEach(player => {
+      player.characters.forEach((char, idx) => {
+        const id = String(char.odNumber)
+        connectedCharacterIds.add(id)
+        connectedCharactersMap.set(id, {
+          id,
+          name: char.name,
+          class: char.class,
+          level: char.level,
+          currentHp: char.currentHp,
+          maxHp: char.maxHp,
+          ac: char.ac,
+          initiative: char.initiative,
+          conditions: char.conditions || [],
+          exhaustionLevel: char.exhaustionLevel || 0,
+          isConnected: true,
+          playerSocketId: player.socketId,
+          isFirstInGroup: idx === 0,
+          groupSize: player.characters.length,
+        })
+      })
+    })
+
+    // Merge with all campaign characters
+    const allPlayers: Character[] = allCampaignCharacters.map(char => {
+      // If connected, use real-time data
+      if (connectedCharacterIds.has(char.id)) {
+        return connectedCharactersMap.get(char.id)!
+      }
+      // Otherwise, use static data with isConnected: false
+      return { ...char, isConnected: false }
+    })
+
+    // Sort: connected first, then by name
+    return allPlayers.sort((a, b) => {
+      if (a.isConnected && !b.isConnected) return -1
+      if (!a.isConnected && b.isConnected) return 1
+      return a.name.localeCompare(b.name)
+    })
+  })()
 
   // Helper to add history entry
   const addHistoryEntry = (entry: Omit<HistoryEntry, "id" | "timestamp">) => {
@@ -902,6 +943,7 @@ function CombatTrackerContent() {
       conditions: player.conditions,
       exhaustionLevel: player.exhaustionLevel || 0,
       type: "player",
+      isConnected: player.isConnected,
     }
     setCombatParticipants(prev => sortParticipantsByInitiative([...prev, participant]))
     toast.success(`${player.name} ajouté au combat`)
@@ -1245,69 +1287,83 @@ function CombatTrackerContent() {
       <main id="main-content" className="flex-1 p-4 overflow-hidden pb-20 md:pb-4">
         {isMobile ? (
           /* Mobile: Tab-based navigation showing one panel at a time */
-          <div className="h-full animate-fade-in">
-            {activeTab === "players" && (
-              <PlayerPanel
-                key={`players-${socketState.connectedPlayers.length}`}
-                players={displayPlayers}
-                onUpdateHp={updatePlayerHp}
-                onUpdateInitiative={updatePlayerInitiative}
-                onUpdateConditions={updatePlayerConditions}
-                onUpdateExhaustion={updatePlayerExhaustion}
-                onAddPlayerToCombat={mode === "mj" && !combatActive ? addPlayerToCombat : undefined}
-                mode={mode}
-                combatActive={combatActive}
-                combatParticipants={combatParticipants}
-                ownCharacterIds={selectedCharacters.map(c => String(c.id))}
-              />
-            )}
-            {activeTab === "combat" && (
-              !combatActive && mode === "mj" ? (
-                <MobileCombatSetup
+          <CombatDndProvider
+            players={displayPlayers}
+            monsters={monsters}
+            combatParticipants={combatParticipants}
+            setCombatParticipants={setCombatParticipants}
+            onAddPlayerToCombat={addPlayerToCombat}
+            onAddMonsterToCombat={addMonsterToCombat}
+            onAddDbMonsterToCombat={(dbMonster) => {
+              setPendingDropMonster(dbMonster)
+              setDropQuantity(1)
+            }}
+            onRemoveFromCombat={removeFromCombat}
+            onReorderParticipants={reorderParticipants}
+          >
+            <div className="h-full animate-fade-in">
+              {activeTab === "players" && (
+                <PlayerPanel
+                  key={`players-${socketState.connectedPlayers.length}`}
+                  players={displayPlayers}
+                  onUpdateHp={updatePlayerHp}
+                  onUpdateInitiative={updatePlayerInitiative}
+                  onUpdateConditions={updatePlayerConditions}
+                  onUpdateExhaustion={updatePlayerExhaustion}
+                  mode={mode}
+                  ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   combatParticipants={combatParticipants}
-                  onStartCombat={startCombat}
-                  onRemoveFromCombat={removeFromCombat}
-                  onClearCombat={clearCombat}
-                  onRandomizeInitiatives={randomizeInitiatives}
-                  onLoadPreset={loadPresetParticipants}
-                  campaignId={campaignId}
+                  onAddToCombat={mode === "mj" && !combatActive ? addPlayerToCombat : undefined}
                 />
-              ) : (
+              )}
+              {activeTab === "combat" && (
                 <CombatPanel
                   participants={combatParticipants}
                   combatActive={combatActive}
                   currentTurn={currentTurn}
                   roundNumber={roundNumber}
-                  onStartCombat={startCombat}
-                  onStopCombat={stopCombat}
-                  onNextTurn={nextTurn}
+                  onStartCombat={mode === "mj" ? startCombat : undefined}
+                  onStopCombat={mode === "mj" ? stopCombat : undefined}
+                  onNextTurn={mode === "mj" ? nextTurn : undefined}
                   onClearCombat={mode === "mj" ? clearCombat : undefined}
-                  onUpdateHp={(id, change, type) => {
+                  onUpdateHp={mode === "mj" ? (id, change, type) => {
                     if (type === "player") updatePlayerHp(id, change)
                     else updateMonsterHp(id, change)
-                  }}
-                  onUpdateConditions={(id, conditions, type, conditionDurations) => {
+                  } : undefined}
+                  onUpdateConditions={mode === "mj" ? (id, conditions, type, conditionDurations) => {
                     if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)
                     else updateMonsterConditions(id, conditions, conditionDurations)
-                  }}
-                  onUpdateExhaustion={(id, level, type) => {
+                  } : undefined}
+                  onUpdateExhaustion={mode === "mj" ? (id, level, type) => {
                     if (type === "player") updatePlayerExhaustion(id, level)
                     else updateMonsterExhaustion(id, level)
-                  }}
-                  onUpdateDeathSaves={updateDeathSaves}
-                  onRemoveFromCombat={removeFromCombat}
+                  } : undefined}
+                  onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
+                  onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                 />
-              )
-            )}
-            {activeTab === "bestiary" && mode === "mj" && (
-              <BestiaryPanel
-                onAddMonsterToCombat={addMonstersFromDb}
-                mode={mode}
-              />
-            )}
-          </div>
+              )}
+              {activeTab === "setup" && mode === "mj" && (
+                <CombatSetupPanel
+                  onStartCombat={startCombat}
+                  onRemoveFromCombat={removeFromCombat}
+                  onClearCombat={clearCombat}
+                  onUpdateParticipantInitiative={updateParticipantInitiative}
+                  onRandomizeInitiatives={randomizeInitiatives}
+                  onLoadPreset={loadPresetParticipants}
+                  mode={mode}
+                  campaignId={campaignId}
+                  ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                />
+              )}
+              {activeTab === "bestiary" && mode === "mj" && (
+                <MonsterPickerPanel
+                  onAddMonsters={addMonstersFromDb}
+                />
+              )}
+            </div>
+          </CombatDndProvider>
         ) : (
           /* Desktop: 3-column grid layout */
           combatActive ? (
@@ -1479,8 +1535,8 @@ function CombatTrackerContent() {
         <MobileNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onNotesClick={() => setShowHistory(true)}
           mode={mode}
+          combatActive={combatActive}
         />
       )}
 

@@ -1,28 +1,39 @@
 "use client"
 
 import Link from "next/link"
-import { Users, Swords, Skull, BookOpen, Map } from "lucide-react"
+import { Users, Swords, Map, Settings2, Database } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type MobileTab = "players" | "combat" | "bestiary"
+export type MobileTab = "players" | "combat" | "setup" | "bestiary"
 
 interface MobileNavProps {
   activeTab?: MobileTab
   onTabChange?: (tab: MobileTab) => void
-  onNotesClick?: () => void
   mode: "mj" | "joueur"
   currentPage?: "home" | "map"
+  combatActive?: boolean
 }
 
-export function MobileNav({ activeTab, onTabChange, onNotesClick, mode, currentPage = "home" }: MobileNavProps) {
-  const allTabs = [
+export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", combatActive = false }: MobileNavProps) {
+  // DM tabs depend on combat state
+  const dmTabs = combatActive
+    ? [
+        { id: "combat" as const, label: "Combat", icon: Swords },
+        { id: "bestiary" as const, label: "Monstres", icon: Database },
+        { id: "players" as const, label: "Groupe", icon: Users },
+      ]
+    : [
+        { id: "setup" as const, label: "Préparer", icon: Settings2 },
+        { id: "bestiary" as const, label: "Monstres", icon: Database },
+        { id: "players" as const, label: "Groupe", icon: Users },
+      ]
+
+  const playerTabs = [
     { id: "players" as const, label: "Groupe", icon: Users },
     { id: "combat" as const, label: "Combat", icon: Swords },
-    { id: "bestiary" as const, label: "Bestiaire", icon: Skull },
   ]
 
-  // Filter out bestiary tab for players
-  const tabs = mode === "mj" ? allTabs : allTabs.filter(tab => tab.id !== "bestiary")
+  const tabs = mode === "mj" ? dmTabs : playerTabs
 
   return (
     <nav
@@ -72,31 +83,20 @@ export function MobileNav({ activeTab, onTabChange, onNotesClick, mode, currentP
           )
         })}
 
-        {/* Quick Action Button - Notes for DM, Map for players */}
-        {mode === "mj" ? (
-          <button
-            onClick={onNotesClick}
-            className="flex flex-col items-center justify-center w-16 h-12 rounded-lg text-muted-foreground hover:text-gold active:scale-95 transition-smooth touch-target"
-            aria-label="Notes"
-          >
-            <BookOpen className="w-5 h-5 mb-0.5" />
-            <span className="text-xs font-medium">Notes</span>
-          </button>
-        ) : (
-          <Link
-            href="/map"
-            className={cn(
-              "flex flex-col items-center justify-center w-16 h-12 rounded-lg transition-smooth touch-target",
-              currentPage === "map"
-                ? "text-gold bg-gold/10"
-                : "text-muted-foreground hover:text-gold active:scale-95"
-            )}
-            aria-label="Carte"
-          >
-            <Map className={cn("w-5 h-5 mb-0.5", currentPage === "map" && "animate-scale-in")} />
-            <span className="text-xs font-medium">Carte</span>
-          </Link>
-        )}
+        {/* Map link - for all users */}
+        <Link
+          href="/map"
+          className={cn(
+            "flex flex-col items-center justify-center w-16 h-12 rounded-lg transition-smooth touch-target",
+            currentPage === "map"
+              ? "text-gold bg-gold/10"
+              : "text-muted-foreground hover:text-emerald active:scale-95"
+          )}
+          aria-label="Carte"
+        >
+          <Map className={cn("w-5 h-5 mb-0.5", currentPage === "map" && "animate-scale-in")} />
+          <span className="text-xs font-medium">Carte</span>
+        </Link>
       </div>
     </nav>
   )
