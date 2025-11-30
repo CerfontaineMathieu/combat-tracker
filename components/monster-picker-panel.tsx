@@ -61,8 +61,9 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
 
         {/* Monster Info */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Hide image on mobile to save space */}
           {monster.image_url && (
-            <div className="w-8 h-8 rounded overflow-hidden border border-border shrink-0">
+            <div className="w-8 h-8 rounded overflow-hidden border border-border shrink-0 hidden sm:block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={monster.image_url}
