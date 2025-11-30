@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Database, Plus, ChevronLeft } from "lucide-react"
+import { Search, Database, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { MonsterDetail } from "@/components/monster-detail"
 import type { DbMonster } from "@/lib/types"
 
@@ -77,40 +78,9 @@ export function MonsterDatabase({ onAddToCombat }: MonsterDatabaseProps) {
     )
   }
 
-  // Detail view
-  if (selectedMonster) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-2 mb-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedMonster(null)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Retour
-          </Button>
-          {onAddToCombat && (
-            <Button
-              size="sm"
-              className="ml-auto bg-crimson hover:bg-crimson/80"
-              onClick={() => onAddToCombat(selectedMonster)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Ajouter au combat
-            </Button>
-          )}
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <MonsterDetail monster={selectedMonster} />
-        </div>
-      </div>
-    )
-  }
-
   // List view
   return (
+    <>
     <div className="h-full flex flex-col">
       {/* Search */}
       <div className="relative mb-3">
@@ -170,5 +140,37 @@ export function MonsterDatabase({ onAddToCombat }: MonsterDatabaseProps) {
         </div>
       </ScrollArea>
     </div>
+
+    {/* Monster Detail Modal */}
+    <Dialog open={!!selectedMonster} onOpenChange={(open) => !open && setSelectedMonster(null)}>
+      <DialogContent className="bg-card border-border !max-w-3xl w-[95vw] sm:!max-w-3xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0 border-b border-border">
+          <DialogTitle className="text-gold text-xl">
+            {selectedMonster?.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {selectedMonster && <MonsterDetail monster={selectedMonster} />}
+        </div>
+        <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
+          <Button variant="ghost" onClick={() => setSelectedMonster(null)}>
+            Fermer
+          </Button>
+          {onAddToCombat && selectedMonster && (
+            <Button
+              className="bg-crimson hover:bg-crimson/80"
+              onClick={() => {
+                onAddToCombat(selectedMonster)
+                setSelectedMonster(null)
+              }}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter au combat
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

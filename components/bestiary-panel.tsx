@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Skull, Plus, Minus, Search, ChevronLeft, Database } from "lucide-react"
+import { Skull, Plus, Minus, Search, Database } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MonsterDetail } from "@/components/monster-detail"
-import { cn } from "@/lib/utils"
 import type { DbMonster } from "@/lib/types"
 
 interface BestiaryPanelProps {
@@ -109,34 +108,6 @@ export function BestiaryPanel({ onAddMonsterToCombat, mode }: BestiaryPanelProps
             <p className="text-crimson">{error}</p>
             <p className="text-sm">Vérifiez que la base de données est accessible</p>
           </div>
-        ) : selectedMonster ? (
-          // Detail view
-          <div className="h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-3 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedMonster(null)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Retour
-              </Button>
-              {onAddMonsterToCombat && (
-                <Button
-                  size="sm"
-                  className="ml-auto min-h-[44px] bg-crimson hover:bg-crimson/80"
-                  onClick={() => handleAddClick(selectedMonster)}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Ajouter au combat
-                </Button>
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MonsterDetail monster={selectedMonster} />
-            </div>
-          </div>
         ) : (
           // List view
           <div className="h-full flex flex-col">
@@ -208,6 +179,34 @@ export function BestiaryPanel({ onAddMonsterToCombat, mode }: BestiaryPanelProps
           </div>
         )}
       </CardContent>
+
+      {/* Monster Detail Modal */}
+      <Dialog open={!!selectedMonster} onOpenChange={(open) => !open && setSelectedMonster(null)}>
+        <DialogContent className="bg-card border-border !max-w-3xl w-[95vw] sm:!max-w-3xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0 border-b border-border">
+            <DialogTitle className="text-gold text-xl">
+              {selectedMonster?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {selectedMonster && <MonsterDetail monster={selectedMonster} />}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
+            <Button variant="ghost" onClick={() => setSelectedMonster(null)}>
+              Fermer
+            </Button>
+            {onAddMonsterToCombat && selectedMonster && (
+              <Button
+                className="bg-crimson hover:bg-crimson/80"
+                onClick={() => handleAddClick(selectedMonster)}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Ajouter au combat
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quantity Dialog */}
       <Dialog open={!!quantityDialogMonster} onOpenChange={(open) => !open && setQuantityDialogMonster(null)}>

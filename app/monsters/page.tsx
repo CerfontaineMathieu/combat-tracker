@@ -7,10 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { useIsMobile } from "@/components/ui/use-mobile"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MonsterDetail } from "@/components/monster-detail"
 import { NotionSyncButton } from "@/components/notion-sync-button"
 import { cn } from "@/lib/utils"
@@ -23,7 +20,6 @@ export default function MonstersPage() {
   const [selectedMonster, setSelectedMonster] = useState<DbMonster | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const isMobile = useIsMobile()
 
   // Fetch monsters from API
   const fetchMonsters = async () => {
@@ -92,15 +88,6 @@ export default function MonstersPage() {
       </div>
     )
   }
-
-  // Monster detail content component
-  const MonsterDetailContent = () => (
-    <ScrollArea className="h-full">
-      <div className="p-4">
-        {selectedMonster && <MonsterDetail monster={selectedMonster} />}
-      </div>
-    </ScrollArea>
-  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -215,26 +202,19 @@ export default function MonstersPage() {
         </div>
       </main>
 
-      {/* Monster Detail - Drawer for mobile, Sheet for desktop */}
-      {isMobile ? (
-        <Drawer open={!!selectedMonster} onOpenChange={(open) => !open && setSelectedMonster(null)}>
-          <DrawerContent className="max-h-[90vh]">
-            <DrawerHeader>
-              <DrawerTitle className="text-gold">{selectedMonster?.name}</DrawerTitle>
-            </DrawerHeader>
-            <MonsterDetailContent />
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Sheet open={!!selectedMonster} onOpenChange={(open) => !open && setSelectedMonster(null)}>
-          <SheetContent side="right" className="w-full max-w-2xl p-0 overflow-hidden">
-            <SheetHeader className="p-4 pb-0">
-              <SheetTitle className="text-gold">{selectedMonster?.name}</SheetTitle>
-            </SheetHeader>
-            <MonsterDetailContent />
-          </SheetContent>
-        </Sheet>
-      )}
+      {/* Monster Detail - Centered Modal */}
+      <Dialog open={!!selectedMonster} onOpenChange={(open) => !open && setSelectedMonster(null)}>
+        <DialogContent className="bg-card border-border !max-w-4xl w-[95vw] sm:!max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0 border-b border-border">
+            <DialogTitle className="text-gold text-xl">
+              {selectedMonster?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {selectedMonster && <MonsterDetail monster={selectedMonster} />}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
