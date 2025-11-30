@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, X, Plus } from "lucide-react"
+import { GripVertical, X, Plus, Wifi, WifiOff } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,7 @@ interface DraggablePlayerCardProps {
 export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpdateInitiative }: DraggablePlayerCardProps) {
   const [isEditingInit, setIsEditingInit] = useState(false)
   const [initValue, setInitValue] = useState(String(player.initiative ?? ""))
+  const isDisconnected = player.isConnected === false
 
   // Sync local state with prop when it changes
   useEffect(() => {
@@ -31,7 +32,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `drag-player-${player.id}`,
-    disabled: isInCombat,
+    disabled: isInCombat, // Only disable if already in combat, allow disconnected players to be dragged
   })
 
   const handleInitiativeChange = (value: string) => {
@@ -70,11 +71,21 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
       {...attributes}
       className={cn(
         "group relative rounded-lg border-2 transition-all select-none touch-none",
-        "bg-secondary/60 hover:bg-secondary/80",
-        isDragging && "opacity-40",
-        isInCombat
-          ? "border-gold/30 opacity-50 cursor-not-allowed"
-          : "border-transparent hover:border-gold/50 cursor-grab active:cursor-grabbing",
+        isDisconnected
+          ? cn(
+              "bg-muted/30 border-border/30 opacity-60",
+              isDragging && "opacity-40",
+              isInCombat
+                ? "cursor-not-allowed"
+                : "cursor-grab active:cursor-grabbing hover:border-muted-foreground/30"
+            )
+          : cn(
+              "bg-secondary/60 hover:bg-secondary/80",
+              isDragging && "opacity-40",
+              isInCombat
+                ? "border-gold/30 opacity-50 cursor-not-allowed"
+                : "border-transparent hover:border-gold/50 cursor-grab active:cursor-grabbing"
+            ),
         compact ? "p-2" : "p-3"
       )}
     >
@@ -111,23 +122,44 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
               }
             }}
             className={cn(
-              "shrink-0 rounded-md flex items-center justify-center font-bold text-background",
-              "bg-gold transition-all",
+              "shrink-0 rounded-md flex items-center justify-center font-bold transition-all",
+              isDisconnected
+                ? "bg-muted text-muted-foreground"
+                : "bg-gold text-background",
               compact ? "w-7 h-7 text-xs" : "w-9 h-9 text-sm",
               onUpdateInitiative && !isInCombat && "cursor-pointer hover:bg-gold/80 hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-gold/50"
             )}
             title={onUpdateInitiative && !isInCombat ? "Cliquez pour modifier l'initiative" : undefined}
+            disabled={isInCombat}
           >
             {player.initiative ?? "?"}
           </button>
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className={cn("font-medium text-foreground truncate", compact && "text-sm")}>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "font-medium truncate",
+              isDisconnected ? "text-muted-foreground" : "text-foreground",
+              compact && "text-sm"
+            )}>
               {player.name}
             </span>
+            {/* Status Badge */}
+            {!compact && (
+              isDisconnected ? (
+                <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground px-1.5 py-0 shrink-0">
+                  <WifiOff className="w-3 h-3 mr-1" />
+                  Hors ligne
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs border-emerald/50 text-emerald px-1.5 py-0 shrink-0">
+                  <Wifi className="w-3 h-3 mr-1" />
+                  En ligne
+                </Badge>
+              )
+            )}
             {!compact && !isInCombat && (
-              <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
             )}
           </div>
           {!compact && (
@@ -135,14 +167,17 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
               <span className="text-xs text-muted-foreground">
                 {player.class} Niv.{player.level}
               </span>
-              <Badge variant="outline" className="text-xs border-gold/30 text-gold px-1.5 py-0">
+              <Badge variant="outline" className={cn(
+                "text-xs px-1.5 py-0",
+                isDisconnected ? "border-muted-foreground/30 text-muted-foreground" : "border-gold/30 text-gold"
+              )}>
                 CA {player.ac}
               </Badge>
             </div>
           )}
         </div>
       </div>
-      {isInCombat && (
+      {isInCombat && !isDisconnected && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
           <span className="text-xs text-muted-foreground">Dans le combat</span>
         </div>

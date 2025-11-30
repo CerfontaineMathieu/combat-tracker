@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap } from "lucide-react"
+import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,14 +19,14 @@ interface PlayerPanelProps {
   onUpdateInitiative: (id: string, initiative: number) => void
   onUpdateConditions?: (id: string, conditions: string[]) => void
   onUpdateExhaustion?: (id: string, level: number) => void
-  onAddPlayerToCombat?: (player: Character) => void
   mode: "mj" | "joueur"
   combatActive?: boolean
   combatParticipants?: CombatParticipant[]
   ownCharacterIds?: string[] // IDs of characters owned by the current player
+  onAddToCombat?: (player: Character) => void // For mobile tap-to-add
 }
 
-export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onAddPlayerToCombat, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [] }: PlayerPanelProps) {
+export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
 
@@ -41,7 +41,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
     return combatParticipants.some(p => p.id === playerId)
   }
 
-  // Build mode: show draggable cards (or tap-to-add on mobile)
+  // Build mode: show draggable cards (desktop) or tap-to-add cards (mobile)
   if (!combatActive && mode === "mj") {
     return (
       <Card className="bg-card border-border h-full flex flex-col">
@@ -54,8 +54,11 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
         <CardContent className="flex-1 overflow-hidden p-0">
           <ScrollArea className="h-full px-6 pb-6">
             <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
-              {onAddPlayerToCombat ? (
-                <>Touchez + pour ajouter au combat</>
+              {onAddToCombat ? (
+                <>
+                  <UserPlus className="w-3 h-3" />
+                  Appuyez pour ajouter au combat
+                </>
               ) : (
                 <>
                   <GripVertical className="w-3 h-3" />
@@ -88,58 +91,94 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         Groupe de {characters.length} personnages
                       </div>
                     )}
-                    {/* Render player cards */}
+                    {/* Render cards with visual connection */}
                     <div className={cn(
                       "space-y-2",
                       characters.length > 1 && "pl-2 border-l-2 border-gold/20"
                     )}>
                       {characters.map((player) => {
                         const inCombat = isPlayerInCombat(player.id)
-                        return (
-                          <div
-                            key={player.id}
-                            className={cn(
-                              "p-3 rounded-lg border-2 transition-all",
-                              "bg-secondary/60",
-                              inCombat
-                                ? "border-gold/30 opacity-50"
-                                : "border-transparent hover:border-gold/50"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              {/* Initiative Badge */}
-                              <div className="w-9 h-9 shrink-0 rounded-md flex items-center justify-center font-bold text-sm bg-gold text-background">
-                                {player.initiative ?? "?"}
-                              </div>
-                              {/* Info */}
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium text-foreground truncate block">
-                                  {player.name}
-                                </span>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-muted-foreground">
-                                    {player.class} Niv.{player.level}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs border-gold/30 text-gold px-1.5 py-0">
-                                    CA {player.ac}
-                                  </Badge>
+
+                        // Mobile: tap-to-add cards
+                        if (onAddToCombat) {
+                          const isDisconnected = !player.isConnected
+                          const canAdd = !inCombat
+
+                          return (
+                            <div
+                              key={player.id}
+                              className={cn(
+                                "p-3 rounded-lg border transition-smooth",
+                                isDisconnected
+                                  ? "bg-muted/30 border-border/30 opacity-60"
+                                  : inCombat
+                                    ? "bg-gold/10 border-gold/30"
+                                    : "bg-secondary/30 border-border/50 active:bg-secondary/50"
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className={cn(
+                                      "font-semibold truncate",
+                                      isDisconnected ? "text-muted-foreground" : "text-foreground"
+                                    )}>
+                                      {player.name}
+                                    </h3>
+                                    {isDisconnected ? (
+                                      <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-xs shrink-0">
+                                        <WifiOff className="w-3 h-3 mr-1" />
+                                        Hors ligne
+                                      </Badge>
+                                    ) : inCombat ? (
+                                      <Badge variant="outline" className="border-gold/50 text-gold text-xs shrink-0">
+                                        <Check className="w-3 h-3 mr-1" />
+                                        Ajouté
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="border-emerald/50 text-emerald text-xs shrink-0">
+                                        <Wifi className="w-3 h-3 mr-1" />
+                                        En ligne
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {player.class} Niv. {player.level} • CA {player.ac}
+                                  </p>
                                 </div>
-                              </div>
-                              {/* Add button - only when onAddPlayerToCombat is provided and not in combat */}
-                              {onAddPlayerToCombat && !inCombat && (
                                 <Button
-                                  size="icon"
-                                  className="h-10 w-10 shrink-0 bg-gold hover:bg-gold/80 text-background"
-                                  onClick={() => onAddPlayerToCombat(player)}
+                                  size="sm"
+                                  variant={canAdd ? "default" : "ghost"}
+                                  className={cn(
+                                    "ml-2 shrink-0",
+                                    canAdd
+                                      ? isDisconnected
+                                        ? "bg-muted hover:bg-muted/80 text-muted-foreground"
+                                        : "bg-gold hover:bg-gold/80 text-background"
+                                      : "text-muted-foreground"
+                                  )}
+                                  onClick={() => canAdd && onAddToCombat(player)}
+                                  disabled={!canAdd}
                                 >
-                                  <Plus className="w-5 h-5" />
+                                  {inCombat ? (
+                                    <Check className="w-4 h-4" />
+                                  ) : (
+                                    <UserPlus className="w-4 h-4" />
+                                  )}
                                 </Button>
-                              )}
-                              {inCombat && (
-                                <span className="text-xs text-muted-foreground">Dans le combat</span>
-                              )}
+                              </div>
                             </div>
-                          </div>
+                          )
+                        }
+
+                        // Desktop: draggable cards
+                        return (
+                          <DraggablePlayerCard
+                            key={player.id}
+                            player={player}
+                            isInCombat={inCombat}
+                            onUpdateInitiative={(init) => onUpdateInitiative(player.id, init)}
+                          />
                         )
                       })}
                     </div>

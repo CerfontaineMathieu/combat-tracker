@@ -9,6 +9,8 @@ export interface Character {
   conditions: string[]
   exhaustionLevel: number
   initiative: number
+  // Connection status
+  isConnected?: boolean
   // Grouping metadata for multi-character players
   playerSocketId?: string
   isFirstInGroup?: boolean
@@ -39,6 +41,8 @@ export interface CombatParticipant {
   exhaustionLevel: number
   type: "player" | "monster"
   xp?: number // XP value for monsters (from challenge_rating_xp)
+  // Connection status (players only)
+  isConnected?: boolean
   // Death saving throws (players only)
   deathSaves?: {
     successes: number // 0-3
