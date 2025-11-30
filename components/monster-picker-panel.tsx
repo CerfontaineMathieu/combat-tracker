@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
-import { Search, Database, Plus, Minus, ChevronLeft, GripVertical, Eye } from "lucide-react"
+import { Search, Database, Plus, Minus, ChevronLeft, GripVertical, Eye, MousePointer } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -116,6 +117,7 @@ interface MonsterPickerPanelProps {
 }
 
 export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
+  const isMobile = useIsMobile()
   const [monsters, setMonsters] = useState<DbMonster[]>([])
   const [filteredMonsters, setFilteredMonsters] = useState<DbMonster[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -329,8 +331,17 @@ export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
 
           {/* Help text */}
           <p className="text-xs text-muted-foreground mb-2 shrink-0 flex items-center gap-1">
-            <GripVertical className="w-3 h-3" />
-            Glissez ou cliquez + pour ajouter
+            {isMobile ? (
+              <>
+                <MousePointer className="w-3 h-3" />
+                Cliquez + pour ajouter
+              </>
+            ) : (
+              <>
+                <GripVertical className="w-3 h-3" />
+                Glissez ou cliquez + pour ajouter
+              </>
+            )}
           </p>
 
           {/* Monster list */}
