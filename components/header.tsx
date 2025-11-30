@@ -1,12 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu, QrCode } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { AmbientControls, CriticalButtons, type AmbientEffect } from "@/components/ambient-effects"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { QrCodeDialog } from "@/components/qr-code-dialog"
 
 interface HeaderProps {
   mode: "mj" | "joueur"
@@ -29,6 +31,8 @@ export function Header({
   ambientEffect = "none",
   onAmbientEffectChange,
 }: HeaderProps) {
+  const [showQrDialog, setShowQrDialog] = useState(false)
+
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40 safe-area-top">
       {/* Main Header Row */}
@@ -88,6 +92,19 @@ export function Header({
                 </div>
               </PopoverContent>
             </Popover>
+          )}
+
+          {/* QR Code Button - DM only */}
+          {mode === "mj" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowQrDialog(true)}
+              className="h-9 w-9 hover:bg-primary/20 hover:text-gold transition-smooth"
+              title="Code QR de connexion"
+            >
+              <QrCode className="w-4 h-4" />
+            </Button>
           )}
 
           {/* User Info Badge */}
@@ -169,15 +186,25 @@ export function Header({
                 >
                   <div className="flex flex-col gap-1">
                     {mode === "mj" && (
-                      <Link href="/monsters" className="w-full">
+                      <>
+                        <Link href="/monsters" className="w-full">
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-crimson"
+                          >
+                            <Skull className="w-4 h-4" />
+                            <span className="text-sm">Bestiaire</span>
+                          </Button>
+                        </Link>
                         <Button
                           variant="ghost"
-                          className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-crimson"
+                          onClick={() => setShowQrDialog(true)}
+                          className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-gold"
                         >
-                          <Skull className="w-4 h-4" />
-                          <span className="text-sm">Bestiaire</span>
+                          <QrCode className="w-4 h-4" />
+                          <span className="text-sm">Code QR</span>
                         </Button>
-                      </Link>
+                      </>
                     )}
                     <Link href="/map" className="w-full">
                       <Button
@@ -214,6 +241,9 @@ export function Header({
           </Button>
         </div>
       </div>
+
+      {/* QR Code Dialog */}
+      <QrCodeDialog open={showQrDialog} onOpenChange={setShowQrDialog} />
     </header>
   )
 }
