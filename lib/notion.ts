@@ -503,6 +503,14 @@ export interface NotionCharacter {
   ac: number;
   initiative: number;
   conditions: string[];
+  // Combat stats
+  passive_perception: number | null;
+  strength: number | null;
+  dexterity: number | null;
+  constitution: number | null;
+  intelligence: number | null;
+  wisdom: number | null;
+  charisma: number | null;
 }
 
 /**
@@ -597,6 +605,18 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
     // AC is a number property
     const ac = extractNumber(props.CA?.number) ?? 10;
 
+    // Passive Perception - try both "PP" and "Perception Passive" property names
+    const passivePerception = extractNumber(props.PP?.number) ?? extractNumber(props['Perception Passive']?.number);
+
+    // Ability scores (same property names as monsters)
+    const strength = extractNumber(props.FOR?.number);
+    const dexterity = extractNumber(props.DEX?.number);
+    const constitution = extractNumber(props.CON?.number);
+    const intelligence = extractNumber(props.INT?.number);
+    const wisdom = extractNumber(props.SAG?.number);
+    // Try both "CHAR" and "CHA" for charisma
+    const charisma = extractNumber(props.CHAR?.number) ?? extractNumber(props.CHA?.number);
+
     return {
       id: page.id,
       name,
@@ -607,6 +627,13 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
       ac,
       initiative: 0,
       conditions: [],
+      passive_perception: passivePerception,
+      strength,
+      dexterity,
+      constitution,
+      intelligence,
+      wisdom,
+      charisma,
     };
   } catch (error) {
     console.error('Error mapping Notion character:', error);

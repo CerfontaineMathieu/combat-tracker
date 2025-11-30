@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, X, Plus, Wifi, WifiOff } from "lucide-react"
+import { GripVertical, X, Plus, Wifi, WifiOff, Eye } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -165,7 +165,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
             )}
           </div>
           {!compact && (
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs text-muted-foreground">
                 {player.class} Niv.{player.level}
               </span>
@@ -175,6 +175,15 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
               )}>
                 CA {player.ac}
               </Badge>
+              {player.passivePerception && (
+                <Badge variant="outline" className={cn(
+                  "text-xs px-1.5 py-0",
+                  isDisconnected ? "border-muted-foreground/30 text-muted-foreground" : "border-sky-500/30 text-sky-500"
+                )}>
+                  <Eye className="w-3 h-3 mr-1" />
+                  PP {player.passivePerception}
+                </Badge>
+              )}
             </div>
           )}
         </div>
