@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { QrCode, Copy, Check } from "lucide-react"
+import { QrCode, Copy, Check, Loader2, Save } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -13,20 +14,65 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 
+const LOCAL_STORAGE_KEY = "qr-code-ip"
+const DEFAULT_IP = "192.168.1.2"
+
 interface QrCodeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function QrCodeDialog({ open, onOpenChange }: QrCodeDialogProps) {
+  const [ipAddress, setIpAddress] = useState(DEFAULT_IP)
   const [connectionUrl, setConnectionUrl] = useState("")
   const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(false)
 
+  // Load saved IP from localStorage on mount
   useEffect(() => {
     if (open && typeof window !== "undefined") {
-      setConnectionUrl(window.location.origin)
+      setLoading(true)
+      const savedIp = localStorage.getItem(LOCAL_STORAGE_KEY)
+
+      if (savedIp) {
+        // Use saved IP
+        setIpAddress(savedIp)
+        buildUrl(savedIp)
+        setLoading(false)
+      } else {
+        // Fetch default IP from API
+        fetch("/api/server-ip")
+          .then((res) => res.json())
+          .then((data) => {
+            setIpAddress(data.ip)
+            buildUrl(data.ip)
+          })
+          .catch(() => {
+            setIpAddress(DEFAULT_IP)
+            buildUrl(DEFAULT_IP)
+          })
+          .finally(() => setLoading(false))
+      }
     }
   }, [open])
+
+  const buildUrl = (ip: string) => {
+    if (typeof window === "undefined") return
+    const port = window.location.port
+    const protocol = window.location.protocol
+    const url = port ? `${protocol}//${ip}:${port}` : `${protocol}//${ip}`
+    setConnectionUrl(url)
+  }
+
+  const handleIpChange = (newIp: string) => {
+    setIpAddress(newIp)
+    buildUrl(newIp)
+  }
+
+  const handleSaveIp = () => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, ipAddress)
+    toast.success("Adresse IP sauvegardée")
+  }
 
   const handleCopy = async () => {
     try {
@@ -52,7 +98,13 @@ export function QrCodeDialog({ open, onOpenChange }: QrCodeDialogProps) {
           <p className="text-sm text-muted-foreground text-center">
             Scannez ce code pour rejoindre la session
           </p>
-          {connectionUrl && (
+
+          {/* QR Code */}
+          {loading ? (
+            <div className="p-4 bg-white rounded-lg w-[232px] h-[232px] flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : connectionUrl ? (
             <div className="p-4 bg-white rounded-lg">
               <QRCodeSVG
                 value={connectionUrl}
@@ -61,10 +113,34 @@ export function QrCodeDialog({ open, onOpenChange }: QrCodeDialogProps) {
                 includeMargin={false}
               />
             </div>
-          )}
+          ) : null}
+
+          {/* IP Address Input */}
+          <div className="w-full space-y-2">
+            <label className="text-xs text-muted-foreground">Adresse IP du serveur</label>
+            <div className="flex items-center gap-2">
+              <Input
+                value={ipAddress}
+                onChange={(e) => handleIpChange(e.target.value)}
+                placeholder="192.168.1.x"
+                className="flex-1 bg-background text-sm"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleSaveIp}
+                className="shrink-0"
+                title="Sauvegarder l'IP"
+              >
+                <Save className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* URL Display & Copy */}
           <div className="flex items-center gap-2 w-full">
             <code className="flex-1 px-3 py-2 bg-background rounded-md text-sm text-muted-foreground truncate">
-              {connectionUrl}
+              {loading ? "Chargement..." : connectionUrl}
             </code>
             <Button
               variant="outline"
@@ -72,6 +148,7 @@ export function QrCodeDialog({ open, onOpenChange }: QrCodeDialogProps) {
               onClick={handleCopy}
               className="shrink-0"
               title="Copier l'URL"
+              disabled={loading || !connectionUrl}
             >
               {copied ? (
                 <Check className="w-4 h-4 text-emerald" />
