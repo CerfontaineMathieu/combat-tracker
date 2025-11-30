@@ -19,13 +19,14 @@ interface PlayerPanelProps {
   onUpdateInitiative: (id: string, initiative: number) => void
   onUpdateConditions?: (id: string, conditions: string[]) => void
   onUpdateExhaustion?: (id: string, level: number) => void
+  onAddPlayerToCombat?: (player: Character) => void
   mode: "mj" | "joueur"
   combatActive?: boolean
   combatParticipants?: CombatParticipant[]
   ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
 
-export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [] }: PlayerPanelProps) {
+export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onAddPlayerToCombat, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [] }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
 
@@ -40,7 +41,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
     return combatParticipants.some(p => p.id === playerId)
   }
 
-  // Build mode: show draggable cards
+  // Build mode: show draggable cards (or tap-to-add on mobile)
   if (!combatActive && mode === "mj") {
     return (
       <Card className="bg-card border-border h-full flex flex-col">
@@ -53,14 +54,21 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
         <CardContent className="flex-1 overflow-hidden p-0">
           <ScrollArea className="h-full px-6 pb-6">
             <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
-              <GripVertical className="w-3 h-3" />
-              Glissez les joueurs dans la zone de combat
+              {onAddPlayerToCombat ? (
+                <>Touchez + pour ajouter au combat</>
+              ) : (
+                <>
+                  <GripVertical className="w-3 h-3" />
+                  Glissez les joueurs dans la zone de combat
+                </>
+              )}
             </p>
             <div className="space-y-2">
               {players.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>Aucun joueur</p>
+                  <p>Aucun joueur connecté</p>
+                  <p className="text-sm">Les joueurs apparaîtront ici</p>
                 </div>
               ) : (() => {
                 // Group characters by playerSocketId for drag-and-drop
@@ -80,19 +88,60 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         Groupe de {characters.length} personnages
                       </div>
                     )}
-                    {/* Render draggable cards with visual connection */}
+                    {/* Render player cards */}
                     <div className={cn(
                       "space-y-2",
                       characters.length > 1 && "pl-2 border-l-2 border-gold/20"
                     )}>
-                      {characters.map((player) => (
-                        <DraggablePlayerCard
-                          key={player.id}
-                          player={player}
-                          isInCombat={isPlayerInCombat(player.id)}
-                          onUpdateInitiative={(init) => onUpdateInitiative(player.id, init)}
-                        />
-                      ))}
+                      {characters.map((player) => {
+                        const inCombat = isPlayerInCombat(player.id)
+                        return (
+                          <div
+                            key={player.id}
+                            className={cn(
+                              "p-3 rounded-lg border-2 transition-all",
+                              "bg-secondary/60",
+                              inCombat
+                                ? "border-gold/30 opacity-50"
+                                : "border-transparent hover:border-gold/50"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Initiative Badge */}
+                              <div className="w-9 h-9 shrink-0 rounded-md flex items-center justify-center font-bold text-sm bg-gold text-background">
+                                {player.initiative ?? "?"}
+                              </div>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-foreground truncate block">
+                                  {player.name}
+                                </span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    {player.class} Niv.{player.level}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-gold/30 text-gold px-1.5 py-0">
+                                    CA {player.ac}
+                                  </Badge>
+                                </div>
+                              </div>
+                              {/* Add button - only when onAddPlayerToCombat is provided and not in combat */}
+                              {onAddPlayerToCombat && !inCombat && (
+                                <Button
+                                  size="icon"
+                                  className="h-10 w-10 shrink-0 bg-gold hover:bg-gold/80 text-background"
+                                  onClick={() => onAddPlayerToCombat(player)}
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </Button>
+                              )}
+                              {inCombat && (
+                                <span className="text-xs text-muted-foreground">Dans le combat</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 ))

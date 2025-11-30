@@ -9,6 +9,7 @@ import { CombatPanel } from "@/components/combat-panel"
 import { CombatSetupPanel } from "@/components/combat-setup-panel"
 import { CombatDndProvider } from "@/components/combat-dnd-context"
 import { BestiaryPanel } from "@/components/bestiary-panel"
+import { MobileCombatSetup } from "@/components/mobile-combat-setup"
 import { MonsterPickerPanel } from "@/components/monster-picker-panel"
 import { CombatHistoryPanel, type HistoryEntry } from "@/components/combat-history-panel"
 import { SettingsPanel } from "@/components/settings-panel"
@@ -992,6 +993,38 @@ function CombatTrackerContent() {
     toast.success(`${quantity}x ${dbMonster.name} ajouté(s) au combat`)
   }
 
+  // Add session monsters to combat with quantity (for mobile tap-to-add)
+  const addSessionMonstersToCombat = (monster: Monster, quantity: number) => {
+    const newParticipants: CombatParticipant[] = Array.from({ length: quantity }, (_, i) => ({
+      id: `session-${monster.id}-${Date.now()}-${i}`,
+      name: quantity > 1 ? `${monster.name} ${i + 1}` : monster.name,
+      initiative: Math.floor(Math.random() * 20) + 1,
+      currentHp: monster.hp,
+      maxHp: monster.maxHp,
+      conditions: monster.conditions || [],
+      exhaustionLevel: monster.exhaustionLevel || 0,
+      type: "monster",
+    }))
+
+    setCombatParticipants(prev => {
+      const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
+
+      // If combat is active, sync the updated participants to players
+      if (combatActive) {
+        emitCombatUpdate({
+          type: 'state-sync',
+          combatActive: true,
+          currentTurn,
+          roundNumber,
+          participants: updated,
+        })
+      }
+
+      return updated
+    })
+    toast.success(`${quantity}x ${monster.name} ajouté(s) au combat`)
+  }
+
   // Load preset participants (replaces current participants)
   const loadPresetParticipants = (participants: CombatParticipant[]) => {
     setCombatParticipants(sortParticipantsByInitiative(participants))
@@ -1221,49 +1254,57 @@ function CombatTrackerContent() {
                 onUpdateInitiative={updatePlayerInitiative}
                 onUpdateConditions={updatePlayerConditions}
                 onUpdateExhaustion={updatePlayerExhaustion}
+                onAddPlayerToCombat={mode === "mj" && !combatActive ? addPlayerToCombat : undefined}
                 mode={mode}
+                combatActive={combatActive}
+                combatParticipants={combatParticipants}
                 ownCharacterIds={selectedCharacters.map(c => String(c.id))}
               />
             )}
             {activeTab === "combat" && (
-              <CombatPanel
-                participants={combatParticipants}
-                combatActive={combatActive}
-                currentTurn={currentTurn}
-                roundNumber={roundNumber}
-                onStartCombat={startCombat}
-                onStopCombat={stopCombat}
-                onNextTurn={nextTurn}
-                onClearCombat={mode === "mj" ? clearCombat : undefined}
-                onUpdateHp={(id, change, type) => {
-                  if (type === "player") updatePlayerHp(id, change)
-                  else updateMonsterHp(id, change)
-                }}
-                onUpdateConditions={(id, conditions, type, conditionDurations) => {
-                  if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)
-                  else updateMonsterConditions(id, conditions, conditionDurations)
-                }}
-                onUpdateExhaustion={(id, level, type) => {
-                  if (type === "player") updatePlayerExhaustion(id, level)
-                  else updateMonsterExhaustion(id, level)
-                }}
-                onUpdateDeathSaves={updateDeathSaves}
-                onRemoveFromCombat={removeFromCombat}
-                mode={mode}
-                ownCharacterIds={selectedCharacters.map(c => String(c.id))}
-              />
+              !combatActive && mode === "mj" ? (
+                <MobileCombatSetup
+                  combatParticipants={combatParticipants}
+                  onStartCombat={startCombat}
+                  onRemoveFromCombat={removeFromCombat}
+                  onClearCombat={clearCombat}
+                  onRandomizeInitiatives={randomizeInitiatives}
+                  onLoadPreset={loadPresetParticipants}
+                  campaignId={campaignId}
+                />
+              ) : (
+                <CombatPanel
+                  participants={combatParticipants}
+                  combatActive={combatActive}
+                  currentTurn={currentTurn}
+                  roundNumber={roundNumber}
+                  onStartCombat={startCombat}
+                  onStopCombat={stopCombat}
+                  onNextTurn={nextTurn}
+                  onClearCombat={mode === "mj" ? clearCombat : undefined}
+                  onUpdateHp={(id, change, type) => {
+                    if (type === "player") updatePlayerHp(id, change)
+                    else updateMonsterHp(id, change)
+                  }}
+                  onUpdateConditions={(id, conditions, type, conditionDurations) => {
+                    if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)
+                    else updateMonsterConditions(id, conditions, conditionDurations)
+                  }}
+                  onUpdateExhaustion={(id, level, type) => {
+                    if (type === "player") updatePlayerExhaustion(id, level)
+                    else updateMonsterExhaustion(id, level)
+                  }}
+                  onUpdateDeathSaves={updateDeathSaves}
+                  onRemoveFromCombat={removeFromCombat}
+                  mode={mode}
+                  ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                />
+              )
             )}
             {activeTab === "bestiary" && mode === "mj" && (
               <BestiaryPanel
-                monsters={monsters}
-                onAddMonster={addMonster}
-                onRemoveMonster={removeMonster}
-                onUpdateHp={updateMonsterHp}
-                onLoadPreset={loadFightPreset}
+                onAddMonsterToCombat={addMonstersFromDb}
                 mode={mode}
-                combatActive={combatActive}
-                combatParticipants={combatParticipants}
-                campaignId={campaignId}
               />
             )}
           </div>

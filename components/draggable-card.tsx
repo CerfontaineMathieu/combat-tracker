@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, X } from "lucide-react"
+import { GripVertical, X, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -155,9 +155,12 @@ interface DraggableMonsterCardProps {
   monster: Monster
   isInCombat: boolean
   compact?: boolean
+  onAddToCombat?: (monster: Monster) => void
+  isSelected?: boolean
+  onClick?: () => void
 }
 
-export function DraggableMonsterCard({ monster, isInCombat, compact = false }: DraggableMonsterCardProps) {
+export function DraggableMonsterCard({ monster, isInCombat, compact = false, onAddToCombat, isSelected, onClick }: DraggableMonsterCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `drag-monster-${monster.id}`,
     disabled: isInCombat,
@@ -169,19 +172,36 @@ export function DraggableMonsterCard({ monster, isInCombat, compact = false }: D
       }
     : undefined
 
+  const handleClick = (e: React.MouseEvent) => {
+    // Don't trigger click when dragging
+    if (isDragging) return
+    // Call onClick to toggle selection
+    onClick?.()
+  }
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onAddToCombat && !isInCombat) {
+      onAddToCombat(monster)
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
+      onClick={handleClick}
       className={cn(
         "group relative rounded-lg border-2 transition-all select-none touch-none",
         "bg-secondary/60 hover:bg-secondary/80",
         isDragging && "opacity-40",
         isInCombat
           ? "border-crimson/30 opacity-50 cursor-not-allowed"
-          : "border-transparent hover:border-crimson/50 cursor-grab active:cursor-grabbing",
+          : isSelected
+            ? "border-crimson ring-2 ring-crimson/30 cursor-pointer"
+            : "border-transparent hover:border-crimson/50 cursor-grab active:cursor-grabbing",
         compact ? "p-2" : "p-3"
       )}
     >
@@ -198,7 +218,7 @@ export function DraggableMonsterCard({ monster, isInCombat, compact = false }: D
             <span className={cn("font-medium text-crimson truncate", compact && "text-sm")}>
               {monster.name}
             </span>
-            {!compact && !isInCombat && (
+            {!compact && !isInCombat && !isSelected && (
               <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             )}
           </div>
@@ -213,6 +233,16 @@ export function DraggableMonsterCard({ monster, isInCombat, compact = false }: D
             </div>
           )}
         </div>
+        {/* Add button - visible when selected and onAddToCombat is provided */}
+        {isSelected && onAddToCombat && !isInCombat && (
+          <Button
+            size="icon"
+            className="h-10 w-10 shrink-0 bg-crimson hover:bg-crimson/80 text-white animate-fade-in"
+            onClick={handleAddClick}
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        )}
       </div>
       {isInCombat && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
