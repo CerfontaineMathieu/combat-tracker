@@ -268,17 +268,34 @@ app.prepare().then(() => {
           characters: characters
         };
 
-        // Remove any stale entries for the same characters (from previous sessions/reconnects)
+        // Check if any character is already connected by an ACTIVE socket
         const existingPlayers = await getConnectedPlayers(campaignId);
         const newCharacterIds = new Set(characters.map((c: { odNumber: string }) => String(c.odNumber)));
+
         for (const existingPlayer of existingPlayers) {
-          // Check if any character in this player entry matches our new characters
-          const hasMatchingChar = existingPlayer.characters.some(
-            (c: { odNumber: string }) => newCharacterIds.has(String(c.odNumber))
+          // Skip if it's the same socket reconnecting
+          if (existingPlayer.socketId === socket.id) continue;
+
+          // Check if any character matches
+          const conflictingChar = existingPlayer.characters.find(
+            (c: { odNumber: string; name: string }) => newCharacterIds.has(String(c.odNumber))
           );
-          if (hasMatchingChar && existingPlayer.socketId !== socket.id) {
-            console.log(`[Socket.io] Removing stale player entry ${existingPlayer.socketId} (same characters)`);
-            await removeConnectedPlayer(campaignId, existingPlayer.socketId);
+
+          if (conflictingChar) {
+            // Check if the existing socket is still connected
+            const existingSocket = io.sockets.sockets.get(existingPlayer.socketId);
+            if (existingSocket?.connected) {
+              // Reject the join - character already in use by active player
+              console.log(`[Socket.io] Rejecting join: character "${conflictingChar.name}" already in use by ${existingPlayer.socketId}`);
+              socket.emit('join-error', {
+                message: `Le personnage "${conflictingChar.name}" est déjà utilisé par un autre joueur.`
+              });
+              return;
+            } else {
+              // Socket is dead, remove stale entry
+              console.log(`[Socket.io] Removing stale player entry ${existingPlayer.socketId} (socket disconnected)`);
+              await removeConnectedPlayer(campaignId, existingPlayer.socketId);
+            }
           }
         }
 
