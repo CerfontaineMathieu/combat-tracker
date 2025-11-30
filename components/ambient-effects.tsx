@@ -929,9 +929,10 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
 interface AmbientControlsProps {
   currentEffect: AmbientEffect
   onChangeEffect: (effect: AmbientEffect) => void
+  compact?: boolean
 }
 
-export function AmbientControls({ currentEffect, onChangeEffect }: AmbientControlsProps) {
+export function AmbientControls({ currentEffect, onChangeEffect, compact = false }: AmbientControlsProps) {
   const effects: { id: AmbientEffect; label: string; icon: string }[] = [
     { id: "none", label: "Aucun", icon: "○" },
     { id: "rain", label: "Pluie", icon: "🌧" },
@@ -942,7 +943,7 @@ export function AmbientControls({ currentEffect, onChangeEffect }: AmbientContro
   ]
 
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className={cn("flex items-center gap-1 flex-wrap", compact && "gap-1.5")}>
       {effects.map((effect) => (
         <button
           key={effect.id}
@@ -957,7 +958,11 @@ export function AmbientControls({ currentEffect, onChangeEffect }: AmbientContro
           title={effect.label}
         >
           <span>{effect.icon}</span>
-          <span className="hidden lg:inline ml-1">{effect.label}</span>
+          {compact ? (
+            <span className="ml-1">{effect.label}</span>
+          ) : (
+            <span className="hidden lg:inline ml-1">{effect.label}</span>
+          )}
         </button>
       ))}
     </div>
