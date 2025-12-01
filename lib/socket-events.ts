@@ -166,6 +166,14 @@ export interface DmDisconnectedData {
   timestamp: number;
 }
 
+// Inventory update event
+export interface InventoryUpdateData {
+  participantId: string;
+  participantType: 'player';
+  inventory: import('./types').CharacterInventory;
+  source: 'dm' | 'player';
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -196,6 +204,8 @@ export interface ServerToClientEvents {
   // DM disconnect/reconnect events
   'dm-disconnected': (data: DmDisconnectedData) => void;
   'dm-reconnected': () => void;
+  // Inventory events
+  'inventory-update': (data: InventoryUpdateData) => void;
 }
 
 // Client to server events
@@ -219,4 +229,6 @@ export interface ClientToServerEvents {
   // Map position events
   'player-positions': (data: PlayerPositionsData) => void;
   'request-player-positions': () => void;
+  // Inventory events
+  'inventory-update': (data: InventoryUpdateData) => void;
 }

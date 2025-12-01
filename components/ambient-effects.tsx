@@ -23,6 +23,20 @@ interface Particle {
 export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
   const [particles, setParticles] = useState<Particle[]>([])
   const [showCritical, setShowCritical] = useState(false)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  // Check for reduced motion preference
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mediaQuery.matches)
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches)
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
 
   // Auto-dismiss critical effects after animation
   useEffect(() => {
@@ -54,8 +68,9 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
         )
         break
       case "fog":
+        // Reduced particle count (20 → 10) for better performance
         setParticles(
-          Array.from({ length: 20 }, (_, i) => ({
+          Array.from({ length: 10 }, (_, i) => ({
             id: i,
             left: Math.random() * 100,
             top: Math.random() * 100,
@@ -128,27 +143,64 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
         </>
       )}
 
-      {/* Fog Effect */}
+      {/* Fog Effect - Multi-layer scrolling with organic shapes */}
       {effect === "fog" && (
         <>
-          <div className="absolute inset-0 bg-slate-900/40" />
-          {particles.map((particle) => (
-            <div
-              key={particle.id}
-              className="absolute rounded-full bg-slate-400/20 blur-3xl"
-              style={{
-                left: `${particle.left}%`,
-                top: `${particle.top}%`,
-                width: `${particle.size}px`,
-                height: `${particle.size}px`,
-                animation: `fog-drift ${particle.duration}s ease-in-out infinite`,
-                animationDelay: `${particle.delay}s`,
-              }}
-            />
-          ))}
+          {/* Base atmospheric overlay */}
+          <div className="absolute inset-0 bg-slate-800/20" />
+
+          {/* Layer 1 - Large slow-moving wisps */}
           <div
-            className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-600/30 via-slate-500/20 to-transparent"
-            style={{ animation: "fog-wave 8s ease-in-out infinite" }}
+            className="absolute inset-0 fog-layer"
+            style={{
+              backgroundImage: `
+                radial-gradient(ellipse 600px 300px at 5% 40%, rgba(200, 215, 230, 0.25) 0%, transparent 60%),
+                radial-gradient(ellipse 400px 500px at 25% 80%, rgba(180, 195, 210, 0.2) 0%, transparent 55%),
+                radial-gradient(ellipse 500px 250px at 55% 20%, rgba(190, 205, 220, 0.22) 0%, transparent 58%),
+                radial-gradient(ellipse 450px 350px at 85% 60%, rgba(185, 200, 215, 0.2) 0%, transparent 55%),
+                radial-gradient(ellipse 350px 400px at 95% 30%, rgba(195, 210, 225, 0.18) 0%, transparent 60%)
+              `,
+              backgroundSize: '250% 120%',
+              animation: prefersReducedMotion ? 'none' : 'fog-scroll-1 40s linear infinite',
+            }}
+          />
+
+          {/* Layer 2 - Medium drifting clouds (opposite direction) */}
+          <div
+            className="absolute inset-0 fog-layer"
+            style={{
+              backgroundImage: `
+                radial-gradient(ellipse 550px 280px at 15% 60%, rgba(175, 190, 205, 0.22) 0%, transparent 55%),
+                radial-gradient(ellipse 380px 450px at 45% 25%, rgba(185, 200, 215, 0.18) 0%, transparent 58%),
+                radial-gradient(ellipse 480px 300px at 75% 70%, rgba(180, 195, 210, 0.2) 0%, transparent 55%),
+                radial-gradient(ellipse 420px 380px at 60% 45%, rgba(190, 205, 220, 0.15) 0%, transparent 60%)
+              `,
+              backgroundSize: '220% 130%',
+              animation: prefersReducedMotion ? 'none' : 'fog-scroll-2 55s linear infinite',
+            }}
+          />
+
+          {/* Layer 3 - Smaller faster wisps for depth */}
+          <div
+            className="absolute inset-0 fog-layer"
+            style={{
+              backgroundImage: `
+                radial-gradient(ellipse 300px 200px at 10% 35%, rgba(200, 215, 230, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse 250px 300px at 35% 75%, rgba(185, 200, 215, 0.12) 0%, transparent 52%),
+                radial-gradient(ellipse 280px 180px at 65% 30%, rgba(190, 205, 220, 0.14) 0%, transparent 48%),
+                radial-gradient(ellipse 320px 250px at 90% 55%, rgba(180, 195, 210, 0.13) 0%, transparent 50%)
+              `,
+              backgroundSize: '180% 110%',
+              animation: prefersReducedMotion ? 'none' : 'fog-scroll-3 28s linear infinite',
+            }}
+          />
+
+          {/* Bottom fog bank - ground mist */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-2/5"
+            style={{
+              background: 'linear-gradient(to top, rgba(140, 160, 180, 0.35) 0%, rgba(160, 175, 190, 0.2) 40%, transparent 100%)',
+            }}
           />
         </>
       )}
@@ -513,33 +565,35 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
           }
         }
 
-        @keyframes fog-drift {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
-            opacity: 0.3;
+        /* Fog animations - multi-layer parallax scrolling */
+        .fog-layer {
+          will-change: background-position;
+        }
+
+        @keyframes fog-scroll-1 {
+          0% {
+            background-position: 0% 50%;
           }
-          25% {
-            transform: translate(30px, -20px) scale(1.1);
-            opacity: 0.5;
-          }
-          50% {
-            transform: translate(-20px, 10px) scale(0.9);
-            opacity: 0.4;
-          }
-          75% {
-            transform: translate(10px, 20px) scale(1.05);
-            opacity: 0.35;
+          100% {
+            background-position: 250% 50%;
           }
         }
 
-        @keyframes fog-wave {
-          0%, 100% {
-            transform: translateX(0);
-            opacity: 0.6;
+        @keyframes fog-scroll-2 {
+          0% {
+            background-position: 220% 40%;
           }
-          50% {
-            transform: translateX(-5%);
-            opacity: 0.8;
+          100% {
+            background-position: 0% 60%;
+          }
+        }
+
+        @keyframes fog-scroll-3 {
+          0% {
+            background-position: 0% 45%;
+          }
+          100% {
+            background-position: 180% 55%;
           }
         }
 

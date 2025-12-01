@@ -1,25 +1,29 @@
 "use client"
 
 import { useState } from "react"
-import { User, Shield, Heart, Minus, Plus, Zap, HeartPulse } from "lucide-react"
+import { User, Shield, Heart, Minus, Plus, Zap, HeartPulse, Backpack } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import type { Character } from "@/lib/types"
+import type { Character, CharacterInventory } from "@/lib/types"
+import { DEFAULT_INVENTORY } from "@/lib/types"
 import { ConditionList } from "@/components/condition-badge"
+import { InventoryManager } from "@/components/inventory-manager"
 
 interface MyCharactersPanelProps {
   characters: Character[]
   onUpdateHp: (id: string, change: number) => void
+  onUpdateInventory?: (id: string, inventory: CharacterInventory) => void
   combatActive?: boolean
 }
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
-export function MyCharactersPanel({ characters, onUpdateHp, combatActive = false }: MyCharactersPanelProps) {
+export function MyCharactersPanel({ characters, onUpdateHp, onUpdateInventory, combatActive = false }: MyCharactersPanelProps) {
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
 
   const getHpColor = (current: number, max: number) => {
@@ -207,6 +211,30 @@ export function MyCharactersPanel({ characters, onUpdateHp, combatActive = false
                     </div>
                   </div>
                 </div>
+
+                {/* Inventory Section */}
+                {onUpdateInventory && (
+                  <div className="p-4 border-t border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Backpack className="w-5 h-5 text-blue-500" />
+                      <span className="text-sm font-medium text-muted-foreground">Inventaire</span>
+                    </div>
+                    <InventoryManager
+                      characterName={character.name}
+                      inventory={character.inventory || DEFAULT_INVENTORY}
+                      onInventoryChange={(inventory) => onUpdateInventory(character.id, inventory)}
+                      trigger={
+                        <Button
+                          variant="outline"
+                          className="w-full min-h-[40px] border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/10 text-blue-500"
+                        >
+                          <Backpack className="w-4 h-4 mr-2" />
+                          Voir l'inventaire
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
 
                 {/* Conditions */}
                 {(character.conditions.length > 0 || character.exhaustionLevel > 0) && (

@@ -1,3 +1,50 @@
+// Inventory Item Types
+export interface EquipmentItem {
+  id: string
+  name: string
+  equipped: boolean
+}
+
+export interface ConsumableItem {
+  id: string
+  name: string
+  quantity: number
+}
+
+export interface CurrencyInventory {
+  platinum: number  // pp (pièces de platine)
+  gold: number      // po (pièces d'or)
+  electrum: number  // pe (pièces d'électrum)
+  silver: number    // pa (pièces d'argent)
+  copper: number    // pc (pièces de cuivre)
+}
+
+export interface MiscItem {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface CharacterInventory {
+  equipment: EquipmentItem[]
+  consumables: ConsumableItem[]
+  currency: CurrencyInventory
+  items: MiscItem[]
+}
+
+export const DEFAULT_INVENTORY: CharacterInventory = {
+  equipment: [],
+  consumables: [],
+  currency: {
+    platinum: 0,
+    gold: 0,
+    electrum: 0,
+    silver: 0,
+    copper: 0,
+  },
+  items: [],
+}
+
 export interface Character {
   id: string
   name: string
@@ -9,6 +56,7 @@ export interface Character {
   conditions: string[]
   exhaustionLevel: number
   initiative: number
+  inventory?: CharacterInventory
   // Connection status
   isConnected?: boolean
   // Grouping metadata for multi-character players
