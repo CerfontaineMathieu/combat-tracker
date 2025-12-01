@@ -36,7 +36,71 @@ pnpm dev      # Start development server
 pnpm build    # Production build
 pnpm lint     # Run ESLint
 pnpm start    # Start production server
+pnpm migrate  # Run pending database migrations
+pnpm migrate:create <name>  # Create new migration
 ```
+
+## Database Migrations (IMPORTANT)
+
+**CRITICAL: Always create a migration file when modifying the database schema.**
+
+This project uses `node-pg-migrate` for database migrations. Migrations run automatically on container startup.
+
+### When to create a migration
+
+You MUST create a migration file when:
+- Creating a new table
+- Adding/removing/modifying columns
+- Adding/removing indexes
+- Adding/removing constraints
+- Modifying existing table structure
+
+### How to create a migration
+
+```bash
+# Inside container or with DATABASE_URL set
+pnpm migrate:create add-player-notes
+```
+
+This creates `migrations/TIMESTAMP_add-player-notes.sql`. Edit it:
+
+```sql
+-- Create new table
+CREATE TABLE IF NOT EXISTS player_notes (
+    id SERIAL PRIMARY KEY,
+    character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_player_notes_character ON player_notes(character_id);
+```
+
+### Rules for migrations
+
+1. **Always use `IF NOT EXISTS`** for CREATE TABLE/INDEX statements
+2. **Use DO $$ blocks** for ALTER TABLE to check if column exists first
+3. **Never modify existing migrations** - create a new one instead
+4. **Commit migration files** with your feature code
+
+### Example: Adding a column safely
+
+```sql
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'characters' AND column_name = 'new_column'
+    ) THEN
+        ALTER TABLE characters ADD COLUMN new_column VARCHAR(100);
+    END IF;
+END $$;
+```
+
+### Migration files location
+
+- `migrations/` - Active migrations (run automatically)
+- `docker/init-db-archive/` - Old SQL files (reference only)
 
 ## Architecture
 

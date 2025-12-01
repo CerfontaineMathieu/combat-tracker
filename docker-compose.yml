@@ -31,7 +31,6 @@ services:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./docker/init-db:/docker-entrypoint-initdb.d
       - ./public/all_monsters.csv:/data/all_monsters.csv:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dnd -d dnd_tracker"]
