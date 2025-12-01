@@ -260,8 +260,29 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         };
       }
 
+      // XP summary when combat ends (for players to show modal)
+      if (data.type === 'combat_end_xp' && data.xpSummary) {
+        return {
+          ...state,
+          xpSummary: data.xpSummary,
+        };
+      }
+
       return state;
     }
+
+    // XP Summary
+    case 'SET_XP_SUMMARY':
+      return {
+        ...state,
+        xpSummary: action.xpSummary,
+      };
+
+    case 'CLEAR_XP_SUMMARY':
+      return {
+        ...state,
+        xpSummary: null,
+      };
 
     case 'HP_CHANGE': {
       const { participantId, participantType, newHp } = action;
