@@ -5,7 +5,6 @@ import { Shield, Heart, Zap, Swords, Star, BookOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import type { DbMonster } from "@/lib/types"
 
 interface MonsterDetailProps {
@@ -15,6 +14,25 @@ interface MonsterDetailProps {
 function formatMod(mod: number | null): string {
   if (mod === null) return "+0"
   return mod >= 0 ? `+${mod}` : `${mod}`
+}
+
+/**
+ * Render text with **bold** markdown support
+ */
+function FormattedText({ text }: { text: string }) {
+  // Split by **text** pattern and render bold sections
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+
+  return (
+    <>
+      {parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <span key={idx} className="font-semibold text-foreground">{part.slice(2, -2)}</span>
+        }
+        return <span key={idx}>{part}</span>
+      })}
+    </>
+  )
 }
 
 function AbilityScore({ label, score, mod }: { label: string; score: number | null; mod: number | null }) {
@@ -38,8 +56,7 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-4 p-1">
+    <div className="space-y-4">
         {/* Header with image - prefer ai_generated, fallback to image_url */}
         <div className="flex gap-4">
           {(monster.ai_generated || monster.image_url) && (
@@ -154,11 +171,13 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
                 <Star className="w-4 h-4" />
                 Capacités spéciales
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {monster.traits.special_abilities.map((ability, idx) => (
                   <div key={idx} className="text-sm">
-                    <span className="font-medium">{ability.name}. </span>
-                    <span className="text-muted-foreground">{ability.description}</span>
+                    <span className="font-semibold text-foreground">{ability.name}. </span>
+                    <span className="text-muted-foreground">
+                      <FormattedText text={ability.description} />
+                    </span>
                   </div>
                 ))}
               </div>
@@ -175,11 +194,13 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
                 <Swords className="w-4 h-4" />
                 Actions
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {monster.actions.map((action, idx) => (
                   <div key={idx} className="text-sm">
-                    <span className="font-medium">{action.name}. </span>
-                    <span className="text-muted-foreground">{action.description}</span>
+                    <span className="font-semibold text-foreground">{action.name}. </span>
+                    <span className="text-muted-foreground">
+                      <FormattedText text={action.description} />
+                    </span>
                   </div>
                 ))}
               </div>
@@ -196,22 +217,23 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
                 <BookOpen className="w-4 h-4" />
                 Actions légendaires
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {monster.legendary_actions.map((action, idx) => (
                   <div key={idx} className="text-sm">
-                    <span className="font-medium">{action.name}</span>
+                    <span className="font-semibold text-foreground">{action.name}</span>
                     {action.cost > 1 && (
                       <span className="text-purple-400"> (coûte {action.cost} actions)</span>
                     )}
-                    <span className="font-medium">. </span>
-                    <span className="text-muted-foreground">{action.description}</span>
+                    <span className="font-semibold text-foreground">. </span>
+                    <span className="text-muted-foreground">
+                      <FormattedText text={action.description} />
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           </>
         )}
-      </div>
-    </ScrollArea>
+    </div>
   )
 }

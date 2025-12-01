@@ -326,6 +326,13 @@ function CombatTrackerContent() {
               ac: number
               initiative: number
               conditions: string[]
+              passive_perception: number | null
+              strength: number | null
+              dexterity: number | null
+              constitution: number | null
+              intelligence: number | null
+              wisdom: number | null
+              charisma: number | null
             }) => {
               const inventory = await loadCharacterInventory(c.id)
               return {
@@ -341,6 +348,13 @@ function CombatTrackerContent() {
                 exhaustionLevel: 0,
                 isConnected: false,
                 inventory,
+                passivePerception: c.passive_perception,
+                strength: c.strength,
+                dexterity: c.dexterity,
+                constitution: c.constitution,
+                intelligence: c.intelligence,
+                wisdom: c.wisdom,
+                charisma: c.charisma,
               }
             })
           )
@@ -484,6 +498,8 @@ function CombatTrackerContent() {
       player.characters.forEach((char, idx) => {
         const id = String(char.odNumber)
         connectedCharacterIds.add(id)
+        // Get static data from campaign characters (includes stats from Notion)
+        const campaignChar = allCampaignCharacters.find(c => c.id === id)
         connectedCharactersMap.set(id, {
           id,
           name: char.name,
@@ -501,6 +517,14 @@ function CombatTrackerContent() {
           playerSocketId: player.socketId,
           isFirstInGroup: idx === 0,
           groupSize: player.characters.length,
+          // Include stats from Notion (campaign characters)
+          passivePerception: campaignChar?.passivePerception,
+          strength: campaignChar?.strength,
+          dexterity: campaignChar?.dexterity,
+          constitution: campaignChar?.constitution,
+          intelligence: campaignChar?.intelligence,
+          wisdom: campaignChar?.wisdom,
+          charisma: campaignChar?.charisma,
         })
       })
     })
@@ -655,9 +679,37 @@ function CombatTrackerContent() {
   }
 
   const nextTurn = () => {
-    const nextIndex = (currentTurn + 1) % combatParticipants.length
-    // Increment round when cycling back to first participant
-    const newRound = nextIndex === 0 ? roundNumber + 1 : roundNumber
+    // Helper to check if a participant should be skipped (dead, dying, or stabilized)
+    const shouldSkip = (p: typeof combatParticipants[0]) => {
+      if (!p) return false
+      // Skip dead participants (monsters with HP <= 0, or anyone marked as dead)
+      if (p.isDead) return true
+      // Skip participants with 0 HP (dead monsters, dying players)
+      if (p.currentHp <= 0) return true
+      // Skip stabilized players (unconscious but stable)
+      if (p.isStabilized) return true
+      return false
+    }
+
+    // Find the next active participant
+    let nextIndex = (currentTurn + 1) % combatParticipants.length
+    let stepsChecked = 0
+    let passedZero = nextIndex === 0 // Track if we've wrapped around to index 0
+
+    while (shouldSkip(combatParticipants[nextIndex]) && stepsChecked < combatParticipants.length) {
+      nextIndex = (nextIndex + 1) % combatParticipants.length
+      if (nextIndex === 0) passedZero = true
+      stepsChecked++
+    }
+
+    // If all participants are incapacitated, don't advance
+    if (stepsChecked >= combatParticipants.length) {
+      toast.error("Aucun participant actif !")
+      return
+    }
+
+    // Increment round when we've passed through index 0 (wrapped around)
+    const newRound = passedZero ? roundNumber + 1 : roundNumber
 
     // Process condition durations for the NEXT participant (at the START of their turn)
     // "1 round" means the condition lasts until the start of their next turn
@@ -713,7 +765,7 @@ function CombatTrackerContent() {
     }
 
     setCurrentTurn(nextIndex)
-    if (nextIndex === 0) {
+    if (passedZero) {
       setRoundNumber(newRound)
     }
 
@@ -727,7 +779,7 @@ function CombatTrackerContent() {
 
     if (nextParticipant) {
       addHistoryEntry({ type: "turn", target: nextParticipant.name })
-      if (nextIndex === 0) {
+      if (passedZero) {
         toast.success(`Round ${newRound} - Tour de ${nextParticipant.name}`, {
           duration: 3000
         })

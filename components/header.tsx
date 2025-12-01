@@ -1,12 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu, QrCode, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { AmbientControls, CriticalButtons, type AmbientEffect } from "@/components/ambient-effects"
+import { isSoundMuted, setSoundMuted } from "@/lib/sounds"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { QrCodeDialog } from "@/components/qr-code-dialog"
 
 interface HeaderProps {
   mode: "mj" | "joueur"
@@ -29,6 +32,20 @@ export function Header({
   ambientEffect = "none",
   onAmbientEffectChange,
 }: HeaderProps) {
+  const [showQrDialog, setShowQrDialog] = useState(false)
+  const [soundMuted, setSoundMutedState] = useState(() => {
+    if (typeof window !== "undefined") {
+      return isSoundMuted()
+    }
+    return false
+  })
+
+  const toggleSoundMute = () => {
+    const newValue = !soundMuted
+    setSoundMutedState(newValue)
+    setSoundMuted(newValue)
+  }
+
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40 safe-area-top">
       {/* Main Header Row */}
@@ -83,11 +100,48 @@ export function Header({
                   </div>
                   <div className="flex flex-col gap-2">
                     <span className="text-xs text-muted-foreground font-medium">Critique</span>
-                    <CriticalButtons onTriggerEffect={onAmbientEffectChange} />
+                    <div className="flex items-center gap-2">
+                      <CriticalButtons onTriggerEffect={onAmbientEffectChange} />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleSoundMute}
+                        className="h-8 w-8"
+                        title={soundMuted ? "Activer les sons" : "Couper les sons"}
+                      >
+                        {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </PopoverContent>
             </Popover>
+          )}
+
+          {/* QR Code Button - DM only */}
+          {mode === "mj" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowQrDialog(true)}
+              className="h-9 w-9 hover:bg-primary/20 hover:text-gold transition-smooth"
+              title="Code QR de connexion"
+            >
+              <QrCode className="w-4 h-4" />
+            </Button>
+          )}
+
+          {/* Sound Mute Button - Player only (DM has it in ambient popover) */}
+          {mode === "joueur" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSoundMute}
+              className="h-9 w-9 hover:bg-primary/20 transition-smooth"
+              title={soundMuted ? "Activer les sons" : "Couper les sons"}
+            >
+              {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </Button>
           )}
 
           {/* User Info Badge */}
@@ -169,15 +223,25 @@ export function Header({
                 >
                   <div className="flex flex-col gap-1">
                     {mode === "mj" && (
-                      <Link href="/monsters" className="w-full">
+                      <>
+                        <Link href="/monsters" className="w-full">
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-crimson"
+                          >
+                            <Skull className="w-4 h-4" />
+                            <span className="text-sm">Bestiaire</span>
+                          </Button>
+                        </Link>
                         <Button
                           variant="ghost"
-                          className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-crimson"
+                          onClick={() => setShowQrDialog(true)}
+                          className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-gold"
                         >
-                          <Skull className="w-4 h-4" />
-                          <span className="text-sm">Bestiaire</span>
+                          <QrCode className="w-4 h-4" />
+                          <span className="text-sm">Code QR</span>
                         </Button>
-                      </Link>
+                      </>
                     )}
                     <Link href="/map" className="w-full">
                       <Button
@@ -214,6 +278,9 @@ export function Header({
           </Button>
         </div>
       </div>
+
+      {/* QR Code Dialog */}
+      <QrCodeDialog open={showQrDialog} onOpenChange={setShowQrDialog} />
     </header>
   )
 }
