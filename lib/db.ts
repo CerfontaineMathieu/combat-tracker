@@ -965,3 +965,43 @@ export async function getCombatStateBackup(
 export async function clearCombatStateBackup(campaignId: number): Promise<void> {
   await pool.query('DELETE FROM combat_state_backup WHERE campaign_id = $1', [campaignId]);
 }
+
+// ============================================
+// Character Inventory Functions
+// ============================================
+
+export interface CharacterInventory {
+  equipment: any[];
+  consumables: any[];
+  currency: {
+    platinum: number;
+    gold: number;
+    electrum: number;
+    silver: number;
+    copper: number;
+  };
+  items: any[];
+}
+
+const DEFAULT_INVENTORY: CharacterInventory = {
+  equipment: [],
+  consumables: [],
+  currency: { platinum: 0, gold: 0, electrum: 0, silver: 0, copper: 0 },
+  items: [],
+};
+
+// Get character inventory by character ID (odNumber)
+export async function getCharacterInventory(
+  characterId: string
+): Promise<CharacterInventory> {
+  const result = await pool.query(
+    'SELECT inventory FROM character_inventories WHERE character_id = $1',
+    [characterId]
+  );
+
+  if (result.rows.length === 0) {
+    return DEFAULT_INVENTORY;
+  }
+
+  return result.rows[0].inventory;
+}

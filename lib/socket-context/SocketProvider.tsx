@@ -17,6 +17,7 @@ import type {
   AmbientEffectData,
   PlayerPositionData,
   NotificationData,
+  InventoryUpdateData,
 } from './types';
 import { initialSocketState } from './types';
 
@@ -244,6 +245,15 @@ export function SocketProvider({ children }: SocketProviderProps) {
       dispatch({ type: 'DM_RECONNECTED' });
     });
 
+    // ============ INVENTORY EVENTS ============
+    socket.on('inventory-update', (data) => {
+      dispatch({
+        type: 'INVENTORY_UPDATE',
+        participantId: data.participantId,
+        inventory: data.inventory,
+      });
+    });
+
     // Connect the socket
     socket.connect();
 
@@ -268,6 +278,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('notification');
       socket.off('dm-disconnected');
       socket.off('dm-reconnected');
+      socket.off('inventory-update');
 
       socket.disconnect();
       socketRef.current = null;
@@ -454,6 +465,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('notification', data);
   }, []);
 
+  const emitInventoryUpdate = useCallback((data: InventoryUpdateData) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    socket.emit('inventory-update', data);
+    // Also update local state immediately
+    dispatch({
+      type: 'INVENTORY_UPDATE',
+      participantId: data.participantId,
+      inventory: data.inventory,
+    });
+  }, []);
+
   // Context value - memoized to ensure proper React re-renders when state changes
   const value: SocketContextType = useMemo(() => ({
     state,
@@ -465,6 +489,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitConditionChange,
     emitExhaustionChange,
     emitDeathSaveChange,
+    emitInventoryUpdate,
     emitAmbientEffect,
     emitPlayerPositions,
     requestPlayerPositions,
@@ -480,6 +505,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitConditionChange,
     emitExhaustionChange,
     emitDeathSaveChange,
+    emitInventoryUpdate,
     emitAmbientEffect,
     emitPlayerPositions,
     requestPlayerPositions,

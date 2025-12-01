@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Eye } from "lucide-react"
+import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Backpack, Eye } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,10 +15,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import type { Character, CombatParticipant } from "@/lib/types"
+import type { Character, CombatParticipant, CharacterInventory } from "@/lib/types"
+import { DEFAULT_INVENTORY } from "@/lib/types"
 import { DraggablePlayerCard } from "@/components/draggable-card"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
+import { InventoryManager } from "@/components/inventory-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
@@ -34,6 +36,7 @@ interface PlayerPanelProps {
   onUpdateInitiative: (id: string, initiative: number) => void
   onUpdateConditions?: (id: string, conditions: string[]) => void
   onUpdateExhaustion?: (id: string, level: number) => void
+  onUpdateInventory?: (id: string, inventory: CharacterInventory) => void
   mode: "mj" | "joueur"
   combatActive?: boolean
   combatParticipants?: CombatParticipant[]
@@ -41,7 +44,7 @@ interface PlayerPanelProps {
   onAddToCombat?: (player: Character) => void // For mobile tap-to-add
 }
 
-export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
+export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onUpdateInventory, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
   const [playerToAdd, setPlayerToAdd] = useState<Character | null>(null)
@@ -459,6 +462,39 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                           </div>
                         </div>
                       )}
+
+                      {/* Inventory Manager */}
+                      {onUpdateInventory && (
+                        <div className="mb-3">
+                          <InventoryManager
+                            characterName={player.name}
+                            inventory={player.inventory || DEFAULT_INVENTORY}
+                            onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
+                            trigger={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full min-h-[40px] border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/10 text-blue-500"
+                              >
+                                <Backpack className="w-4 h-4 mr-2" />
+                                Gérer l'inventaire
+                              </Button>
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Initiative */}
+                      <div className="mb-3">
+                        <label className="text-xs text-muted-foreground mb-1 block">Initiative</label>
+                        <Input
+                          type="number"
+                          value={player.initiative || ""}
+                          onChange={(e) => onUpdateInitiative(player.id, Number.parseInt(e.target.value) || 0)}
+                          className="min-h-[40px] text-sm bg-background"
+                          placeholder="0"
+                        />
+                      </div>
 
                       {/* Full HP Button */}
                       <Button

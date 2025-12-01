@@ -3,7 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
-import { getDmPassword } from './lib/db';
+import { getDmPassword, getCharacterInventory } from './lib/db';
 import {
   getRedis,
   getDmSession,
@@ -137,6 +137,13 @@ interface DeathSaveChangeData {
   isDead: boolean;
 }
 
+interface InventoryUpdateData {
+  participantId: string;
+  participantType: 'player';
+  inventory: any; // Use any for now to avoid importing full type definition
+  source: 'dm' | 'player';
+}
+
 interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
 }
@@ -262,14 +269,37 @@ app.prepare().then(() => {
 
       // Handle player joining with characters
       if (role === 'player' && characters && characters.length > 0) {
+        // Load inventories from database for each character
+        const charactersWithInventories = await Promise.all(
+          characters.map(async (char: {
+            odNumber: string | number;
+            name: string;
+            class: string;
+            level: number;
+            currentHp: number;
+            maxHp: number;
+            ac: number;
+            initiative: number;
+            conditions: string[];
+            exhaustionLevel?: number;
+          }) => {
+            const inventory = await getCharacterInventory(String(char.odNumber));
+            console.log(`[Socket.io] Loaded inventory for character ${char.name} (${char.odNumber}):`, inventory);
+            return {
+              ...char,
+              inventory,
+            };
+          })
+        );
+
         const playerData: RedisConnectedPlayer = {
           socketId: socket.id,
-          characters: characters
+          characters: charactersWithInventories
         };
 
         // Check if any character is already connected by an ACTIVE socket
         const existingPlayers = await getConnectedPlayers(campaignId);
-        const newCharacterIds = new Set(characters.map((c: { odNumber: string }) => String(c.odNumber)));
+        const newCharacterIds = new Set(charactersWithInventories.map((c) => String(c.odNumber)));
 
         for (const existingPlayer of existingPlayers) {
           // Skip if it's the same socket reconnecting
@@ -301,7 +331,7 @@ app.prepare().then(() => {
         // Store in Redis
         await addConnectedPlayer(campaignId, playerData);
 
-        const characterNames = characters.map(c => c.name).join(', ');
+        const characterNames = charactersWithInventories.map(c => c.name).join(', ');
         console.log(`[Socket.io] Player with characters [${characterNames}] connected to campaign ${campaignId}`);
 
         // Notify everyone in room about new player (including sender for confirmation)
@@ -511,6 +541,15 @@ app.prepare().then(() => {
         const room = `campaign-${socket.data.campaignId}`;
         io.to(room).emit('death-save-change', data);
         console.log(`[Socket.io] Death save change in ${room}:`, data.participantId);
+      }
+    });
+
+    // Inventory update
+    socket.on('inventory-update', (data: InventoryUpdateData) => {
+      if (socket.data.campaignId) {
+        const room = `campaign-${socket.data.campaignId}`;
+        io.to(room).emit('inventory-update', data);
+        console.log(`[Socket.io] Inventory update in ${room}:`, data.participantId, 'by', data.source);
       }
     });
 
