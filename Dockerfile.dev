@@ -9,4 +9,4 @@ WORKDIR /app
 EXPOSE 3000
 
 # Install dependencies and run dev server
-CMD ["sh", "-c", "pnpm install && pnpm dev"]
+CMD ["sh", "-c", "pnpm install && pnpm migrate && pnpm dev"]
