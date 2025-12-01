@@ -75,11 +75,17 @@ interface JoinCampaignData {
 }
 
 interface CombatUpdateData {
-  type: 'start' | 'stop' | 'next-turn' | 'state-sync';
+  type: 'start' | 'stop' | 'next-turn' | 'state-sync' | 'combat_end_xp';
   combatActive: boolean;
   currentTurn: number;
   roundNumber?: number;
   participants?: unknown[];
+  xpSummary?: {
+    totalXp: number;
+    perPlayerXp: number;
+    playerCount: number;
+    killedMonsters: { name: string; xp: number }[];
+  };
 }
 
 interface HpChangeData {

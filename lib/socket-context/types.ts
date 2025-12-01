@@ -71,6 +71,14 @@ export interface SocketState {
   // DM disconnect tracking (for player overlay)
   dmDisconnected: boolean;
   dmDisconnectTime: number | null;
+
+  // XP Summary (shown when combat ends)
+  xpSummary: {
+    totalXp: number;
+    perPlayerXp: number;
+    playerCount: number;
+    killedMonsters: { name: string; xp: number }[];
+  } | null;
 }
 
 // Action types
@@ -119,7 +127,11 @@ export type SocketAction =
 
   // DM disconnect/reconnect
   | { type: 'DM_DISCONNECTED'; timestamp: number }
-  | { type: 'DM_RECONNECTED' };
+  | { type: 'DM_RECONNECTED' }
+
+  // XP Summary
+  | { type: 'SET_XP_SUMMARY'; xpSummary: SocketState['xpSummary'] }
+  | { type: 'CLEAR_XP_SUMMARY' };
 
 // Initial state
 export const initialSocketState: SocketState = {
@@ -161,6 +173,9 @@ export const initialSocketState: SocketState = {
   // DM disconnect tracking
   dmDisconnected: false,
   dmDisconnectTime: null,
+
+  // XP Summary
+  xpSummary: null,
 };
 
 // Join campaign data

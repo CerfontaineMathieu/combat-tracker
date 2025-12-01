@@ -22,6 +22,7 @@ import type { Character, Monster, CombatParticipant, DbMonster, CharacterInvento
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
+import { XpSummaryModal } from "@/components/xp-summary-modal"
 import {
   Dialog,
   DialogContent,
@@ -126,6 +127,13 @@ function CombatTrackerContent() {
   const [dmLoading, setDmLoading] = useState(false)
   const [pendingDmPassword, setPendingDmPassword] = useState<string | null>(null)
 
+  // State for XP summary modal
+  const [showXpModal, setShowXpModal] = useState(false)
+  const [xpSummaryData, setXpSummaryData] = useState<{ killedMonsters: { name: string; xp: number }[]; playerCount: number }>({
+    killedMonsters: [],
+    playerCount: 0,
+  })
+
   // Persist combat state to sessionStorage
   useEffect(() => {
     sessionStorage.setItem('dnd-combatActive', String(combatActive))
@@ -157,6 +165,23 @@ function CombatTrackerContent() {
       }
     }
   }, [combatActive, isMobile, mode, activeTab])
+
+  // Auto-end combat when all monsters are dead (DM only)
+  useEffect(() => {
+    if (!combatActive || mode !== "mj") return
+
+    const monsters = combatParticipants.filter(p => p.type === "monster")
+    const aliveMonsters = monsters.filter(p => p.currentHp > 0)
+
+    // Only auto-end if there were monsters and now all are dead
+    if (monsters.length > 0 && aliveMonsters.length === 0) {
+      // Small delay to let the UI update with the last kill
+      const timer = setTimeout(() => {
+        stopCombat()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [combatParticipants, combatActive, mode])
 
   // Restore mode from localStorage on mount
   useEffect(() => {
@@ -428,6 +453,19 @@ function CombatTrackerContent() {
     }
   }, [socketState.ambientEffect, ambientEffect])
 
+  // Show XP modal for players when DM ends combat
+  useEffect(() => {
+    if (socketState.xpSummary && mode === 'joueur') {
+      setXpSummaryData({
+        killedMonsters: socketState.xpSummary.killedMonsters,
+        playerCount: socketState.xpSummary.playerCount,
+      })
+      setShowXpModal(true)
+      // Clear the socket state after showing
+      socketDispatch({ type: 'CLEAR_XP_SUMMARY' })
+    }
+  }, [socketState.xpSummary, mode, socketDispatch])
+
   // Handle DM join success (context sets isJoined when connected-players is received)
   useEffect(() => {
     if (socketState.isJoined && socketState.mode === 'mj' && dmLoading) {
@@ -639,23 +677,59 @@ function CombatTrackerContent() {
     })
   }
 
+  // Show XP summary modal before ending combat
   const stopCombat = () => {
-    addHistoryEntry({ type: "combat_end" })
-    setCombatActive(false)
-    setCombatParticipants([])
-    setCurrentTurn(0)
-    setRoundNumber(1)
-    setCombatHistory([]) // Clear history when combat ends
+    // Calculate XP from all monsters that are dead (HP = 0)
+    const deadMonsters = combatParticipants
+      .filter(p => p.type === "monster" && p.currentHp <= 0)
+      .map(p => ({ name: p.name, xp: p.xp || 0 }))
 
-    // Emit socket event to sync with players
+    const playerCount = combatParticipants.filter(p => p.type === "player").length
+
+    // Calculate total XP for socket event
+    const totalXp = deadMonsters.reduce((sum, m) => sum + m.xp, 0)
+    const perPlayerXp = playerCount > 0 ? Math.floor(totalXp / playerCount) : totalXp
+
+    // Emit socket event with XP summary so players see the modal too
     emitCombatUpdate({
-      type: 'stop',
-      combatActive: false,
-      currentTurn: 0,
-      roundNumber: 1,
+      type: 'combat_end_xp',
+      xpSummary: {
+        totalXp,
+        perPlayerXp,
+        playerCount,
+        killedMonsters: deadMonsters,
+      },
     })
 
-    toast("Combat terminé")
+    // Show XP modal (players receive via socket)
+    setXpSummaryData({ killedMonsters: deadMonsters, playerCount })
+    setShowXpModal(true)
+  }
+
+  // Called when XP modal is closed - actually ends combat
+  const confirmEndCombat = () => {
+    setShowXpModal(false)
+
+    // Only DM needs to do the full cleanup and emit socket events
+    // Players just close the modal - their state is synced via socket from DM
+    if (mode === "mj") {
+      addHistoryEntry({ type: "combat_end" })
+      setCombatActive(false)
+      setCombatParticipants([])
+      setCurrentTurn(0)
+      setRoundNumber(1)
+      setCombatHistory([])
+
+      // Emit socket event to fully stop combat
+      emitCombatUpdate({
+        type: 'stop',
+        combatActive: false,
+        currentTurn: 0,
+        roundNumber: 1,
+      })
+
+      toast("Combat terminé")
+    }
   }
 
   const clearCombat = () => {
@@ -1496,6 +1570,14 @@ function CombatTrackerContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* XP Summary Modal */}
+      <XpSummaryModal
+        open={showXpModal}
+        onClose={confirmEndCombat}
+        killedMonsters={xpSummaryData.killedMonsters}
+        playerCount={xpSummaryData.playerCount}
+      />
 
       <Header
         mode={mode}
