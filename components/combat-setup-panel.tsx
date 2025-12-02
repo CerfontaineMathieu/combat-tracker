@@ -41,6 +41,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useCombatDnd, CombatSortableContext } from "@/components/combat-dnd-context"
 import { SortableParticipantCard } from "@/components/draggable-card"
+import { calculateDifficulty, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from "@/lib/xp-difficulty"
 import type { CombatParticipant } from "@/lib/types"
 
 interface FightPreset {
@@ -63,6 +64,7 @@ interface FightPresetMonster {
   ac: number
   initiative: number
   quantity: number
+  xp?: number
 }
 
 interface FightPresetWithMonsters extends FightPreset {
@@ -111,11 +113,14 @@ export function CombatSetupPanel({
   const [saving, setSaving] = useState(false)
   const [loadingPreset, setLoadingPreset] = useState<number | null>(null)
 
-  const playerCount = combatParticipants.filter(p => p.type === "player").length
-  const monsterCount = combatParticipants.filter(p => p.type === "monster").length
-  const totalXp = combatParticipants
-    .filter(p => p.type === "monster")
-    .reduce((sum, p) => sum + (p.xp || 0), 0)
+  const playerParticipants = combatParticipants.filter(p => p.type === "player")
+  const monsterParticipants = combatParticipants.filter(p => p.type === "monster")
+  const playerCount = playerParticipants.length
+  const monsterCount = monsterParticipants.length
+  const totalXp = monsterParticipants.reduce((sum, p) => sum + (p.xp || 0), 0)
+  const difficulty = playerCount > 0
+    ? calculateDifficulty(totalXp, playerParticipants.map(p => ({ level: p.level || 1 })))
+    : null
   const disconnectedPlayers = combatParticipants.filter(p => p.type === "player" && p.isConnected === false)
   const hasDisconnectedPlayers = disconnectedPlayers.length > 0
   const canStartCombat = combatParticipants.length >= 2 && !hasDisconnectedPlayers
@@ -172,6 +177,7 @@ export function CombatSetupPanel({
             ac: 10, // Default AC
             initiative: p.initiative,
             quantity: 1,
+            xp: p.xp || null,
           })),
         }),
       })
@@ -219,6 +225,7 @@ export function CombatSetupPanel({
               conditions: [],
               exhaustionLevel: 0,
               type: pm.participant_type || 'monster',
+              xp: pm.xp,
               // Check if player is actually connected
               isConnected: isPlayer ? connectedPlayerIds.includes(participantId) : undefined,
             }
@@ -279,7 +286,7 @@ export function CombatSetupPanel({
             <span className="sm:hidden">Préparation</span>
           </CardTitle>
           {combatParticipants.length > 0 && (
-            <div className="flex gap-1 sm:gap-2 shrink-0">
+            <div className="flex gap-1 sm:gap-2 shrink-0 flex-wrap">
               <Badge variant="outline" className="border-gold/30 text-gold text-xs">
                 <Users className="w-3 h-3 mr-1" />
                 {playerCount}
@@ -288,6 +295,16 @@ export function CombatSetupPanel({
                 <Skull className="w-3 h-3 mr-1" />
                 {monsterCount}
               </Badge>
+              {totalXp > 0 && (
+                <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">
+                  {totalXp.toLocaleString()} XP
+                </Badge>
+              )}
+              {difficulty && (
+                <Badge variant="outline" className={cn("text-xs", DIFFICULTY_COLORS[difficulty])}>
+                  {DIFFICULTY_LABELS[difficulty]}
+                </Badge>
+              )}
             </div>
           )}
         </div>
