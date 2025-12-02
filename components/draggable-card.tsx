@@ -430,9 +430,16 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
               {participant.name}
             </h3>
             {!isPlayer && (
-              <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0 shrink-0 hidden sm:flex">
-                Monstre
-              </Badge>
+              <>
+                <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0 shrink-0 hidden sm:flex">
+                  Monstre
+                </Badge>
+                {participant.xp && (
+                  <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-400 px-1.5 py-0 shrink-0 hidden sm:flex">
+                    {participant.xp} XP
+                  </Badge>
+                )}
+              </>
             )}
           </div>
 

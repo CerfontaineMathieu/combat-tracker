@@ -754,6 +754,7 @@ export interface FightPresetMonster {
   quantity: number;
   participant_type: 'player' | 'monster';
   reference_id: string | null;
+  xp?: number;
   created_at: Date;
 }
 
@@ -809,8 +810,8 @@ export async function createFightPreset(
   for (const monster of monsters) {
     const monsterResult = await pool.query(
       `INSERT INTO fight_preset_monsters
-       (preset_id, monster_id, name, hp, max_hp, ac, initiative, notes, quantity, participant_type, reference_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+       (preset_id, monster_id, name, hp, max_hp, ac, initiative, notes, quantity, participant_type, reference_id, xp)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [
         preset.id,
         monster.monster_id,
@@ -823,6 +824,7 @@ export async function createFightPreset(
         monster.quantity || 1,
         monster.participant_type || 'monster',
         monster.reference_id || null,
+        monster.xp || null,
       ]
     );
     insertedMonsters.push(monsterResult.rows[0]);
