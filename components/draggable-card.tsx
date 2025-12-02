@@ -16,9 +16,10 @@ interface DraggablePlayerCardProps {
   isInCombat: boolean
   compact?: boolean
   onUpdateInitiative?: (initiative: number) => void
+  actionSlot?: React.ReactNode
 }
 
-export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpdateInitiative }: DraggablePlayerCardProps) {
+export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpdateInitiative, actionSlot }: DraggablePlayerCardProps) {
   const [isEditingInit, setIsEditingInit] = useState(false)
   const [initValue, setInitValue] = useState(String(player.initiative ?? ""))
   const isDisconnected = player.isConnected === false
@@ -160,6 +161,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
                 </Badge>
               )
             )}
+            {!compact && actionSlot}
             {!compact && !isInCombat && (
               <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
             )}

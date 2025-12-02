@@ -466,6 +466,50 @@ function CombatTrackerContent() {
     }
   }, [socketState.xpSummary, mode, socketDispatch])
 
+  // Sync inventory updates from socket to local players state
+  // This ensures that when another client updates inventory, we reflect it locally
+  useEffect(() => {
+    // Build a map of character id -> inventory from connected players
+    const inventoryUpdates = new Map<string, CharacterInventory>()
+    socketState.connectedPlayers.forEach(player => {
+      player.characters.forEach(char => {
+        if (char.inventory) {
+          inventoryUpdates.set(String(char.odNumber), char.inventory)
+        }
+      })
+    })
+
+    // Update local players state if inventories differ
+    if (inventoryUpdates.size > 0) {
+      setPlayers(prev => {
+        let hasChanges = false
+        const updated = prev.map(p => {
+          const socketInventory = inventoryUpdates.get(p.id)
+          if (socketInventory && JSON.stringify(p.inventory) !== JSON.stringify(socketInventory)) {
+            hasChanges = true
+            return { ...p, inventory: socketInventory }
+          }
+          return p
+        })
+        return hasChanges ? updated : prev
+      })
+
+      // Also update allCampaignCharacters to keep them in sync
+      setAllCampaignCharacters(prev => {
+        let hasChanges = false
+        const updated = prev.map(p => {
+          const socketInventory = inventoryUpdates.get(p.id)
+          if (socketInventory && JSON.stringify(p.inventory) !== JSON.stringify(socketInventory)) {
+            hasChanges = true
+            return { ...p, inventory: socketInventory }
+          }
+          return p
+        })
+        return hasChanges ? updated : prev
+      })
+    }
+  }, [socketState.connectedPlayers])
+
   // Handle DM join success (context sets isJoined when connected-players is received)
   useEffect(() => {
     if (socketState.isJoined && socketState.mode === 'mj' && dmLoading) {

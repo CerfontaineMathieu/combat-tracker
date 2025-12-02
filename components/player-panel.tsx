@@ -167,26 +167,44 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                     {player.passivePerception && ` • PP ${player.passivePerception}`}
                                   </p>
                                 </div>
-                                <Button
-                                  size="icon"
-                                  variant={canAdd ? "default" : "ghost"}
-                                  className={cn(
-                                    "ml-2 shrink-0 h-10 w-10",
-                                    canAdd
-                                      ? isDisconnected
-                                        ? "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                        : "bg-gold hover:bg-gold/80 text-background"
-                                      : "text-muted-foreground"
+                                <div className="flex items-center gap-1 ml-2 shrink-0">
+                                  {onUpdateInventory && (
+                                    <InventoryManager
+                                      characterName={player.name}
+                                      inventory={player.inventory || DEFAULT_INVENTORY}
+                                      onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
+                                      trigger={
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-10 w-10 text-blue-500 hover:bg-blue-500/10"
+                                        >
+                                          <Backpack className="w-5 h-5" />
+                                        </Button>
+                                      }
+                                    />
                                   )}
-                                  onClick={() => canAdd && setPlayerToAdd(player)}
-                                  disabled={!canAdd}
-                                >
-                                  {inCombat ? (
-                                    <Check className="w-5 h-5" />
-                                  ) : (
-                                    <UserPlus className="w-5 h-5" />
-                                  )}
-                                </Button>
+                                  <Button
+                                    size="icon"
+                                    variant={canAdd ? "default" : "ghost"}
+                                    className={cn(
+                                      "h-10 w-10",
+                                      canAdd
+                                        ? isDisconnected
+                                          ? "bg-muted hover:bg-muted/80 text-muted-foreground"
+                                          : "bg-gold hover:bg-gold/80 text-background"
+                                        : "text-muted-foreground"
+                                    )}
+                                    onClick={() => canAdd && setPlayerToAdd(player)}
+                                    disabled={!canAdd}
+                                  >
+                                    {inCombat ? (
+                                      <Check className="w-5 h-5" />
+                                    ) : (
+                                      <UserPlus className="w-5 h-5" />
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           )
@@ -199,6 +217,23 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             player={player}
                             isInCombat={inCombat}
                             onUpdateInitiative={(init) => onUpdateInitiative(player.id, init)}
+                            actionSlot={onUpdateInventory && (
+                              <InventoryManager
+                                characterName={player.name}
+                                inventory={player.inventory || DEFAULT_INVENTORY}
+                                onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
+                                trigger={
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-blue-500 hover:bg-blue-500/10"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                  >
+                                    <Backpack className="w-4 h-4" />
+                                  </Button>
+                                }
+                              />
+                            )}
                           />
                         )
                       })}
@@ -257,6 +292,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </Card>
     )
   }
