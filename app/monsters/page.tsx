@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MonsterDetail } from "@/components/monster-detail"
 import { NotionSyncButton } from "@/components/notion-sync-button"
+import { ItemSyncDialog } from "@/components/item-sync-dialog"
 import { cn } from "@/lib/utils"
 import type { DbMonster } from "@/lib/types"
 
@@ -108,7 +109,10 @@ export default function MonstersPage() {
             <Skull className="w-5 h-5 text-crimson" />
             <h1 className="text-xl font-bold text-gold">Bestiaire</h1>
           </div>
-          <NotionSyncButton onSyncComplete={fetchMonsters} />
+          <div className="flex items-center gap-2">
+            <ItemSyncDialog />
+            <NotionSyncButton onSyncComplete={fetchMonsters} />
+          </div>
         </div>
       </header>
 

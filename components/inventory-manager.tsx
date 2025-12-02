@@ -10,6 +10,7 @@ import {
   Backpack,
   Pill,
   Box,
+  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,8 +25,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { CharacterInventory, EquipmentItem, ConsumableItem, MiscItem, CurrencyInventory } from "@/lib/types"
+import type { CharacterInventory, EquipmentItem, ConsumableItem, MiscItem, CurrencyInventory, CatalogItem } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
+import { ItemAutocomplete } from "@/components/item-autocomplete"
+import { ItemPickerDialog } from "@/components/item-picker-dialog"
 
 interface InventoryManagerProps {
   characterName: string
@@ -290,12 +293,26 @@ export function InventoryManager({
           <TabsContent value="equipment" className="space-y-3">
             {!readonly && (
               <div className="flex gap-2">
-                <Input
-                  placeholder="Nom de l'équipement..."
+                <ItemAutocomplete
                   value={newEquipmentName}
-                  onChange={(e) => setNewEquipmentName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addEquipment()}
+                  onChange={setNewEquipmentName}
+                  onSelect={(item: CatalogItem) => {
+                    setNewEquipmentName(item.name)
+                  }}
+                  placeholder="Nom de l'équipement..."
+                  filterCategory="equipment"
                   className="flex-1"
+                />
+                <ItemPickerDialog
+                  filterCategory="equipment"
+                  onSelect={(item: CatalogItem) => {
+                    setNewEquipmentName(item.name)
+                  }}
+                  trigger={
+                    <Button variant="outline" size="icon" className="shrink-0">
+                      <Search className="w-4 h-4" />
+                    </Button>
+                  }
                 />
                 <Button onClick={addEquipment} size="icon" className="shrink-0">
                   <Plus className="w-4 h-4" />
@@ -355,12 +372,26 @@ export function InventoryManager({
           <TabsContent value="consumables" className="space-y-3">
             {!readonly && (
               <div className="flex gap-2">
-                <Input
-                  placeholder="Nom du consommable..."
+                <ItemAutocomplete
                   value={newConsumableName}
-                  onChange={(e) => setNewConsumableName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addConsumable()}
+                  onChange={setNewConsumableName}
+                  onSelect={(item: CatalogItem) => {
+                    setNewConsumableName(item.name)
+                  }}
+                  placeholder="Nom du consommable..."
+                  filterCategory="consumable"
                   className="flex-1"
+                />
+                <ItemPickerDialog
+                  filterCategory="consumable"
+                  onSelect={(item: CatalogItem) => {
+                    setNewConsumableName(item.name)
+                  }}
+                  trigger={
+                    <Button variant="outline" size="icon" className="shrink-0">
+                      <Search className="w-4 h-4" />
+                    </Button>
+                  }
                 />
                 <Input
                   type="number"
@@ -368,7 +399,7 @@ export function InventoryManager({
                   placeholder="Qté"
                   value={newConsumableQty}
                   onChange={(e) => setNewConsumableQty(e.target.value)}
-                  className="w-20"
+                  className="w-16"
                 />
                 <Button onClick={addConsumable} size="icon" className="shrink-0">
                   <Plus className="w-4 h-4" />
@@ -494,11 +525,35 @@ export function InventoryManager({
           <TabsContent value="items" className="space-y-3">
             {!readonly && (
               <div className="space-y-2">
-                <Input
-                  placeholder="Nom de l'objet..."
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <ItemAutocomplete
+                    value={newItemName}
+                    onChange={setNewItemName}
+                    onSelect={(item: CatalogItem) => {
+                      setNewItemName(item.name)
+                      if (item.description) {
+                        setNewItemDesc(item.description)
+                      }
+                    }}
+                    placeholder="Nom de l'objet..."
+                    filterCategory="misc"
+                    className="flex-1"
+                  />
+                  <ItemPickerDialog
+                    filterCategory="misc"
+                    onSelect={(item: CatalogItem) => {
+                      setNewItemName(item.name)
+                      if (item.description) {
+                        setNewItemDesc(item.description)
+                      }
+                    }}
+                    trigger={
+                      <Button variant="outline" size="icon" className="shrink-0">
+                        <Search className="w-4 h-4" />
+                      </Button>
+                    }
+                  />
+                </div>
                 <Input
                   placeholder="Description (optionnel)..."
                   value={newItemDesc}
