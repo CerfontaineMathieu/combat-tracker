@@ -6,6 +6,7 @@ const ARMES_DATABASE_ID = process.env.NOTION_ITEMS_ARMES_DATABASE_ID;
 const OBJETS_DATABASE_ID = process.env.NOTION_ITEMS_OBJETS_DATABASE_ID;
 const PLANTES_DATABASE_ID = process.env.NOTION_ITEMS_PLANTES_DATABASE_ID;
 const POISONS_DATABASE_ID = process.env.NOTION_ITEMS_POISONS_DATABASE_ID;
+const ARMURES_DATABASE_ID = process.env.NOTION_ITEMS_ARMURES_DATABASE_ID;
 
 // Cache for data source IDs (database_id -> data_source_id)
 const dataSourceCache: Map<string, string> = new Map();
@@ -437,6 +438,28 @@ export async function fetchPoisonsFromNotion(fetchContent: boolean = true): Prom
 }
 
 /**
+ * Fetch items from Armures et bouclier magiques database
+ */
+export async function fetchArmuresFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
+  if (!ARMURES_DATABASE_ID) {
+    console.warn('NOTION_ITEMS_ARMURES_DATABASE_ID not configured');
+    return [];
+  }
+
+  const pages = await fetchAllPagesFromDatabase(ARMURES_DATABASE_ID);
+  const items: CatalogItemInput[] = [];
+
+  for (const page of pages) {
+    const item = await mapNotionPageToCatalogItem(page, 'armures', 'equipment', 'other', fetchContent);
+    if (item) {
+      items.push(item);
+    }
+  }
+
+  return items;
+}
+
+/**
  * Fetch all items from all configured Notion databases
  */
 export async function fetchAllItemsFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
@@ -445,6 +468,7 @@ export async function fetchAllItemsFromNotion(fetchContent: boolean = true): Pro
     fetchObjetsFromNotion(fetchContent),
     fetchPlantesFromNotion(fetchContent),
     fetchPoisonsFromNotion(fetchContent),
+    fetchArmuresFromNotion(fetchContent),
   ]);
 
   const allItems: CatalogItemInput[] = [];
@@ -469,6 +493,7 @@ export function getConfiguredDatabases(): { name: string; configured: boolean }[
     { name: 'Objets et Objets Magiques', configured: !!OBJETS_DATABASE_ID },
     { name: 'Plantes', configured: !!PLANTES_DATABASE_ID },
     { name: 'Poisons', configured: !!POISONS_DATABASE_ID },
+    { name: 'Armures et Boucliers Magiques', configured: !!ARMURES_DATABASE_ID },
   ];
 }
 
@@ -527,6 +552,18 @@ export async function testItemDatabasesConnection(): Promise<{
     }
   } else {
     databases.push({ name: 'Poisons', status: 'not_configured' });
+  }
+
+  // Test Armures database (fetchContent=false for fast testing)
+  if (ARMURES_DATABASE_ID) {
+    try {
+      const items = await fetchArmuresFromNotion(false);
+      databases.push({ name: 'Armures et Boucliers Magiques', status: 'ok', count: items.length });
+    } catch (error) {
+      databases.push({ name: 'Armures et Boucliers Magiques', status: 'error', error: String(error) });
+    }
+  } else {
+    databases.push({ name: 'Armures et Boucliers Magiques', status: 'not_configured' });
   }
 
   const success = databases.some(db => db.status === 'ok');
