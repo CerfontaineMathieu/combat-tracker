@@ -165,6 +165,26 @@ export function InventoryManager({
     setPendingEquipment({})
   }
 
+  // Add equipment directly from catalog item selection
+  const addEquipmentFromCatalog = (item: CatalogItem) => {
+    const newItem: EquipmentItem = {
+      id: `eq-${Date.now()}`,
+      name: item.name,
+      equipped: false,
+      description: item.description || undefined,
+      rarity: item.rarity || undefined,
+      catalogNotionId: item.notion_id,
+    }
+    const updatedInventory = {
+      ...localInventory,
+      equipment: [...localInventory.equipment, newItem],
+    }
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
+    setNewEquipmentName("")
+    setPendingEquipment({})
+  }
+
   const toggleEquipped = (id: string) => {
     const updatedInventory = {
       ...localInventory,
@@ -203,6 +223,27 @@ export function InventoryManager({
       consumables: [...localInventory.consumables, newItem],
     }
     console.log('[InventoryManager] Updated inventory after adding consumable:', updatedInventory)
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
+    setNewConsumableName("")
+    setNewConsumableQty("1")
+    setPendingConsumable({})
+  }
+
+  // Add consumable directly from catalog item selection (default quantity: 1)
+  const addConsumableFromCatalog = (item: CatalogItem) => {
+    const newItem: ConsumableItem = {
+      id: `cons-${Date.now()}`,
+      name: item.name,
+      quantity: 1,
+      description: item.description || undefined,
+      rarity: item.rarity || undefined,
+      catalogNotionId: item.notion_id,
+    }
+    const updatedInventory = {
+      ...localInventory,
+      consumables: [...localInventory.consumables, newItem],
+    }
     setLocalInventory(updatedInventory)
     onInventoryChange(updatedInventory)
     setNewConsumableName("")
@@ -273,6 +314,26 @@ export function InventoryManager({
       description: newItemDesc.trim() || pendingItem.description,
       rarity: pendingItem.rarity,
       catalogNotionId: pendingItem.catalogNotionId,
+    }
+    const updatedInventory = {
+      ...localInventory,
+      items: [...localInventory.items, newItem],
+    }
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
+    setNewItemName("")
+    setNewItemDesc("")
+    setPendingItem({})
+  }
+
+  // Add misc item directly from catalog item selection
+  const addMiscItemFromCatalog = (item: CatalogItem) => {
+    const newItem: MiscItem = {
+      id: `item-${Date.now()}`,
+      name: item.name,
+      description: item.description || undefined,
+      rarity: item.rarity || undefined,
+      catalogNotionId: item.notion_id,
     }
     const updatedInventory = {
       ...localInventory,
@@ -356,8 +417,7 @@ export function InventoryManager({
                     if (!val) setPendingEquipment({})
                   }}
                   onSelect={(item: CatalogItem) => {
-                    setNewEquipmentName(item.name)
-                    setPendingEquipment({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
+                    addEquipmentFromCatalog(item)
                   }}
                   placeholder="Nom de l'équipement..."
                   filterCategory="equipment"
@@ -367,8 +427,7 @@ export function InventoryManager({
                   filterCategory="equipment"
                   initialSearch={newEquipmentName}
                   onSelect={(item: CatalogItem) => {
-                    setNewEquipmentName(item.name)
-                    setPendingEquipment({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
+                    addEquipmentFromCatalog(item)
                   }}
                   trigger={
                     <Button variant="outline" size="icon" className="shrink-0">
@@ -475,8 +534,7 @@ export function InventoryManager({
                     if (!val) setPendingConsumable({})
                   }}
                   onSelect={(item: CatalogItem) => {
-                    setNewConsumableName(item.name)
-                    setPendingConsumable({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
+                    addConsumableFromCatalog(item)
                   }}
                   placeholder="Nom du consommable..."
                   filterCategory="consumable"
@@ -486,8 +544,7 @@ export function InventoryManager({
                   filterCategory="consumable"
                   initialSearch={newConsumableName}
                   onSelect={(item: CatalogItem) => {
-                    setNewConsumableName(item.name)
-                    setPendingConsumable({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
+                    addConsumableFromCatalog(item)
                   }}
                   trigger={
                     <Button variant="outline" size="icon" className="shrink-0">
@@ -675,11 +732,7 @@ export function InventoryManager({
                       }
                     }}
                     onSelect={(item: CatalogItem) => {
-                      setNewItemName(item.name)
-                      if (item.description) {
-                        setNewItemDesc(item.description)
-                      }
-                      setPendingItem({ rarity: item.rarity || undefined, description: item.description || undefined, catalogNotionId: item.notion_id })
+                      addMiscItemFromCatalog(item)
                     }}
                     placeholder="Nom de l'objet..."
                     filterCategory="misc"
@@ -689,11 +742,7 @@ export function InventoryManager({
                     filterCategory="misc"
                     initialSearch={newItemName}
                     onSelect={(item: CatalogItem) => {
-                      setNewItemName(item.name)
-                      if (item.description) {
-                        setNewItemDesc(item.description)
-                      }
-                      setPendingItem({ rarity: item.rarity || undefined, description: item.description || undefined, catalogNotionId: item.notion_id })
+                      addMiscItemFromCatalog(item)
                     }}
                     trigger={
                       <Button variant="outline" size="icon" className="shrink-0">
