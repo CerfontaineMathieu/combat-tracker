@@ -3,12 +3,16 @@ export interface EquipmentItem {
   id: string
   name: string
   equipped: boolean
+  description?: string
+  rarity?: string
 }
 
 export interface ConsumableItem {
   id: string
   name: string
   quantity: number
+  description?: string
+  rarity?: string
 }
 
 export interface CurrencyInventory {
@@ -23,6 +27,7 @@ export interface MiscItem {
   id: string
   name: string
   description?: string
+  rarity?: string
 }
 
 export interface CharacterInventory {
