@@ -140,7 +140,7 @@ export function ItemPickerDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Sélectionner un item</DialogTitle>
           <DialogDescription>
@@ -176,7 +176,7 @@ export function ItemPickerDialog({
           )}
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 h-[400px] mt-4">
+        <ScrollArea className="flex-1 min-h-0 mt-4" style={{ maxHeight: 'calc(80vh - 180px)' }}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
