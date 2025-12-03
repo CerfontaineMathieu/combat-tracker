@@ -23,6 +23,32 @@ const categoryLabels: Record<ItemCategory, string> = {
   misc: "Divers",
 };
 
+// Rarity color mapping (D&D style)
+function getRarityStyle(rarity: string | null): string {
+  if (!rarity) return "";
+  const rarityLower = rarity.toLowerCase();
+
+  if (rarityLower === "commun" || rarityLower === "common") {
+    return "bg-zinc-500/20 text-zinc-300 border-zinc-500/50";
+  }
+  if (rarityLower === "peu commun" || rarityLower === "uncommon") {
+    return "bg-emerald-500/20 text-emerald-400 border-emerald-500/50";
+  }
+  if (rarityLower === "rare") {
+    return "bg-blue-500/20 text-blue-400 border-blue-500/50";
+  }
+  if (rarityLower === "très rare" || rarityLower === "tres rare" || rarityLower === "very rare") {
+    return "bg-purple-500/20 text-purple-400 border-purple-500/50";
+  }
+  if (rarityLower === "légendaire" || rarityLower === "legendaire" || rarityLower === "legendary") {
+    return "bg-amber-500/20 text-amber-400 border-amber-500/50";
+  }
+  if (rarityLower === "artéfact" || rarityLower === "artefact" || rarityLower === "artifact") {
+    return "bg-red-500/20 text-red-400 border-red-500/50";
+  }
+  return "bg-secondary text-secondary-foreground";
+}
+
 export function ItemAutocomplete({
   value,
   onChange,
@@ -166,7 +192,10 @@ export function ItemAutocomplete({
                   {categoryLabels[item.category]}
                 </Badge>
                 {item.rarity && (
-                  <Badge variant="outline" className="text-xs shrink-0">
+                  <Badge
+                    variant="outline"
+                    className={`text-xs shrink-0 ${getRarityStyle(item.rarity)}`}
+                  >
                     {item.rarity}
                   </Badge>
                 )}
