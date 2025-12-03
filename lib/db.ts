@@ -1137,3 +1137,10 @@ export async function deleteCatalogItemsByNotionId(notionIds: string[]): Promise
 
   return { deleted, errors };
 }
+
+export async function updateCatalogItemDescription(notionId: string, description: string): Promise<void> {
+  await pool.query(
+    'UPDATE item_catalog SET description = $1, updated_at = CURRENT_TIMESTAMP WHERE notion_id = $2',
+    [description, notionId]
+  );
+}

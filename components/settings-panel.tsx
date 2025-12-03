@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { Save, Key, Loader2 } from "lucide-react"
+import { Save, Key, Loader2, RefreshCw } from "lucide-react"
+import { NotionSyncButton } from "@/components/notion-sync-button"
+import { ItemSyncDialog } from "@/components/item-sync-dialog"
 
 interface SettingsPanelProps {
   open: boolean
@@ -205,6 +207,23 @@ export function SettingsPanel({
                 )}
                 Changer le mot de passe
               </Button>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Notion Sync Section */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Synchronisation Notion
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              Synchronisez vos données depuis Notion (monstres et items).
+            </p>
+            <div className="flex flex-col gap-2">
+              <NotionSyncButton />
+              <ItemSyncDialog />
             </div>
           </div>
 

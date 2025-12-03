@@ -16,6 +16,7 @@ import {
   setCombatState,
   deleteCombatState,
   updateCharacterHp,
+  updateCharacterInventory,
   type DmSession,
   type ConnectedPlayer as RedisConnectedPlayer,
   type CombatState,
@@ -551,9 +552,20 @@ app.prepare().then(() => {
     });
 
     // Inventory update
-    socket.on('inventory-update', (data: InventoryUpdateData) => {
+    socket.on('inventory-update', async (data: InventoryUpdateData) => {
       if (socket.data.campaignId) {
         const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
+        // Persist inventory to Redis so reconnecting players get updated data
+        try {
+          await updateCharacterInventory(campaignId, data.participantId, data.inventory);
+          console.log(`[Socket.io] Persisted inventory to Redis for character ${data.participantId}`);
+        } catch (error) {
+          console.error(`[Socket.io] Failed to persist inventory to Redis:`, error);
+        }
+
+        // Broadcast to room (all clients in the campaign)
         io.to(room).emit('inventory-update', data);
         console.log(`[Socket.io] Inventory update in ${room}:`, data.participantId, 'by', data.source);
       }

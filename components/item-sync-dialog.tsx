@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,417 +8,230 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, RefreshCw, Package } from "lucide-react";
-import { useItemSync } from "@/hooks/useItemSync";
-import type { CatalogItemInput, CatalogItem } from "@/lib/types";
-import { getChangesSummary } from "@/lib/item-comparison";
+import { RefreshCw, Package, Cloud, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ItemSyncDialogProps {
   onSyncComplete?: () => void;
 }
 
-function ItemCard({
-  item,
-  action,
-  selected,
-  onToggle,
-  changes,
-}: {
-  item: CatalogItemInput | CatalogItem;
-  action: "add" | "update" | "delete";
-  selected: boolean;
-  onToggle: () => void;
-  changes?: string[];
-}) {
-  const actionColors = {
-    add: "bg-green-50 border-green-200 text-green-800",
-    update: "bg-amber-50 border-amber-200 text-amber-800",
-    delete: "bg-red-50 border-red-200 text-red-800",
+interface SyncPreview {
+  summary: {
+    toAdd: number;
+    toUpdate: number;
+    toDelete: number;
+    unchanged: number;
+    total: number;
   };
-
-  const actionLabels = {
-    add: "Nouveau",
-    update: "Modifié",
-    delete: "Supprimé",
+  preview: {
+    toAdd: any[];
+    toUpdate: any[];
+    toDelete: any[];
   };
-
-  const categoryLabels: Record<string, string> = {
-    equipment: "Équipement",
-    consumable: "Consommable",
-    misc: "Divers",
-  };
-
-  return (
-    <div
-      className={`p-3 rounded-lg border ${
-        selected ? "ring-2 ring-blue-500" : ""
-      } ${actionColors[action]}`}
-    >
-      <div className="flex items-start gap-3">
-        <Checkbox
-          checked={selected}
-          onCheckedChange={onToggle}
-          className="mt-1"
-        />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium truncate">{item.name}</span>
-            <Badge variant="outline" className="text-xs">
-              {actionLabels[action]}
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              {categoryLabels[item.category] || item.category}
-            </Badge>
-            {item.rarity && (
-              <Badge variant="outline" className="text-xs">
-                {item.rarity}
-              </Badge>
-            )}
-          </div>
-          {item.description && (
-            <p className="text-sm mt-1 line-clamp-2 opacity-80">
-              {item.description}
-            </p>
-          )}
-          {changes && changes.length > 0 && (
-            <p className="text-xs mt-1 opacity-70">
-              Modifié: {getChangesSummary(changes)}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function ItemSyncDialog({ onSyncComplete }: ItemSyncDialogProps) {
-  const [open, setOpen] = useState(false);
-  const {
-    isSyncing,
-    isApplying,
-    previewData,
-    previewSync,
-    applySync,
-    cancelPreview,
-    testConnection,
-  } = useItemSync(onSyncComplete);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [previewData, setPreviewData] = useState<SyncPreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
 
-  // Selection states
-  const [selectedAdd, setSelectedAdd] = useState<Set<string>>(new Set());
-  const [selectedUpdate, setSelectedUpdate] = useState<Set<string>>(new Set());
-  const [selectedDelete, setSelectedDelete] = useState<Set<string>>(new Set());
+  const formatLastSync = (date: Date | null) => {
+    if (!date) return "Jamais synchronisé";
 
-  // Initialize selections when preview loads
-  useEffect(() => {
-    if (!previewData?.preview) return;
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
 
-    // Select all adds and updates by default
-    setSelectedAdd(
-      new Set(previewData.preview.toAdd.map((item) => item.notion_id))
-    );
-    setSelectedUpdate(
-      new Set(previewData.preview.toUpdate.map((item) => item.updated.notion_id))
-    );
-    // Deletes: none selected by default (safety)
-    setSelectedDelete(new Set());
-  }, [previewData]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      cancelPreview();
-      setSelectedAdd(new Set());
-      setSelectedUpdate(new Set());
-      setSelectedDelete(new Set());
-    }
-    setOpen(newOpen);
+    if (diffMins < 1) return "À l'instant";
+    if (diffMins < 60) return `Il y a ${diffMins} min`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Il y a ${diffDays}j`;
   };
 
-  const handleLoadPreview = async () => {
-    await previewSync();
+  const handleOpenDialog = async () => {
+    if (previewData) return; // Already have preview
+
+    setIsSyncing(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/notion/items/sync/preview", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setPreviewData(data);
+      } else {
+        setError(data.error || "Erreur lors du chargement");
+      }
+    } catch (err) {
+      setError("Erreur de connexion");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleApply = async () => {
     if (!previewData) return;
 
-    // Filter preview data to only include selected items
-    const filteredPreview = {
-      ...previewData.preview,
-      toAdd: previewData.preview.toAdd.filter((item) =>
-        selectedAdd.has(item.notion_id)
-      ),
-      toUpdate: previewData.preview.toUpdate.filter((item) =>
-        selectedUpdate.has(item.updated.notion_id)
-      ),
-      toDelete: previewData.preview.toDelete.filter((item) =>
-        selectedDelete.has(item.notion_id)
-      ),
-    };
+    setIsApplying(true);
+    setError(null);
 
-    // Temporarily override preview data with filtered version
-    const result = await applySync();
-    if (result?.success) {
-      handleOpenChange(false);
+    try {
+      // Build operations from preview - apply all changes
+      const operations = {
+        add: previewData.preview.toAdd.map((item) => item.notion_id),
+        update: previewData.preview.toUpdate.map((item) => item.updated.notion_id),
+        delete: previewData.preview.toDelete.map((item) => item.notion_id),
+      };
+
+      const response = await fetch("/api/notion/items/sync/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operations }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLastSync(new Date());
+        setPreviewData(null);
+        onSyncComplete?.();
+      } else {
+        setError(result.errors?.join(", ") || "Erreur lors de la synchronisation");
+      }
+    } catch (err) {
+      setError("Erreur de connexion");
+    } finally {
+      setIsApplying(false);
     }
   };
 
-  const toggleAdd = (notionId: string) => {
-    const newSet = new Set(selectedAdd);
-    if (newSet.has(notionId)) newSet.delete(notionId);
-    else newSet.add(notionId);
-    setSelectedAdd(newSet);
+  const handleCancel = () => {
+    setPreviewData(null);
+    setError(null);
   };
 
-  const toggleUpdate = (notionId: string) => {
-    const newSet = new Set(selectedUpdate);
-    if (newSet.has(notionId)) newSet.delete(notionId);
-    else newSet.add(notionId);
-    setSelectedUpdate(newSet);
-  };
-
-  const toggleDelete = (notionId: string) => {
-    const newSet = new Set(selectedDelete);
-    if (newSet.has(notionId)) newSet.delete(notionId);
-    else newSet.add(notionId);
-    setSelectedDelete(newSet);
-  };
-
-  const totalSelected =
-    selectedAdd.size + selectedUpdate.size + selectedDelete.size;
+  const isDialogOpen = previewData !== null;
+  const hasChanges = previewData && (
+    previewData.summary.toAdd > 0 ||
+    previewData.summary.toUpdate > 0 ||
+    previewData.summary.toDelete > 0
+  );
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Package className="w-4 h-4" />
-          Sync Items
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Synchronisation Items Notion</DialogTitle>
-          <DialogDescription>
-            Synchronisez les items depuis vos bases de données Notion.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={handleOpenDialog}
+              disabled={isSyncing}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              {isSyncing ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+              {isSyncing ? "Chargement..." : "Sync Items"}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{formatLastSync(lastSync)}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
-        {!previewData ? (
-          // No preview loaded - show load button
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <Package className="w-12 h-12 text-slate-400" />
-            <p className="text-slate-600">
-              Chargez un aperçu pour voir les changements.
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={testConnection}>
-                Tester la connexion
-              </Button>
-              <Button onClick={handleLoadPreview} disabled={isSyncing}>
-                {isSyncing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Chargement...
-                  </>
-                ) : (
-                  "Charger l'aperçu"
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleCancel()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Synchronisation Items
+            </DialogTitle>
+            <DialogDescription>
+              Synchroniser les items depuis Notion
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              <p className="text-sm text-red-900">{error}</p>
+            </div>
+          )}
+
+          {previewData && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="flex flex-wrap gap-2">
+                {previewData.summary.toAdd > 0 && (
+                  <Badge className="bg-green-100 text-green-800 border-green-300">
+                    +{previewData.summary.toAdd} à ajouter
+                  </Badge>
                 )}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          // Preview loaded - show items
-          <>
-            <div className="flex gap-2 flex-wrap">
-              <Badge
-                variant="outline"
-                className="bg-green-50 text-green-800 border-green-300 font-semibold"
-              >
-                {previewData.summary.toAdd} à ajouter
-              </Badge>
-              <Badge
-                variant="outline"
-                className="bg-amber-50 text-amber-800 border-amber-300 font-semibold"
-              >
-                {previewData.summary.toUpdate} à modifier
-              </Badge>
-              <Badge
-                variant="outline"
-                className="bg-red-50 text-red-800 border-red-300 font-semibold"
-              >
-                {previewData.summary.toDelete} à supprimer
-              </Badge>
-              <Badge variant="secondary" className="font-semibold">
-                {previewData.summary.unchanged} inchangés
-              </Badge>
-            </div>
-
-            <Tabs defaultValue="all" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">
-                  Tous (
-                  {previewData.summary.toAdd +
-                    previewData.summary.toUpdate +
-                    previewData.summary.toDelete}
-                  )
-                </TabsTrigger>
-                <TabsTrigger value="add">
-                  À ajouter ({previewData.summary.toAdd})
-                </TabsTrigger>
-                <TabsTrigger value="update">
-                  À modifier ({previewData.summary.toUpdate})
-                </TabsTrigger>
-                <TabsTrigger value="delete">
-                  À supprimer ({previewData.summary.toDelete})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="all" className="flex-1 min-h-0 mt-4">
-                <ScrollArea className="h-[350px]">
-                  <div className="space-y-2 pr-4">
-                    {previewData.preview.toAdd.map((item) => (
-                      <ItemCard
-                        key={item.notion_id}
-                        item={item}
-                        action="add"
-                        selected={selectedAdd.has(item.notion_id)}
-                        onToggle={() => toggleAdd(item.notion_id)}
-                      />
-                    ))}
-                    {previewData.preview.toUpdate.map(
-                      ({ existing, updated, changes }) => (
-                        <ItemCard
-                          key={updated.notion_id}
-                          item={updated}
-                          action="update"
-                          selected={selectedUpdate.has(updated.notion_id)}
-                          onToggle={() => toggleUpdate(updated.notion_id)}
-                          changes={changes}
-                        />
-                      )
-                    )}
-                    {previewData.preview.toDelete.map((item) => (
-                      <ItemCard
-                        key={item.notion_id}
-                        item={item}
-                        action="delete"
-                        selected={selectedDelete.has(item.notion_id)}
-                        onToggle={() => toggleDelete(item.notion_id)}
-                      />
-                    ))}
+                {previewData.summary.toUpdate > 0 && (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                    ~{previewData.summary.toUpdate} à modifier
+                  </Badge>
+                )}
+                {previewData.summary.toDelete > 0 && (
+                  <Badge className="bg-red-100 text-red-800 border-red-300">
+                    -{previewData.summary.toDelete} à supprimer
+                  </Badge>
+                )}
+                {!hasChanges && (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="text-sm font-medium">Tout est à jour</span>
                   </div>
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="add" className="flex-1 min-h-0 mt-4">
-                <ScrollArea className="h-[350px]">
-                  <div className="space-y-2 pr-4">
-                    {previewData.preview.toAdd.length === 0 ? (
-                      <p className="text-sm text-slate-600 text-center py-8">
-                        Aucun item à ajouter
-                      </p>
-                    ) : (
-                      previewData.preview.toAdd.map((item) => (
-                        <ItemCard
-                          key={item.notion_id}
-                          item={item}
-                          action="add"
-                          selected={selectedAdd.has(item.notion_id)}
-                          onToggle={() => toggleAdd(item.notion_id)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="update" className="flex-1 min-h-0 mt-4">
-                <ScrollArea className="h-[350px]">
-                  <div className="space-y-2 pr-4">
-                    {previewData.preview.toUpdate.length === 0 ? (
-                      <p className="text-sm text-slate-600 text-center py-8">
-                        Aucun item à modifier
-                      </p>
-                    ) : (
-                      previewData.preview.toUpdate.map(
-                        ({ existing, updated, changes }) => (
-                          <ItemCard
-                            key={updated.notion_id}
-                            item={updated}
-                            action="update"
-                            selected={selectedUpdate.has(updated.notion_id)}
-                            onToggle={() => toggleUpdate(updated.notion_id)}
-                            changes={changes}
-                          />
-                        )
-                      )
-                    )}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="delete" className="flex-1 min-h-0 mt-4">
-                <ScrollArea className="h-[350px]">
-                  <div className="space-y-2 pr-4">
-                    {selectedDelete.size > 0 && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2 mb-4">
-                        <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-                        <p className="text-sm text-red-900">
-                          Attention: {selectedDelete.size} item(s) seront
-                          supprimés définitivement.
-                        </p>
-                      </div>
-                    )}
-                    {previewData.preview.toDelete.length === 0 ? (
-                      <p className="text-sm text-slate-600 text-center py-8">
-                        Aucun item à supprimer
-                      </p>
-                    ) : (
-                      previewData.preview.toDelete.map((item) => (
-                        <ItemCard
-                          key={item.notion_id}
-                          item={item}
-                          action="delete"
-                          selected={selectedDelete.has(item.notion_id)}
-                          onToggle={() => toggleDelete(item.notion_id)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
-
-            <DialogFooter className="flex-row items-center justify-between">
-              <span className="text-sm text-slate-700 font-semibold">
-                {totalSelected} modification(s) sélectionnée(s)
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleOpenChange(false)}
-                  disabled={isApplying}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={handleApply}
-                  disabled={totalSelected === 0 || isApplying}
-                >
-                  {isApplying
-                    ? "Application en cours..."
-                    : "Appliquer les changements"}
-                </Button>
+                )}
               </div>
-            </DialogFooter>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+
+              {previewData.summary.unchanged > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {previewData.summary.unchanged} item(s) inchangé(s)
+                </p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancel} disabled={isApplying}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleApply}
+              disabled={!hasChanges || isApplying}
+            >
+              {isApplying ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Synchronisation...
+                </>
+              ) : (
+                "Appliquer"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

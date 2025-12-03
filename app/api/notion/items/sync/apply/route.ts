@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { fetchAllItemsFromNotion } from '@/lib/notion-items';
+import { fetchAllItemsFromNotion, fetchPageContentById } from '@/lib/notion-items';
 import {
   upsertCatalogItem,
   deleteCatalogItemsByNotionId,
 } from '@/lib/db';
-import type { ItemSyncResult } from '@/lib/types';
+import pool from '@/lib/db';
+import type { ItemSyncResult, CatalogItemInput, CharacterInventory, EquipmentItem, ConsumableItem, MiscItem } from '@/lib/types';
 
 interface ApplyRequest {
   operations: {
@@ -23,11 +24,33 @@ export async function POST(request: Request) {
       delete: body.operations.delete.length,
     });
 
-    // Re-fetch Notion data to ensure consistency
-    const notionItems = await fetchAllItemsFromNotion();
+    // Fetch Notion data WITHOUT content first (fast)
+    const notionItems = await fetchAllItemsFromNotion(false);
     const notionMap = new Map(
       notionItems.map(item => [item.notion_id, item])
     );
+
+    // Identify items that need content fetching (those being added/updated without description)
+    const itemsNeedingContent = new Set<string>();
+    for (const notionId of [...body.operations.add, ...body.operations.update]) {
+      const item = notionMap.get(notionId);
+      if (item && !item.description) {
+        itemsNeedingContent.add(notionId);
+      }
+    }
+
+    // Fetch content for items that need it (in parallel with limit)
+    if (itemsNeedingContent.size > 0) {
+      console.log(`Fetching page content for ${itemsNeedingContent.size} items...`);
+      const contentPromises = Array.from(itemsNeedingContent).map(async (notionId) => {
+        const content = await fetchPageContentById(notionId);
+        const item = notionMap.get(notionId);
+        if (item && content) {
+          item.description = content;
+        }
+      });
+      await Promise.all(contentPromises);
+    }
 
     const results: ItemSyncResult = {
       success: true,
@@ -77,6 +100,100 @@ export async function POST(request: Request) {
         results.errors.push(
           `Échec de l'ajout de "${notionId}": ${error instanceof Error ? error.message : 'Erreur inconnue'}`
         );
+      }
+    }
+
+    // Phase 4: Update inventory items that reference updated catalog items
+    const updatedNotionIds = [...body.operations.add, ...body.operations.update];
+    if (updatedNotionIds.length > 0) {
+      console.log(`Checking inventories for items referencing ${updatedNotionIds.length} catalog items...`);
+
+      try {
+        // Get all inventories
+        const inventoriesResult = await pool.query(
+          'SELECT id, character_id, inventory FROM character_inventories'
+        );
+
+        let inventoriesUpdated = 0;
+
+        for (const row of inventoriesResult.rows) {
+          const inventory: CharacterInventory = row.inventory;
+          let modified = false;
+
+          // Update equipment items
+          if (inventory.equipment) {
+            inventory.equipment = inventory.equipment.map((item: EquipmentItem) => {
+              if (item.catalogNotionId && updatedNotionIds.includes(item.catalogNotionId)) {
+                const catalogItem = notionMap.get(item.catalogNotionId);
+                if (catalogItem) {
+                  modified = true;
+                  return {
+                    ...item,
+                    name: catalogItem.name,
+                    description: catalogItem.description || item.description,
+                    rarity: catalogItem.rarity || item.rarity,
+                  };
+                }
+              }
+              return item;
+            });
+          }
+
+          // Update consumable items
+          if (inventory.consumables) {
+            inventory.consumables = inventory.consumables.map((item: ConsumableItem) => {
+              if (item.catalogNotionId && updatedNotionIds.includes(item.catalogNotionId)) {
+                const catalogItem = notionMap.get(item.catalogNotionId);
+                if (catalogItem) {
+                  modified = true;
+                  return {
+                    ...item,
+                    name: catalogItem.name,
+                    description: catalogItem.description || item.description,
+                    rarity: catalogItem.rarity || item.rarity,
+                  };
+                }
+              }
+              return item;
+            });
+          }
+
+          // Update misc items
+          if (inventory.items) {
+            inventory.items = inventory.items.map((item: MiscItem) => {
+              if (item.catalogNotionId && updatedNotionIds.includes(item.catalogNotionId)) {
+                const catalogItem = notionMap.get(item.catalogNotionId);
+                if (catalogItem) {
+                  modified = true;
+                  return {
+                    ...item,
+                    name: catalogItem.name,
+                    description: catalogItem.description || item.description,
+                    rarity: catalogItem.rarity || item.rarity,
+                  };
+                }
+              }
+              return item;
+            });
+          }
+
+          // Save if modified
+          if (modified) {
+            await pool.query(
+              'UPDATE character_inventories SET inventory = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+              [JSON.stringify(inventory), row.id]
+            );
+            inventoriesUpdated++;
+            console.log(`Updated inventory for character ${row.character_id}`);
+          }
+        }
+
+        if (inventoriesUpdated > 0) {
+          console.log(`Updated ${inventoriesUpdated} inventories with catalog changes`);
+        }
+      } catch (error) {
+        console.error('Error updating inventories:', error);
+        results.errors.push(`Erreur lors de la mise à jour des inventaires: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
       }
     }
 

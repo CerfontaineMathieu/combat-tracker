@@ -1,5 +1,7 @@
 // Socket.io event type definitions
 
+import type { CharacterInventory } from './types';
+
 export interface JoinCampaignData {
   campaignId: number;
   role: 'dm' | 'player';
@@ -14,6 +16,7 @@ export interface JoinCampaignData {
     initiative: number;
     conditions: string[];
     exhaustionLevel?: number;
+    inventory?: CharacterInventory; // Character inventory for sync
   }>; // Characters array when joining as player
 }
 
@@ -32,6 +35,7 @@ export interface ConnectedPlayer {
     initiative: number;
     conditions: string[];
     exhaustionLevel?: number;
+    inventory?: CharacterInventory; // Character inventory for sync
   }>;
 }
 

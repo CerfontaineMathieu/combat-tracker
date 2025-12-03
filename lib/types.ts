@@ -5,6 +5,7 @@ export interface EquipmentItem {
   equipped: boolean
   description?: string
   rarity?: string
+  catalogNotionId?: string  // Reference to item_catalog for auto-updates
 }
 
 export interface ConsumableItem {
@@ -13,6 +14,7 @@ export interface ConsumableItem {
   quantity: number
   description?: string
   rarity?: string
+  catalogNotionId?: string  // Reference to item_catalog for auto-updates
 }
 
 export interface CurrencyInventory {
@@ -28,6 +30,7 @@ export interface MiscItem {
   name: string
   description?: string
   rarity?: string
+  catalogNotionId?: string  // Reference to item_catalog for auto-updates
 }
 
 export interface CharacterInventory {

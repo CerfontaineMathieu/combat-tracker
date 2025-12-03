@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +26,7 @@ interface ItemPickerDialogProps {
   trigger?: React.ReactNode;
   onSelect: (item: CatalogItem) => void;
   filterCategory?: ItemCategory;
+  initialSearch?: string;
 }
 
 const categoryLabels: Record<ItemCategory, string> = {
@@ -77,6 +77,7 @@ export function ItemPickerDialog({
   trigger,
   onSelect,
   filterCategory,
+  initialSearch = "",
 }: ItemPickerDialogProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -85,6 +86,13 @@ export function ItemPickerDialog({
   );
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Set initial search when dialog opens
+  useEffect(() => {
+    if (open && initialSearch) {
+      setSearch(initialSearch);
+    }
+  }, [open, initialSearch]);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -176,7 +184,7 @@ export function ItemPickerDialog({
           )}
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 mt-4" style={{ maxHeight: 'calc(80vh - 180px)' }}>
+        <div className="flex-1 min-h-0 mt-4 overflow-y-auto" style={{ maxHeight: '400px' }}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -192,7 +200,7 @@ export function ItemPickerDialog({
               </p>
             </div>
           ) : (
-            <div className="space-y-2 pr-4">
+            <div className="space-y-2 pr-2">
               {items.map((item) => (
                 <button
                   key={item.id}
@@ -232,7 +240,7 @@ export function ItemPickerDialog({
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

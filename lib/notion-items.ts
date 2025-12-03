@@ -78,6 +78,122 @@ function extractTitle(titleProp: any): string {
 }
 
 /**
+ * Extract text from a single block
+ */
+function extractBlockText(block: any): string {
+  const blockType = block.type;
+  const blockContent = block[blockType];
+
+  if (!blockContent) return '';
+
+  // Handle rich_text blocks (paragraph, headings, lists, quotes, callouts, toggles)
+  if (blockContent.rich_text) {
+    return extractText(blockContent.rich_text);
+  }
+
+  // Handle code blocks
+  if (blockContent.language && blockContent.rich_text) {
+    return extractText(blockContent.rich_text);
+  }
+
+  return '';
+}
+
+/**
+ * Recursively fetch blocks and their children
+ */
+async function fetchBlocksRecursively(notion: Client, blockId: string, depth: number = 0): Promise<string[]> {
+  if (depth > 3) return []; // Limit recursion depth
+
+  const textParts: string[] = [];
+  let hasMore = true;
+  let startCursor: string | undefined;
+
+  while (hasMore) {
+    const response = await notion.blocks.children.list({
+      block_id: blockId,
+      start_cursor: startCursor,
+    });
+
+    for (const block of response.results as any[]) {
+      // Extract text from this block
+      const text = extractBlockText(block);
+      if (text) textParts.push(text);
+
+      // If block has children (like toggle, callout, etc.), fetch them recursively
+      if (block.has_children) {
+        const childTexts = await fetchBlocksRecursively(notion, block.id, depth + 1);
+        textParts.push(...childTexts);
+      }
+    }
+
+    hasMore = response.has_more;
+    startCursor = response.next_cursor ?? undefined;
+  }
+
+  return textParts;
+}
+
+/**
+ * Fetch page content (blocks) and extract text
+ */
+async function fetchPageContent(pageId: string): Promise<string> {
+  try {
+    const notion = getNotionClient();
+    const textParts = await fetchBlocksRecursively(notion, pageId);
+    return textParts.join('\n').trim();
+  } catch (error) {
+    console.error(`Error fetching page content for ${pageId}:`, error);
+    return '';
+  }
+}
+
+/**
+ * Fetch page content for a specific notion_id (exported for use in sync apply)
+ */
+export async function fetchPageContentById(notionId: string): Promise<string> {
+  const content = await fetchPageContent(notionId);
+  if (!content) {
+    console.log(`[fetchPageContentById] No content found for ${notionId}`);
+  }
+  return content;
+}
+
+/**
+ * Debug function to get all properties of an item by notion_id
+ */
+export async function debugGetItemProperties(notionId: string): Promise<Record<string, string>> {
+  try {
+    const notion = getNotionClient();
+    const page = await notion.pages.retrieve({ page_id: notionId }) as any;
+    const props = page.properties;
+
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(props)) {
+      const prop = value as any;
+      if (prop.rich_text) {
+        const text = extractText(prop.rich_text);
+        if (text) result[key] = `rich_text: "${text.substring(0, 100)}..."`;
+      } else if (prop.title) {
+        result[key] = `title: "${extractText(prop.title)}"`;
+      } else if (prop.select) {
+        result[key] = `select: "${prop.select?.name || ''}"`;
+      } else if (prop.multi_select) {
+        result[key] = `multi_select: [${prop.multi_select.map((s: any) => s.name).join(', ')}]`;
+      } else if (prop.number !== undefined) {
+        result[key] = `number: ${prop.number}`;
+      } else {
+        result[key] = prop.type || 'unknown';
+      }
+    }
+    return result;
+  } catch (error) {
+    console.error(`Error getting properties for ${notionId}:`, error);
+    return {};
+  }
+}
+
+/**
  * Fetch all pages from a Notion database
  */
 async function fetchAllPagesFromDatabase(databaseId: string): Promise<any[]> {
@@ -106,12 +222,13 @@ async function fetchAllPagesFromDatabase(databaseId: string): Promise<any[]> {
  * Map a Notion page to a catalog item
  * Uses dynamic property detection based on common French field names
  */
-function mapNotionPageToCatalogItem(
+async function mapNotionPageToCatalogItem(
   page: any,
   sourceDatabase: string,
   defaultCategory: ItemCategory,
-  defaultSubcategory: ItemSubcategory | null
-): CatalogItemInput | null {
+  defaultSubcategory: ItemSubcategory | null,
+  fetchContent: boolean = false
+): Promise<CatalogItemInput | null> {
   try {
     const props = page.properties;
 
@@ -122,11 +239,32 @@ function mapNotionPageToCatalogItem(
       return null;
     }
 
-    // Extract description (common names: Description, Détails, Notes)
-    const description = extractText(props.Description?.rich_text || []) ||
+    // Extract description (common French property names)
+    let description = extractText(props.Description?.rich_text || []) ||
       extractText(props.Détails?.rich_text || []) ||
       extractText(props.Notes?.rich_text || []) ||
+      extractText(props.Effet?.rich_text || []) ||
+      extractText(props.Effets?.rich_text || []) ||
+      extractText(props.Propriétés?.rich_text || []) ||
+      extractText(props.Capacité?.rich_text || []) ||
+      extractText(props.Capacités?.rich_text || []) ||
       null;
+
+    // If no description found, log available properties for debugging
+    if (!description) {
+      const richTextProps = Object.keys(props).filter(key => props[key]?.rich_text);
+      if (richTextProps.length > 0) {
+        console.log(`[${name}] Available rich_text properties: ${richTextProps.join(', ')}`);
+      }
+    }
+
+    // If no description found and fetchContent is enabled, get page content
+    if (!description && fetchContent) {
+      const pageContent = await fetchPageContent(page.id);
+      if (pageContent) {
+        description = pageContent;
+      }
+    }
 
     // Extract rarity (common names: Rareté, Rarity)
     const rarity = extractSelect(props.Rareté) || extractSelect(props.Rarity) || null;
@@ -212,7 +350,7 @@ function mapNotionPageToCatalogItem(
 /**
  * Fetch items from Armes Magiques database
  */
-export async function fetchArmesFromNotion(): Promise<CatalogItemInput[]> {
+export async function fetchArmesFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
   if (!ARMES_DATABASE_ID) {
     console.warn('NOTION_ITEMS_ARMES_DATABASE_ID not configured');
     return [];
@@ -222,7 +360,7 @@ export async function fetchArmesFromNotion(): Promise<CatalogItemInput[]> {
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = mapNotionPageToCatalogItem(page, 'armes', 'equipment', 'weapon');
+    const item = await mapNotionPageToCatalogItem(page, 'armes', 'equipment', 'weapon', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -234,7 +372,7 @@ export async function fetchArmesFromNotion(): Promise<CatalogItemInput[]> {
 /**
  * Fetch items from Objets et Objets Magiques database
  */
-export async function fetchObjetsFromNotion(): Promise<CatalogItemInput[]> {
+export async function fetchObjetsFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
   if (!OBJETS_DATABASE_ID) {
     console.warn('NOTION_ITEMS_OBJETS_DATABASE_ID not configured');
     return [];
@@ -245,7 +383,7 @@ export async function fetchObjetsFromNotion(): Promise<CatalogItemInput[]> {
 
   for (const page of pages) {
     // Category and subcategory determined by Type property in mapNotionPageToCatalogItem
-    const item = mapNotionPageToCatalogItem(page, 'objets', 'misc', 'objet_magique');
+    const item = await mapNotionPageToCatalogItem(page, 'objets', 'misc', 'objet_magique', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -257,7 +395,7 @@ export async function fetchObjetsFromNotion(): Promise<CatalogItemInput[]> {
 /**
  * Fetch items from Plantes database
  */
-export async function fetchPlantesFromNotion(): Promise<CatalogItemInput[]> {
+export async function fetchPlantesFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
   if (!PLANTES_DATABASE_ID) {
     console.warn('NOTION_ITEMS_PLANTES_DATABASE_ID not configured');
     return [];
@@ -267,7 +405,7 @@ export async function fetchPlantesFromNotion(): Promise<CatalogItemInput[]> {
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = mapNotionPageToCatalogItem(page, 'plantes', 'misc', 'plante');
+    const item = await mapNotionPageToCatalogItem(page, 'plantes', 'misc', 'plante', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -279,7 +417,7 @@ export async function fetchPlantesFromNotion(): Promise<CatalogItemInput[]> {
 /**
  * Fetch items from Poisons database
  */
-export async function fetchPoisonsFromNotion(): Promise<CatalogItemInput[]> {
+export async function fetchPoisonsFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
   if (!POISONS_DATABASE_ID) {
     console.warn('NOTION_ITEMS_POISONS_DATABASE_ID not configured');
     return [];
@@ -289,7 +427,7 @@ export async function fetchPoisonsFromNotion(): Promise<CatalogItemInput[]> {
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = mapNotionPageToCatalogItem(page, 'poisons', 'misc', 'poison');
+    const item = await mapNotionPageToCatalogItem(page, 'poisons', 'misc', 'poison', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -301,12 +439,12 @@ export async function fetchPoisonsFromNotion(): Promise<CatalogItemInput[]> {
 /**
  * Fetch all items from all configured Notion databases
  */
-export async function fetchAllItemsFromNotion(): Promise<CatalogItemInput[]> {
+export async function fetchAllItemsFromNotion(fetchContent: boolean = true): Promise<CatalogItemInput[]> {
   const results = await Promise.allSettled([
-    fetchArmesFromNotion(),
-    fetchObjetsFromNotion(),
-    fetchPlantesFromNotion(),
-    fetchPoisonsFromNotion(),
+    fetchArmesFromNotion(fetchContent),
+    fetchObjetsFromNotion(fetchContent),
+    fetchPlantesFromNotion(fetchContent),
+    fetchPoisonsFromNotion(fetchContent),
   ]);
 
   const allItems: CatalogItemInput[] = [];
@@ -343,10 +481,10 @@ export async function testItemDatabasesConnection(): Promise<{
 }> {
   const databases: { name: string; status: 'ok' | 'error' | 'not_configured'; count?: number; error?: string }[] = [];
 
-  // Test Armes database
+  // Test Armes database (fetchContent=false for fast testing)
   if (ARMES_DATABASE_ID) {
     try {
-      const items = await fetchArmesFromNotion();
+      const items = await fetchArmesFromNotion(false);
       databases.push({ name: 'Armes Magiques', status: 'ok', count: items.length });
     } catch (error) {
       databases.push({ name: 'Armes Magiques', status: 'error', error: String(error) });
@@ -355,10 +493,10 @@ export async function testItemDatabasesConnection(): Promise<{
     databases.push({ name: 'Armes Magiques', status: 'not_configured' });
   }
 
-  // Test Objets database
+  // Test Objets database (fetchContent=false for fast testing)
   if (OBJETS_DATABASE_ID) {
     try {
-      const items = await fetchObjetsFromNotion();
+      const items = await fetchObjetsFromNotion(false);
       databases.push({ name: 'Objets et Objets Magiques', status: 'ok', count: items.length });
     } catch (error) {
       databases.push({ name: 'Objets et Objets Magiques', status: 'error', error: String(error) });
@@ -367,10 +505,10 @@ export async function testItemDatabasesConnection(): Promise<{
     databases.push({ name: 'Objets et Objets Magiques', status: 'not_configured' });
   }
 
-  // Test Plantes database
+  // Test Plantes database (fetchContent=false for fast testing)
   if (PLANTES_DATABASE_ID) {
     try {
-      const items = await fetchPlantesFromNotion();
+      const items = await fetchPlantesFromNotion(false);
       databases.push({ name: 'Plantes', status: 'ok', count: items.length });
     } catch (error) {
       databases.push({ name: 'Plantes', status: 'error', error: String(error) });
@@ -379,10 +517,10 @@ export async function testItemDatabasesConnection(): Promise<{
     databases.push({ name: 'Plantes', status: 'not_configured' });
   }
 
-  // Test Poisons database
+  // Test Poisons database (fetchContent=false for fast testing)
   if (POISONS_DATABASE_ID) {
     try {
-      const items = await fetchPoisonsFromNotion();
+      const items = await fetchPoisonsFromNotion(false);
       databases.push({ name: 'Poisons', status: 'ok', count: items.length });
     } catch (error) {
       databases.push({ name: 'Poisons', status: 'error', error: String(error) });

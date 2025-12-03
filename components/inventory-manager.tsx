@@ -138,9 +138,9 @@ export function InventoryManager({
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
 
   // Catalog item storage for adding with details
-  const [pendingEquipment, setPendingEquipment] = useState<{description?: string, rarity?: string}>({})
-  const [pendingConsumable, setPendingConsumable] = useState<{description?: string, rarity?: string}>({})
-  const [pendingItemRarity, setPendingItemRarity] = useState<string | undefined>()
+  const [pendingEquipment, setPendingEquipment] = useState<{description?: string, rarity?: string, catalogNotionId?: string}>({})
+  const [pendingConsumable, setPendingConsumable] = useState<{description?: string, rarity?: string, catalogNotionId?: string}>({})
+  const [pendingItem, setPendingItem] = useState<{description?: string, rarity?: string, catalogNotionId?: string}>({})
 
   // Equipment handlers
   const addEquipment = () => {
@@ -151,6 +151,7 @@ export function InventoryManager({
       equipped: false,
       description: pendingEquipment.description,
       rarity: pendingEquipment.rarity,
+      catalogNotionId: pendingEquipment.catalogNotionId,
     }
     console.log('[InventoryManager] Adding equipment. Current localInventory:', localInventory)
     const updatedInventory = {
@@ -194,6 +195,7 @@ export function InventoryManager({
       quantity: Math.max(1, qty),
       description: pendingConsumable.description,
       rarity: pendingConsumable.rarity,
+      catalogNotionId: pendingConsumable.catalogNotionId,
     }
     console.log('[InventoryManager] Adding consumable. Current localInventory:', localInventory)
     const updatedInventory = {
@@ -268,8 +270,9 @@ export function InventoryManager({
     const newItem: MiscItem = {
       id: `item-${Date.now()}`,
       name: newItemName.trim(),
-      description: newItemDesc.trim() || undefined,
-      rarity: pendingItemRarity,
+      description: newItemDesc.trim() || pendingItem.description,
+      rarity: pendingItem.rarity,
+      catalogNotionId: pendingItem.catalogNotionId,
     }
     const updatedInventory = {
       ...localInventory,
@@ -279,7 +282,7 @@ export function InventoryManager({
     onInventoryChange(updatedInventory)
     setNewItemName("")
     setNewItemDesc("")
-    setPendingItemRarity(undefined)
+    setPendingItem({})
   }
 
   const removeItem = (id: string) => {
@@ -354,7 +357,7 @@ export function InventoryManager({
                   }}
                   onSelect={(item: CatalogItem) => {
                     setNewEquipmentName(item.name)
-                    setPendingEquipment({ description: item.description || undefined, rarity: item.rarity || undefined })
+                    setPendingEquipment({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
                   }}
                   placeholder="Nom de l'équipement..."
                   filterCategory="equipment"
@@ -362,9 +365,10 @@ export function InventoryManager({
                 />
                 <ItemPickerDialog
                   filterCategory="equipment"
+                  initialSearch={newEquipmentName}
                   onSelect={(item: CatalogItem) => {
                     setNewEquipmentName(item.name)
-                    setPendingEquipment({ description: item.description || undefined, rarity: item.rarity || undefined })
+                    setPendingEquipment({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
                   }}
                   trigger={
                     <Button variant="outline" size="icon" className="shrink-0">
@@ -390,7 +394,7 @@ export function InventoryManager({
                     <div
                       key={item.id}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-lg border transition-smooth",
+                        "p-2 rounded-lg border transition-smooth",
                         item.equipped
                           ? "bg-emerald/10 border-emerald/30"
                           : "bg-secondary/30 border-border/50",
@@ -408,44 +412,51 @@ export function InventoryManager({
                         }
                       }}
                     >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={cn(
-                          "h-8 px-2 shrink-0",
-                          item.equipped && "text-emerald"
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleEquipped(item.id)
-                        }}
-                        disabled={readonly}
-                      >
-                        {item.equipped ? "Équipé" : "Non équipé"}
-                      </Button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm truncate">{item.name}</span>
-                          {item.rarity && (
-                            <Badge variant="outline" className={`text-xs shrink-0 ${getRarityStyle(item.rarity)}`}>
-                              {item.rarity}
-                            </Badge>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            {item.rarity && (
+                              <Badge variant="outline" className={`text-xs ${getRarityStyle(item.rarity)}`}>
+                                {item.rarity}
+                              </Badge>
+                            )}
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                              "h-8 px-2",
+                              item.equipped && "text-emerald"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleEquipped(item.id)
+                            }}
+                            disabled={readonly}
+                          >
+                            {item.equipped ? "Équipé" : "Non équipé"}
+                          </Button>
+                          {!readonly && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-crimson hover:text-crimson/80"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeEquipment(item.id)
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </div>
-                      {!readonly && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-crimson hover:text-crimson/80"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeEquipment(item.id)
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -465,7 +476,7 @@ export function InventoryManager({
                   }}
                   onSelect={(item: CatalogItem) => {
                     setNewConsumableName(item.name)
-                    setPendingConsumable({ description: item.description || undefined, rarity: item.rarity || undefined })
+                    setPendingConsumable({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
                   }}
                   placeholder="Nom du consommable..."
                   filterCategory="consumable"
@@ -473,9 +484,10 @@ export function InventoryManager({
                 />
                 <ItemPickerDialog
                   filterCategory="consumable"
+                  initialSearch={newConsumableName}
                   onSelect={(item: CatalogItem) => {
                     setNewConsumableName(item.name)
-                    setPendingConsumable({ description: item.description || undefined, rarity: item.rarity || undefined })
+                    setPendingConsumable({ description: item.description || undefined, rarity: item.rarity || undefined, catalogNotionId: item.notion_id })
                   }}
                   trigger={
                     <Button variant="outline" size="icon" className="shrink-0">
@@ -509,7 +521,7 @@ export function InventoryManager({
                     <div
                       key={item.id}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-lg border bg-secondary/30 border-border/50",
+                        "p-2 rounded-lg border bg-secondary/30 border-border/50",
                         (item.description || item.rarity) && "cursor-pointer hover:bg-secondary/50"
                       )}
                       onClick={() => {
@@ -524,59 +536,64 @@ export function InventoryManager({
                         }
                       }}
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm truncate">{item.name}</span>
-                          {item.rarity && (
-                            <Badge variant="outline" className={`text-xs shrink-0 ${getRarityStyle(item.rarity)}`}>
-                              {item.rarity}
-                            </Badge>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            {item.rarity && (
+                              <Badge variant="outline" className={`text-xs ${getRarityStyle(item.rarity)}`}>
+                                {item.rarity}
+                              </Badge>
+                            )}
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.description}</p>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {!readonly && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              updateConsumableQty(item.id, -1)
-                            }}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Badge variant="outline" className="min-w-[3rem] justify-center">
-                          {item.quantity}
-                        </Badge>
-                        {!readonly && (
-                          <>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!readonly && (
                             <Button
                               variant="outline"
                               size="icon"
                               className="h-8 w-8"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                updateConsumableQty(item.id, 1)
+                                updateConsumableQty(item.id, -1)
                               }}
                             >
-                              <Plus className="w-4 h-4" />
+                              <Minus className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-crimson hover:text-crimson/80"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                removeConsumable(item.id)
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
+                          )}
+                          <Badge variant="outline" className="min-w-[3rem] justify-center">
+                            {item.quantity}
+                          </Badge>
+                          {!readonly && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  updateConsumableQty(item.id, 1)
+                                }}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-crimson hover:text-crimson/80"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeConsumable(item.id)
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -654,7 +671,7 @@ export function InventoryManager({
                       setNewItemName(val)
                       if (!val) {
                         setNewItemDesc("")
-                        setPendingItemRarity(undefined)
+                        setPendingItem({})
                       }
                     }}
                     onSelect={(item: CatalogItem) => {
@@ -662,7 +679,7 @@ export function InventoryManager({
                       if (item.description) {
                         setNewItemDesc(item.description)
                       }
-                      setPendingItemRarity(item.rarity || undefined)
+                      setPendingItem({ rarity: item.rarity || undefined, description: item.description || undefined, catalogNotionId: item.notion_id })
                     }}
                     placeholder="Nom de l'objet..."
                     filterCategory="misc"
@@ -670,12 +687,13 @@ export function InventoryManager({
                   />
                   <ItemPickerDialog
                     filterCategory="misc"
+                    initialSearch={newItemName}
                     onSelect={(item: CatalogItem) => {
                       setNewItemName(item.name)
                       if (item.description) {
                         setNewItemDesc(item.description)
                       }
-                      setPendingItemRarity(item.rarity || undefined)
+                      setPendingItem({ rarity: item.rarity || undefined, description: item.description || undefined, catalogNotionId: item.notion_id })
                     }}
                     trigger={
                       <Button variant="outline" size="icon" className="shrink-0">

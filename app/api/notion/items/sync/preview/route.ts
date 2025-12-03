@@ -8,15 +8,18 @@ export async function POST() {
     console.log('Starting item sync preview...');
 
     // Fetch from both sources in parallel
+    // Preview uses fetchContent=false for speed - content fetched during apply
     const [notionItems, dbItems] = await Promise.all([
-      fetchAllItemsFromNotion(),
+      fetchAllItemsFromNotion(false),
       getCatalogItems(),
     ]);
 
     console.log(`Fetched ${notionItems.length} items from Notion, ${dbItems.length} from DB`);
 
     // Build preview comparison
-    const preview = buildItemSyncPreview(notionItems, dbItems);
+    // Pass skipNullDescription=true since we're not fetching content during preview
+    // This prevents false positives where DB has content-fetched descriptions
+    const preview = buildItemSyncPreview(notionItems, dbItems, true);
 
     // Calculate summary
     const summary = {
