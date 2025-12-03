@@ -147,19 +147,19 @@ export function ItemAutocomplete({
       )}
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-64 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-64 overflow-auto">
           {suggestions.map((item, index) => (
             <button
               key={item.id}
               type="button"
               onClick={() => handleSelectSuggestion(item)}
               className={cn(
-                "w-full px-3 py-2 text-left hover:bg-slate-100 transition-colors",
-                highlightedIndex === index && "bg-slate-100"
+                "w-full px-3 py-2 text-left hover:bg-secondary/50 transition-colors",
+                highlightedIndex === index && "bg-secondary/50"
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="font-medium text-sm truncate flex-1">
+                <span className="font-medium text-sm truncate flex-1 text-foreground">
                   {item.name}
                 </span>
                 <Badge variant="secondary" className="text-xs shrink-0">
@@ -172,7 +172,7 @@ export function ItemAutocomplete({
                 )}
               </div>
               {item.description && (
-                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {item.description}
                 </p>
               )}

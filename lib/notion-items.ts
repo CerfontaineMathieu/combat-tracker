@@ -61,6 +61,15 @@ function extractSelect(selectProp: any): string {
 }
 
 /**
+ * Helper function to extract multi_select property (returns first value)
+ */
+function extractMultiSelect(multiSelectProp: any): string {
+  if (!multiSelectProp || !multiSelectProp.multi_select) return '';
+  if (!Array.isArray(multiSelectProp.multi_select) || multiSelectProp.multi_select.length === 0) return '';
+  return multiSelectProp.multi_select[0].name || '';
+}
+
+/**
  * Helper function to extract title property
  */
 function extractTitle(titleProp: any): string {
@@ -123,7 +132,8 @@ function mapNotionPageToCatalogItem(
     const rarity = extractSelect(props.Rareté) || extractSelect(props.Rarity) || null;
 
     // Extract type for subcategory determination (for Objets database)
-    const type = extractSelect(props.Type) || '';
+    // Type can be either select or multi_select depending on the database
+    const type = extractSelect(props.Type) || extractMultiSelect(props.Type) || '';
 
     // Determine category and subcategory based on type
     let category = defaultCategory;
@@ -131,18 +141,26 @@ function mapNotionPageToCatalogItem(
 
     if (sourceDatabase === 'objets' && type) {
       const typeLower = type.toLowerCase();
-      if (typeLower.includes('potion')) {
+      // Consumables: potions, flèches, parchemins
+      if (typeLower === 'potion' || typeLower.includes('potion')) {
         category = 'consumable';
         subcategory = 'potion';
-      } else if (typeLower.includes('flèche') || typeLower.includes('fleche') || typeLower.includes('munition')) {
+      } else if (typeLower === 'flèches' || typeLower === 'fleches' || typeLower.includes('flèche') || typeLower.includes('fleche')) {
         category = 'consumable';
         subcategory = 'fleche';
-      } else if (typeLower.includes('parchemin') || typeLower.includes('scroll')) {
+      } else if (typeLower === 'parchemin' || typeLower.includes('parchemin')) {
         category = 'consumable';
         subcategory = 'parchemin';
       } else {
-        category = 'misc';
-        subcategory = 'objet_magique';
+        // Equipment: wearable items (anneau, amulette, bottes, cape, gants, lunettes)
+        const equipmentTypes = ['anneau', 'amulette', 'bottes', 'cape', 'gants', 'lunettes'];
+        if (equipmentTypes.includes(typeLower)) {
+          category = 'equipment';
+          subcategory = 'objet_magique';
+        } else {
+          category = 'misc';
+          subcategory = 'objet_magique';
+        }
       }
     }
 
