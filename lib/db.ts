@@ -1,4 +1,9 @@
 import { Pool } from 'pg';
+import type {
+  CatalogItem,
+  CatalogItemInput,
+  ItemCategory,
+} from './types';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://dnd:dnd@localhost:5432/dnd_tracker',
@@ -1006,4 +1011,136 @@ export async function getCharacterInventory(
   }
 
   return result.rows[0].inventory;
+}
+
+// ============================================
+// Item Catalog Functions (for Notion sync)
+// ============================================
+
+export async function getCatalogItems(): Promise<CatalogItem[]> {
+  const result = await pool.query(
+    'SELECT * FROM item_catalog ORDER BY name'
+  );
+  return result.rows;
+}
+
+export async function getCatalogItemsByCategory(category: ItemCategory): Promise<CatalogItem[]> {
+  const result = await pool.query(
+    'SELECT * FROM item_catalog WHERE category = $1 ORDER BY name',
+    [category]
+  );
+  return result.rows;
+}
+
+export async function getCatalogItemById(id: number): Promise<CatalogItem | null> {
+  const result = await pool.query(
+    'SELECT * FROM item_catalog WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getCatalogItemByNotionId(notionId: string): Promise<CatalogItem | null> {
+  const result = await pool.query(
+    'SELECT * FROM item_catalog WHERE notion_id = $1',
+    [notionId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function searchCatalogItems(
+  query: string,
+  category?: ItemCategory
+): Promise<CatalogItem[]> {
+  let sql = `
+    SELECT * FROM item_catalog
+    WHERE (
+      name ILIKE $1
+      OR description ILIKE $1
+      OR rarity ILIKE $1
+    )
+  `;
+  const params: (string | ItemCategory)[] = [`%${query}%`];
+
+  if (category) {
+    sql += ` AND category = $2`;
+    params.push(category);
+  }
+
+  sql += ' ORDER BY name LIMIT 50';
+
+  const result = await pool.query(sql, params);
+  return result.rows;
+}
+
+export async function upsertCatalogItem(item: CatalogItemInput): Promise<CatalogItem> {
+  const result = await pool.query(
+    `INSERT INTO item_catalog (
+      notion_id, name, category, subcategory, source_database,
+      description, rarity, properties, image_url
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (notion_id)
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      category = EXCLUDED.category,
+      subcategory = EXCLUDED.subcategory,
+      source_database = EXCLUDED.source_database,
+      description = EXCLUDED.description,
+      rarity = EXCLUDED.rarity,
+      properties = EXCLUDED.properties,
+      image_url = EXCLUDED.image_url,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *`,
+    [
+      item.notion_id,
+      item.name,
+      item.category,
+      item.subcategory,
+      item.source_database,
+      item.description,
+      item.rarity,
+      JSON.stringify(item.properties || {}),
+      item.image_url,
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function deleteCatalogItemsById(ids: number[]): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  for (const id of ids) {
+    try {
+      const result = await pool.query('DELETE FROM item_catalog WHERE id = $1', [id]);
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    } catch (error) {
+      errors.push(`Erreur lors de la suppression de l'item ID ${id}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  return { deleted, errors };
+}
+
+export async function deleteCatalogItemsByNotionId(notionIds: string[]): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  for (const notionId of notionIds) {
+    try {
+      const result = await pool.query('DELETE FROM item_catalog WHERE notion_id = $1', [notionId]);
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    } catch (error) {
+      errors.push(`Erreur lors de la suppression de l'item Notion ${notionId}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  return { deleted, errors };
+}
+
+export async function updateCatalogItemDescription(notionId: string, description: string): Promise<void> {
+  await pool.query(
+    'UPDATE item_catalog SET description = $1, updated_at = CURRENT_TIMESTAMP WHERE notion_id = $2',
+    [description, notionId]
+  );
 }

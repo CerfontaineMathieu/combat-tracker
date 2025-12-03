@@ -627,10 +627,13 @@ function CombatTrackerContent() {
       }
       // Otherwise, use static data with isConnected: false
       // Apply initiative override if set
+      // CRITICAL: Also check players state for inventory updates (DM may have updated it)
+      const localPlayer = players.find(p => p.id === char.id)
       return {
         ...char,
         isConnected: false,
         initiative: playerInitiatives[char.id] ?? char.initiative,
+        inventory: localPlayer?.inventory || char.inventory,
       }
     })
 

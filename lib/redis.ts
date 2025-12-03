@@ -1,4 +1,5 @@
 import { createClient, RedisClientType } from 'redis';
+import type { CharacterInventory } from './types';
 
 // Redis client singleton
 let redis: RedisClientType | null = null;
@@ -52,6 +53,7 @@ export interface ConnectedPlayer {
     initiative: number;
     conditions: string[];
     exhaustionLevel?: number;
+    inventory?: CharacterInventory;
   }>;
 }
 
@@ -166,6 +168,32 @@ export async function updateCharacterHp(campaignId: number, characterId: string,
     }
     if (updated) {
       await client.hSet(KEYS.players(campaignId), player.socketId, JSON.stringify(player));
+      break;
+    }
+  }
+}
+
+// Update a specific character's inventory across all connected players
+export async function updateCharacterInventory(
+  campaignId: number,
+  characterId: string,
+  inventory: CharacterInventory
+): Promise<void> {
+  const client = await getRedis();
+  const players = await getConnectedPlayers(campaignId);
+
+  for (const player of players) {
+    let updated = false;
+    for (const char of player.characters) {
+      if (String(char.odNumber) === characterId) {
+        char.inventory = inventory;
+        updated = true;
+        break;
+      }
+    }
+    if (updated) {
+      await client.hSet(KEYS.players(campaignId), player.socketId, JSON.stringify(player));
+      console.log(`[Redis] Updated inventory for character ${characterId} in campaign ${campaignId}`);
       break;
     }
   }

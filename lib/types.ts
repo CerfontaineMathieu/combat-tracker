@@ -3,12 +3,18 @@ export interface EquipmentItem {
   id: string
   name: string
   equipped: boolean
+  description?: string
+  rarity?: string
+  catalogNotionId?: string  // Reference to item_catalog for auto-updates
 }
 
 export interface ConsumableItem {
   id: string
   name: string
   quantity: number
+  description?: string
+  rarity?: string
+  catalogNotionId?: string  // Reference to item_catalog for auto-updates
 }
 
 export interface CurrencyInventory {
@@ -23,6 +29,8 @@ export interface MiscItem {
   id: string
   name: string
   description?: string
+  rarity?: string
+  catalogNotionId?: string  // Reference to item_catalog for auto-updates
 }
 
 export interface CharacterInventory {
@@ -343,4 +351,44 @@ export interface SyncApplyResult {
     deleted: number
     errors: string[]
   }
+}
+
+// ============================================
+// Item Catalog Types (for Notion sync)
+// ============================================
+
+export type ItemCategory = 'equipment' | 'consumable' | 'misc';
+export type ItemSubcategory = 'weapon' | 'potion' | 'fleche' | 'parchemin' | 'plante' | 'poison' | 'objet_magique' | 'other';
+
+export interface CatalogItem {
+  id: number;
+  notion_id: string;
+  name: string;
+  category: ItemCategory;
+  subcategory: ItemSubcategory | null;
+  source_database: string;
+  description: string | null;
+  rarity: string | null;
+  properties: Record<string, unknown>;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// For creating/updating items (without id and timestamps)
+export type CatalogItemInput = Omit<CatalogItem, 'id' | 'created_at' | 'updated_at'>;
+
+export interface ItemSyncPreview {
+  toAdd: CatalogItemInput[];
+  toUpdate: { existing: CatalogItem; updated: CatalogItemInput; changes: string[] }[];
+  toDelete: CatalogItem[];
+  unchanged: number;
+}
+
+export interface ItemSyncResult {
+  success: boolean;
+  added: number;
+  updated: number;
+  deleted: number;
+  errors: string[];
 }
