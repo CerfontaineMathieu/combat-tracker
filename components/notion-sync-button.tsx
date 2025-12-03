@@ -70,7 +70,7 @@ export function NotionSyncButton({ onSyncComplete }: NotionSyncButtonProps) {
               ) : (
                 <Cloud className="h-4 w-4" />
               )}
-              {isSyncing ? "Chargement..." : "Sync Notion"}
+              {isSyncing ? "Chargement..." : "Sync Monstres"}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
