@@ -71,6 +71,15 @@
   /* Touch targets - Mobile accessibility */
   --space-touch-min: 44px;
   --space-touch-comfortable: 48px;
+
+  /* Fluid sizing for responsive layouts */
+  --btn-size-mobile: clamp(2.25rem, 10vw, 2.75rem);
+  --card-padding-mobile: clamp(0.5rem, 2vw, 0.75rem);
+  --scroll-padding-mobile: clamp(0.5rem, 3vw, 1rem);
+
+  /* Desktop fluid sizing */
+  --btn-size-desktop: clamp(2rem, 3vw, 2.5rem);
+  --card-padding-desktop: clamp(0.5rem, 1.5vw, 0.75rem);
 }
 
 .dark {

@@ -105,6 +105,7 @@ export interface CombatParticipant {
   exhaustionLevel: number
   type: "player" | "monster"
   xp?: number // XP value for monsters (from challenge_rating_xp)
+  level?: number // Level for players (used in difficulty calculation)
   // Connection status (players only)
   isConnected?: boolean
   // Death saving throws (players only)

@@ -41,7 +41,7 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
       role="tablist"
       aria-label="Navigation principale"
     >
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center justify-around h-16 px-4" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = currentPage === "home" && activeTab === tab.id
@@ -53,7 +53,7 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
                 key={tab.id}
                 href="/"
                 className={cn(
-                  "flex flex-col items-center justify-center w-16 h-12 rounded-lg transition-smooth touch-target",
+                  "flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-lg transition-smooth touch-target",
                   "text-muted-foreground hover:text-foreground active:scale-95"
                 )}
               >
@@ -71,7 +71,7 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
               aria-controls={`${tab.id}-panel`}
               onClick={() => onTabChange?.(tab.id)}
               className={cn(
-                "flex flex-col items-center justify-center w-16 h-12 rounded-lg transition-smooth touch-target",
+                "flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-lg transition-smooth touch-target",
                 isActive
                   ? "text-gold bg-gold/10"
                   : "text-muted-foreground hover:text-foreground active:scale-95"
@@ -87,7 +87,7 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
         <Link
           href="/map"
           className={cn(
-            "flex flex-col items-center justify-center w-16 h-12 rounded-lg transition-smooth touch-target",
+            "flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-lg transition-smooth touch-target",
             currentPage === "map"
               ? "text-gold bg-gold/10"
               : "text-muted-foreground hover:text-emerald active:scale-95"

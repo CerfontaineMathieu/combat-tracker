@@ -107,7 +107,7 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
             onPointerDown={(e) => e.stopPropagation()}
             autoFocus
             className={cn(
-              "text-center font-bold p-0 bg-gold/20 border-gold text-gold",
+              "text-center font-bold p-0 bg-gold/20 border-gold text-gold shrink-0",
               compact ? "w-9 h-7 text-xs" : "w-11 h-9 text-sm"
             )}
           />
@@ -138,7 +138,9 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
             {player.initiative || "?"}
           </button>
         )}
-        <div className="flex-1 min-w-0">
+
+        {/* Content area - can shrink but text truncates gracefully */}
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2">
             <span className={cn(
               "font-medium truncate",
@@ -161,25 +163,21 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
                 </Badge>
               )
             )}
-            {!compact && actionSlot}
-            {!compact && !isInCombat && (
-              <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
-            )}
           </div>
           {!compact && (
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground truncate">
                 {player.class} Niv.{player.level}
               </span>
               <Badge variant="outline" className={cn(
-                "text-xs px-1.5 py-0",
+                "text-xs px-1.5 py-0 shrink-0",
                 isDisconnected ? "border-muted-foreground/30 text-muted-foreground" : "border-gold/30 text-gold"
               )}>
                 CA {player.ac}
               </Badge>
               {player.passivePerception && (
                 <Badge variant="outline" className={cn(
-                  "text-xs px-1.5 py-0",
+                  "text-xs px-1.5 py-0 shrink-0",
                   isDisconnected ? "border-muted-foreground/30 text-muted-foreground" : "border-sky-500/30 text-sky-500"
                 )}>
                   <Eye className="w-3 h-3 mr-1" />
@@ -189,6 +187,16 @@ export function DraggablePlayerCard({ player, isInCombat, compact = false, onUpd
             </div>
           )}
         </div>
+
+        {/* Action buttons - always visible, never squeezed */}
+        {!compact && (
+          <div className="flex items-center gap-1 shrink-0">
+            {actionSlot}
+            {!isInCombat && (
+              <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </div>
+        )}
       </div>
       {isInCombat && !isDisconnected && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
@@ -261,36 +269,41 @@ export function DraggableMonsterCard({ monster, isInCombat, compact = false, onA
         )}>
           {monster.initiative || "?"}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className={cn("font-medium text-crimson truncate", compact && "text-sm")}>
+        {/* Content area - can shrink but text truncates gracefully */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2">
+            <span className={cn("font-medium text-crimson truncate flex-1 min-w-0", compact && "text-sm")}>
               {monster.name}
             </span>
-            {!compact && !isInCombat && !isSelected && (
-              <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            )}
           </div>
           {!compact && (
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="text-xs border-gold/30 text-gold px-1.5 py-0">
+              <Badge variant="outline" className="text-xs border-gold/30 text-gold px-1.5 py-0 shrink-0">
                 CA {monster.ac}
               </Badge>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground truncate">
                 {monster.hp}/{monster.maxHp} PV
               </span>
             </div>
           )}
         </div>
-        {/* Add button - visible when selected and onAddToCombat is provided */}
-        {isSelected && onAddToCombat && !isInCombat && (
-          <Button
-            size="icon"
-            className="h-10 w-10 shrink-0 bg-crimson hover:bg-crimson/80 text-white animate-fade-in"
-            onClick={handleAddClick}
-          >
-            <Plus className="w-5 h-5" />
-          </Button>
-        )}
+
+        {/* Action area - grip or add button, never squeezed */}
+        <div className="flex items-center gap-1 shrink-0">
+          {!compact && !isInCombat && !isSelected && (
+            <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+          {/* Add button - visible when selected and onAddToCombat is provided */}
+          {isSelected && onAddToCombat && !isInCombat && (
+            <Button
+              size="icon"
+              className="h-10 w-10 bg-crimson hover:bg-crimson/80 text-white animate-fade-in"
+              onClick={handleAddClick}
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
       </div>
       {isInCombat && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
@@ -305,14 +318,17 @@ interface SortableParticipantCardProps {
   participant: CombatParticipant
   onRemove: () => void
   onUpdateInitiative?: (initiative: number) => void
+  onUpdateName?: (name: string) => void
   index: number
   mode?: "mj" | "joueur"
   ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
 
-export function SortableParticipantCard({ participant, onRemove, onUpdateInitiative, index, mode = "mj", ownCharacterIds = [] }: SortableParticipantCardProps) {
+export function SortableParticipantCard({ participant, onRemove, onUpdateInitiative, onUpdateName, index, mode = "mj", ownCharacterIds = [] }: SortableParticipantCardProps) {
   const [isEditingInit, setIsEditingInit] = useState(false)
   const [initValue, setInitValue] = useState(String(participant.initiative))
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(participant.name)
 
   const {
     attributes,
@@ -361,12 +377,34 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
     }
   }
 
+  const handleNameBlur = () => {
+    setIsEditingName(false)
+    const trimmedName = nameValue.trim()
+    if (trimmedName && trimmedName !== participant.name && onUpdateName) {
+      onUpdateName(trimmedName)
+    } else {
+      setNameValue(participant.name)
+    }
+  }
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleNameBlur()
+    } else if (e.key === "Escape") {
+      setIsEditingName(false)
+      setNameValue(participant.name)
+    }
+  }
+
+  // Only monsters can have their name edited
+  const canEditName = !isPlayer && onUpdateName && mode === "mj"
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative p-3 rounded-lg border-2 transition-all",
+        "group relative p-[var(--card-padding-mobile)] md:p-3 rounded-lg border-2 transition-all",
         "bg-secondary/60 hover:bg-secondary/80",
         isDragging
           ? "opacity-80 shadow-lg z-10 scale-[1.02]"
@@ -376,12 +414,134 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
           : "border-crimson/40 hover:border-crimson/60"
       )}
     >
-      <div className="flex items-center gap-3">
+      {/* Mobile: Two-row layout for guaranteed fit */}
+      <div className="flex flex-col gap-1.5 md:hidden">
+        {/* Row 1: Grip + Initiative + Name */}
+        <div className="flex items-center gap-2">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1 rounded hover:bg-muted/50 shrink-0"
+          >
+            <GripVertical className="w-5 h-5 text-muted-foreground" />
+          </div>
+
+          {/* Initiative Badge */}
+          {isEditingInit ? (
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={initValue}
+              onChange={(e) => handleInitiativeChange(e.target.value)}
+              onBlur={handleInitiativeBlur}
+              onKeyDown={handleInitiativeKeyDown}
+              autoFocus
+              className={cn(
+                "h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-center font-bold text-sm p-0 shrink-0",
+                isPlayer
+                  ? "bg-gold/20 border-gold text-gold"
+                  : "bg-crimson/20 border-crimson text-crimson"
+              )}
+            />
+          ) : (
+            <button
+              onClick={() => onUpdateInitiative && setIsEditingInit(true)}
+              className={cn(
+                "h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] rounded-lg flex items-center justify-center font-bold text-sm shrink-0 transition-all",
+                isPlayer
+                  ? "bg-gold text-background hover:bg-gold/80"
+                  : "bg-crimson text-white hover:bg-crimson/80",
+                onUpdateInitiative && "cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-offset-background",
+                onUpdateInitiative && (isPlayer ? "hover:ring-gold/50" : "hover:ring-crimson/50")
+              )}
+              title="Cliquez pour modifier l'initiative"
+            >
+              {participant.initiative}
+            </button>
+          )}
+
+          {/* Name */}
+          <div className="flex-1 min-w-0">
+            {isEditingName ? (
+              <Input
+                type="text"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={handleNameBlur}
+                onKeyDown={handleNameKeyDown}
+                autoFocus
+                className="h-7 text-sm font-semibold px-2 bg-crimson/20 border-crimson text-crimson"
+              />
+            ) : (
+              <h3
+                onClick={() => canEditName && setIsEditingName(true)}
+                className={cn(
+                  "font-semibold truncate",
+                  isPlayer ? "text-foreground" : "text-crimson",
+                  canEditName && "cursor-pointer hover:underline hover:decoration-dotted"
+                )}
+                title={canEditName ? "Cliquez pour renommer" : undefined}
+              >
+                {participant.name}
+              </h3>
+            )}
+          </div>
+
+          {/* Index badge */}
+          <span className="text-xs text-muted-foreground shrink-0">#{index + 1}</span>
+        </div>
+
+        {/* Row 2: HP Bar + Remove button */}
+        {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
+          <div className="flex items-center gap-2">
+            {/* HP Bar */}
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between text-xs mb-0.5">
+                <span className="text-muted-foreground">PV</span>
+                <span className={cn(
+                  participant.currentHp <= participant.maxHp * 0.25 && "text-crimson font-semibold"
+                )}>
+                  {participant.currentHp} / {participant.maxHp}
+                </span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-300 ease-out",
+                    getHpColor(participant.currentHp, participant.maxHp)
+                  )}
+                  style={{
+                    width: `${Math.max(0, (participant.currentHp / participant.maxHp) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Remove Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-muted-foreground hover:text-crimson hover:bg-crimson/10 shrink-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemove()
+              }}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Original single-row layout */}
+      <div className="hidden md:flex items-center gap-3">
         {/* Drag Handle */}
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1 rounded hover:bg-muted/50"
+          className="cursor-grab active:cursor-grabbing touch-none p-1 -m-1 rounded hover:bg-muted/50 shrink-0"
         >
           <GripVertical className="w-5 h-5 text-muted-foreground" />
         </div>
@@ -398,7 +558,7 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
             onKeyDown={handleInitiativeKeyDown}
             autoFocus
             className={cn(
-              "w-12 h-10 text-center font-bold text-sm p-0",
+              "w-12 h-10 text-center font-bold text-sm p-0 shrink-0",
               isPlayer
                 ? "bg-gold/20 border-gold text-gold"
                 : "bg-crimson/20 border-crimson text-crimson"
@@ -425,19 +585,36 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground shrink-0">#{index + 1}</span>
-            <h3 className={cn(
-              "font-semibold truncate",
-              isPlayer ? "text-foreground" : "text-crimson"
-            )}>
-              {participant.name}
-            </h3>
+            {isEditingName ? (
+              <Input
+                type="text"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={handleNameBlur}
+                onKeyDown={handleNameKeyDown}
+                autoFocus
+                className="h-7 text-sm font-semibold px-2 bg-crimson/20 border-crimson text-crimson"
+              />
+            ) : (
+              <h3
+                onClick={() => canEditName && setIsEditingName(true)}
+                className={cn(
+                  "font-semibold truncate",
+                  isPlayer ? "text-foreground" : "text-crimson",
+                  canEditName && "cursor-pointer hover:underline hover:decoration-dotted"
+                )}
+                title={canEditName ? "Cliquez pour renommer" : undefined}
+              >
+                {participant.name}
+              </h3>
+            )}
             {!isPlayer && (
               <>
-                <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0 shrink-0 hidden sm:flex">
+                <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0 shrink-0">
                   Monstre
                 </Badge>
                 {participant.xp && (
-                  <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-400 px-1.5 py-0 shrink-0 hidden sm:flex">
+                  <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-400 px-1.5 py-0 shrink-0">
                     {participant.xp} XP
                   </Badge>
                 )}
@@ -471,11 +648,11 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
           )}
         </div>
 
-        {/* Remove Button - always visible on mobile, hover on desktop */}
+        {/* Remove Button - hover on desktop */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-crimson hover:bg-crimson/10 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+          className="h-8 w-8 text-muted-foreground hover:text-crimson hover:bg-crimson/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation()
             onRemove()
