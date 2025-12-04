@@ -76,6 +76,7 @@ interface CombatSetupPanelProps {
   onRemoveFromCombat: (id: string) => void
   onClearCombat?: () => void
   onUpdateParticipantInitiative?: (id: string, initiative: number) => void
+  onUpdateParticipantName?: (id: string, name: string) => void
   onRandomizeInitiatives?: () => void
   onLoadPreset?: (participants: CombatParticipant[]) => void
   mode: "mj" | "joueur"
@@ -89,6 +90,7 @@ export function CombatSetupPanel({
   onRemoveFromCombat,
   onClearCombat,
   onUpdateParticipantInitiative,
+  onUpdateParticipantName,
   onRandomizeInitiatives,
   onLoadPreset,
   mode,
@@ -407,10 +409,10 @@ export function CombatSetupPanel({
             >
               <Play className="w-5 h-5 mr-2" />
               {hasDisconnectedPlayers
-                ? "Joueurs hors ligne - Impossible de commencer"
+                ? <><span className="md:hidden">Joueurs hors ligne</span><span className="hidden md:inline">Joueurs hors ligne - Impossible de commencer</span></>
                 : canStartCombat
-                  ? `Commencer le combat (${combatParticipants.length} participants)`
-                  : "Ajoutez des participants pour commencer"}
+                  ? <><span className="md:hidden">Commencer ({combatParticipants.length})</span><span className="hidden md:inline">Commencer le combat ({combatParticipants.length} participants)</span></>
+                  : <><span className="md:hidden">Ajoutez des participants</span><span className="hidden md:inline">Ajoutez des participants pour commencer</span></>}
             </Button>
           </div>
         )}
@@ -473,6 +475,11 @@ export function CombatSetupPanel({
                       onUpdateInitiative={
                         onUpdateParticipantInitiative
                           ? (initiative) => onUpdateParticipantInitiative(participant.id, initiative)
+                          : undefined
+                      }
+                      onUpdateName={
+                        onUpdateParticipantName
+                          ? (name) => onUpdateParticipantName(participant.id, name)
                           : undefined
                       }
                       mode={mode}

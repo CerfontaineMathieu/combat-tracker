@@ -650,25 +650,31 @@ function CombatTrackerContent() {
     return new Set(displayPlayers.filter(p => p.isConnected).map(p => p.id))
   }, [displayPlayers.map(p => `${p.id}:${p.isConnected}`).join(',')])
 
-  // Sync combat participants' isConnected status with displayPlayers
+  // Sync combat participants' isConnected status and level with displayPlayers
   useEffect(() => {
     if (combatParticipants.length === 0) return
+
+    // Create a map of player data for quick lookup
+    const playerDataMap = new Map(displayPlayers.map(p => [p.id, p]))
 
     setCombatParticipants(prev => {
       let hasChanges = false
       const updated = prev.map(participant => {
         if (participant.type === 'player') {
+          const playerData = playerDataMap.get(participant.id)
           const shouldBeConnected = connectedPlayerIds.has(participant.id)
-          if (participant.isConnected !== shouldBeConnected) {
+          const shouldLevel = playerData?.level ?? participant.level
+
+          if (participant.isConnected !== shouldBeConnected || participant.level !== shouldLevel) {
             hasChanges = true
-            return { ...participant, isConnected: shouldBeConnected }
+            return { ...participant, isConnected: shouldBeConnected, level: shouldLevel }
           }
         }
         return participant
       })
       return hasChanges ? updated : prev
     })
-  }, [connectedPlayerIds, combatParticipants.length])
+  }, [connectedPlayerIds, combatParticipants.length, displayPlayers])
 
   // Helper to add history entry
   const addHistoryEntry = (entry: Omit<HistoryEntry, "id" | "timestamp">) => {
@@ -1295,6 +1301,7 @@ function CombatTrackerContent() {
       conditions: player.conditions || [],  // Keep current conditions
       exhaustionLevel: player.exhaustionLevel || 0,  // Keep current exhaustion
       type: "player",
+      level: player.level,  // For difficulty calculation (2024 rules)
       isConnected: player.isConnected,
     }
     setCombatParticipants(prev => sortParticipantsByInitiative([...prev, participant]))
@@ -1445,6 +1452,13 @@ function CombatTrackerContent() {
         body: JSON.stringify({ monsterId: getNumericId(id), initiative }),
       }).catch(error => console.error('Failed to update monster initiative:', error))
     }
+  }
+
+  // Update participant name (cosmetic, only in combat state)
+  const updateParticipantName = (id: string, name: string) => {
+    setCombatParticipants(prev =>
+      prev.map(p => p.id === id ? { ...p, name } : p)
+    )
   }
 
   // Randomize all participant initiatives (1d20)
@@ -1708,6 +1722,7 @@ function CombatTrackerContent() {
                     else updateMonsterExhaustion(id, level)
                   } : undefined}
                   onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
+                  onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                   onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
@@ -1719,6 +1734,7 @@ function CombatTrackerContent() {
                   onRemoveFromCombat={removeFromCombat}
                   onClearCombat={clearCombat}
                   onUpdateParticipantInitiative={updateParticipantInitiative}
+                  onUpdateParticipantName={updateParticipantName}
                   onRandomizeInitiatives={randomizeInitiatives}
                   onLoadPreset={loadPresetParticipants}
                   mode={mode}
@@ -1807,6 +1823,7 @@ function CombatTrackerContent() {
                       else updateMonsterExhaustion(id, level)
                     } : undefined}
                     onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
+                    onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                     onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                     mode={mode}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
@@ -1890,6 +1907,7 @@ function CombatTrackerContent() {
                     onRemoveFromCombat={removeFromCombat}
                     onClearCombat={clearCombat}
                     onUpdateParticipantInitiative={updateParticipantInitiative}
+                    onUpdateParticipantName={updateParticipantName}
                     onRandomizeInitiatives={randomizeInitiatives}
                     onLoadPreset={loadPresetParticipants}
                     mode={mode}
