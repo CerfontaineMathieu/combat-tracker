@@ -72,7 +72,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden p-0">
-          <ScrollArea className="h-full px-6 pb-6">
+          <ScrollArea className="h-full pb-6" style={{ paddingLeft: 'var(--scroll-padding-mobile)', paddingRight: 'var(--scroll-padding-mobile)' }}>
             <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
               {onAddToCombat ? (
                 <>
@@ -128,82 +128,85 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             <div
                               key={player.id}
                               className={cn(
-                                "p-3 rounded-lg border transition-smooth",
+                                "p-[var(--card-padding-mobile)] rounded-lg border transition-smooth",
                                 isDisconnected
-                                  ? "bg-muted/30 border-border/30 opacity-60"
+                                  ? "bg-muted/30 border-border/30"
                                   : inCombat
                                     ? "bg-gold/10 border-gold/30"
                                     : "bg-secondary/30 border-border/50 active:bg-secondary/50"
                               )}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <h3 className={cn(
-                                      "font-semibold truncate",
-                                      isDisconnected ? "text-muted-foreground" : "text-foreground"
-                                    )}>
-                                      {player.name}
-                                    </h3>
-                                    {isDisconnected ? (
-                                      <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-xs shrink-0">
-                                        <WifiOff className="w-3 h-3 mr-1" />
-                                        Hors ligne
-                                      </Badge>
-                                    ) : inCombat ? (
-                                      <Badge variant="outline" className="border-gold/50 text-gold text-xs shrink-0">
-                                        <Check className="w-3 h-3 mr-1" />
-                                        Ajouté
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="border-emerald/50 text-emerald text-xs shrink-0">
-                                        <Wifi className="w-3 h-3 mr-1" />
-                                        En ligne
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
+                              {/* Two-row layout for guaranteed fit on all screen widths */}
+                              <div className="flex flex-col gap-1.5">
+                                {/* Row 1: Name + Status Badge */}
+                                <div className="flex items-center gap-2">
+                                  <h3 className={cn(
+                                    "font-semibold truncate",
+                                    isDisconnected ? "text-muted-foreground" : "text-foreground"
+                                  )}>
+                                    {player.name}
+                                  </h3>
+                                  {isDisconnected ? (
+                                    <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-xs shrink-0">
+                                      <WifiOff className="w-3 h-3 mr-1" />
+                                      Hors ligne
+                                    </Badge>
+                                  ) : inCombat ? (
+                                    <Badge variant="outline" className="border-gold/50 text-gold text-xs shrink-0">
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Ajouté
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="border-emerald/50 text-emerald text-xs shrink-0">
+                                      <Wifi className="w-3 h-3 mr-1" />
+                                      En ligne
+                                    </Badge>
+                                  )}
+                                </div>
+                                {/* Row 2: Stats + Action Buttons */}
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
                                     {player.class} Niv. {player.level} • CA {player.ac}
                                     {player.passivePerception && ` • PP ${player.passivePerception}`}
                                   </p>
-                                </div>
-                                <div className="flex items-center gap-1 ml-2 shrink-0">
-                                  {onUpdateInventory && (
-                                    <InventoryManager
-                                      characterName={player.name}
-                                      inventory={player.inventory || DEFAULT_INVENTORY}
-                                      onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
-                                      trigger={
-                                        <Button
-                                          size="icon"
-                                          variant="ghost"
-                                          className="h-10 w-10 text-blue-500 hover:bg-blue-500/10"
-                                        >
-                                          <Backpack className="w-5 h-5" />
-                                        </Button>
-                                      }
-                                    />
-                                  )}
-                                  <Button
-                                    size="icon"
-                                    variant={canAdd ? "default" : "ghost"}
-                                    className={cn(
-                                      "h-10 w-10",
-                                      canAdd
-                                        ? isDisconnected
-                                          ? "bg-muted hover:bg-muted/80 text-muted-foreground"
-                                          : "bg-gold hover:bg-gold/80 text-background"
-                                        : "text-muted-foreground"
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {onUpdateInventory && (
+                                      <InventoryManager
+                                        characterName={player.name}
+                                        inventory={player.inventory || DEFAULT_INVENTORY}
+                                        onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
+                                        trigger={
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-blue-500 hover:bg-blue-500/10"
+                                          >
+                                            <Backpack className="w-5 h-5" />
+                                          </Button>
+                                        }
+                                      />
                                     )}
-                                    onClick={() => canAdd && setPlayerToAdd(player)}
-                                    disabled={!canAdd}
-                                  >
-                                    {inCombat ? (
-                                      <Check className="w-5 h-5" />
-                                    ) : (
-                                      <UserPlus className="w-5 h-5" />
-                                    )}
-                                  </Button>
+                                    <Button
+                                      size="icon"
+                                      variant={canAdd ? "default" : "ghost"}
+                                      className={cn(
+                                        "h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)]",
+                                        canAdd
+                                          ? isDisconnected
+                                            ? "bg-amber-600 hover:bg-amber-600/80 text-white"
+                                            : "bg-gold hover:bg-gold/80 text-background"
+                                          : "text-muted-foreground"
+                                      )}
+                                      onClick={() => canAdd && setPlayerToAdd(player)}
+                                      disabled={!canAdd}
+                                    >
+                                      {inCombat ? (
+                                        <Check className="w-5 h-5" />
+                                      ) : (
+                                        <UserPlus className="w-5 h-5" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
