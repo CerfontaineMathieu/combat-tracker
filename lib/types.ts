@@ -147,16 +147,20 @@ export interface DbMonster {
   size: string | null
   challenge_rating_xp: number | null
   actions: Array<{ name: string; description: string }>
+  bonus_actions: Array<{ name: string; description: string }>
+  reactions: Array<{ name: string; description: string }>
   legendary_actions: Array<{ name: string; description: string; cost: number }>
   traits: {
     skills: string[]
     senses: string[]
     languages: string[]
+    damage_vulnerabilities: string[]
     damage_resistances: string[]
     damage_immunities: string[]
     condition_immunities: string[]
     special_abilities: Array<{ name: string; description: string }>
   }
+  description: string | null
   image_url: string | null
   ai_generated: string | null
   notion_id: string | null

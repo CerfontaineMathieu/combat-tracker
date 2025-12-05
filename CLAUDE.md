@@ -136,3 +136,75 @@ The app is a single-page client component (`app/page.tsx`) that manages:
 
 **Path Aliases:**
 - `@/` maps to project root (configured in `tsconfig.json`)
+
+## Notion Monster Format Guide
+
+When adding custom monsters to the Notion database, follow this format exactly to ensure proper parsing in the app.
+
+### Actions Field
+
+Use **period separator** between action name and description. Each action on its own line.
+
+```
+ActionName. Description of the action.
+AnotherAction (Recharge 5-6). Description with recharge mechanic.
+```
+
+**Example (Thorbek):**
+```
+Attaques Multiples. 2 attaques de Toucher Spectral.
+Toucher Spectral. +5, allonge 1,5 m. Touché : 3d6+2 nécrotique. La cible doit réussir CON DD 13 ou son max de PV est réduit du montant des dégâts jusqu'au prochain repos long.
+Marteau Fantôme (Recharge 5-6). Thorbek invoque un marteau spectral géant. Ligne de 9 m, largeur 1,5 m. DEX DD 13 ou 4d6 force + Repoussé de 3 m et à terre.
+Sommation (1/combat). Thorbek ordonne aux intrus de rebrousser chemin. SAG DD 13 ou Effrayé 1 minute (retry fin de tour).
+```
+
+### Description Field (Traits)
+
+Use these **exact French keywords** (without colons) followed by values:
+
+| Keyword | Example |
+|---------|---------|
+| `Compétences` | `Compétences Perception +5, Discrétion +3` |
+| `Sens` | `Sens Vision dans le noir 18 m, Perception passive 15` |
+| `Langues` | `Langues Nain, Commun` |
+| `Résistances aux dégâts` | `Résistances aux dégâts Acide, Feu, Foudre` |
+| `Immunités aux dégâts` | `Immunités aux dégâts Froid, Nécrotique, Poison` |
+| `Immunités aux états` | `Immunités aux états Charmé, Paralysé, Pétrifié` |
+
+Special abilities use **period separator** (same as actions):
+
+```
+AbilityName. Description of the ability.
+```
+
+**Complete Example:**
+```
+Compétences Perception +5
+Sens Vision dans le noir 18 m
+Langues Nain, Commun
+Résistances aux dégâts Acide, Feu, Foudre, Tonnerre
+Immunités aux dégâts Froid, Nécrotique, Poison
+Immunités aux états Charmé, Épuisé, Paralysé, Pétrifié, Empoisonné
+Forme Éthérée. Peut traverser créatures et objets (1d10 force s'il termine dans un objet).
+Ténacité Naine. Avantage aux JS contre Charmé et Effrayé.
+```
+
+### Legendary Actions Field
+
+Same as Actions, but include cost in parentheses when > 1:
+
+```
+Détecter. La créature fait un test de Sagesse (Perception).
+Attaque (coûte 2 actions). La créature fait une attaque au corps à corps.
+```
+
+### What NOT to Do
+
+- `ActionName : Description` (colon separator)
+- `Résistances : Acide, Feu` (colon after keyword)
+- `• Ability Name` (bullet points)
+- Emojis in structured fields
+
+### After Updating Notion
+
+Re-sync monsters via the app's Notion sync feature to apply changes.
