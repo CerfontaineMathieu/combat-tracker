@@ -430,7 +430,7 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
   // Other properties
   const creature_type = extractSelect(props.Race) || extractText(props.Race?.rich_text || []);
   const size = extractSelect(props.Taille) || extractText(props.Taille?.rich_text || []);
-  const challenge_rating_xp = extractNumber(props['Puissance (XP)']?.number);
+  const challenge_rating_xp = extractNumber(props.XP?.number);
 
   // Read separate trait columns (comma-separated text)
   const skillsText = extractText(props.Compétences?.rich_text || []);
