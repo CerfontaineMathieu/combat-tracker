@@ -392,6 +392,14 @@ function extractSelect(selectProp: any): string {
 }
 
 /**
+ * Parse comma-separated text into array of strings
+ */
+function parseCommaSeparated(text: string): string[] {
+  if (!text || text.trim() === '') return [];
+  return text.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/**
  * Convert a Notion monster page to our Monster type
  */
 export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster> {
@@ -424,32 +432,57 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
   const size = extractSelect(props.Taille) || extractText(props.Taille?.rich_text || []);
   const challenge_rating_xp = extractNumber(props['Puissance (XP)']?.number);
 
-  // Extract action and description text from rich_text fields
-  const actionsText = extractText(props.Actions?.rich_text || []);
-  const legendaryActionsText = extractText(props['Actions légendaires']?.rich_text || []);
-  const descriptionText = extractText(props.Description?.rich_text || []);
+  // Read separate trait columns (comma-separated text)
+  const skillsText = extractText(props.Compétences?.rich_text || []);
+  const sensesText = extractText(props.Sens?.rich_text || []);
+  const languagesText = extractText(props.Langues?.rich_text || []);
+  const vulnerabilitiesText = extractText(props.Vulnérabilités?.rich_text || []);
+  const resistancesText = extractText(props.Résistances?.rich_text || []);
+  const immunitiesDmgText = extractText(props['Immunités Dégâts']?.rich_text || []);
+  const immunitiesCondText = extractText(props['Immunités États']?.rich_text || []);
 
-  // Convert plain text to JSON structure or parse existing JSON
-  // Use proper parsing functions that mirror the PostgreSQL parsing logic
+  // Description (flavor text)
+  const description = extractText(props.Description?.rich_text || []) || null;
+
+  // Read JSON fields for complex nested data
+  const actionsText = extractText(props.Actions?.rich_text || []);
+  const bonusActionsText = extractText(props['Actions Bonus']?.rich_text || []);
+  const reactionsText = extractText(props.Réactions?.rich_text || []);
+  const legendaryActionsText = extractText(props['Actions Légendaires']?.rich_text || []);
+  const specialAbilitiesText = extractText(props['Capacités Spéciales']?.rich_text || []);
+
+  // Parse JSON for actions (with fallback to text parsing for backwards compatibility)
   const actions = actionsText
     ? (safeParseJSON(actionsText, null) || parseActionsText(actionsText))
+    : [];
+
+  const bonus_actions = bonusActionsText
+    ? (safeParseJSON(bonusActionsText, null) || parseActionsText(bonusActionsText))
+    : [];
+
+  const reactions = reactionsText
+    ? (safeParseJSON(reactionsText, null) || parseActionsText(reactionsText))
     : [];
 
   const legendary_actions = legendaryActionsText
     ? (safeParseJSON(legendaryActionsText, null) || parseLegendaryActionsText(legendaryActionsText))
     : [];
 
-  const traits = descriptionText
-    ? (safeParseJSON(descriptionText, null) || parseTraitsText(descriptionText))
-    : {
-        skills: [],
-        senses: [],
-        languages: [],
-        damage_resistances: [],
-        damage_immunities: [],
-        condition_immunities: [],
-        special_abilities: [],
-      };
+  const special_abilities = specialAbilitiesText
+    ? (safeParseJSON(specialAbilitiesText, null) || parseActionsText(specialAbilitiesText))
+    : [];
+
+  // Build traits object from separate columns
+  const traits = {
+    skills: parseCommaSeparated(skillsText),
+    senses: parseCommaSeparated(sensesText),
+    languages: parseCommaSeparated(languagesText),
+    damage_vulnerabilities: parseCommaSeparated(vulnerabilitiesText),
+    damage_resistances: parseCommaSeparated(resistancesText),
+    damage_immunities: parseCommaSeparated(immunitiesDmgText),
+    condition_immunities: parseCommaSeparated(immunitiesCondText),
+    special_abilities,
+  };
 
   // Image URL from cover
   const image_url = notionMonster.cover?.external?.url || null;
@@ -475,8 +508,11 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
     size,
     challenge_rating_xp,
     actions,
+    bonus_actions,
+    reactions,
     legendary_actions,
     traits,
+    description,
     image_url,
   };
 }
