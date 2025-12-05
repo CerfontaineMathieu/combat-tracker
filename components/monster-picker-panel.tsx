@@ -114,9 +114,10 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
 
 interface MonsterPickerPanelProps {
   onAddMonsters: (monster: DbMonster, quantity: number) => void
+  refreshKey?: number
 }
 
-export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
+export function MonsterPickerPanel({ onAddMonsters, refreshKey }: MonsterPickerPanelProps) {
   const isMobile = useIsMobile()
   const [monsters, setMonsters] = useState<DbMonster[]>([])
   const [filteredMonsters, setFilteredMonsters] = useState<DbMonster[]>([])
@@ -127,7 +128,7 @@ export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch monsters from API
+  // Fetch monsters from API (re-fetches when refreshKey changes)
   useEffect(() => {
     async function fetchMonsters() {
       try {
@@ -146,7 +147,7 @@ export function MonsterPickerPanel({ onAddMonsters }: MonsterPickerPanelProps) {
       }
     }
     fetchMonsters()
-  }, [])
+  }, [refreshKey])
 
   // Filter monsters based on search query
   useEffect(() => {

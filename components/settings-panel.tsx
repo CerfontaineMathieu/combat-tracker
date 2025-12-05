@@ -23,6 +23,7 @@ interface SettingsPanelProps {
   campaignId: number
   campaignName: string
   onCampaignNameChange: (name: string) => void
+  onMonsterSyncComplete?: () => void
 }
 
 export function SettingsPanel({
@@ -31,6 +32,7 @@ export function SettingsPanel({
   campaignId,
   campaignName,
   onCampaignNameChange,
+  onMonsterSyncComplete,
 }: SettingsPanelProps) {
   const [savingName, setSavingName] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
@@ -222,7 +224,7 @@ export function SettingsPanel({
               Synchronisez vos données depuis Notion (monstres et items).
             </p>
             <div className="flex flex-col gap-2">
-              <NotionSyncButton />
+              <NotionSyncButton onSyncComplete={onMonsterSyncComplete} />
               <ItemSyncDialog />
             </div>
           </div>
