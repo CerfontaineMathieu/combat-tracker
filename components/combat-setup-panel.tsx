@@ -206,42 +206,60 @@ export function CombatSetupPanel({
     if (!campaignId || !onLoadPreset) return
     setLoadingPreset(presetId)
     try {
-      const response = await fetch(
-        `/api/campaigns/${campaignId}/fight-presets/${presetId}`
-      )
-      if (response.ok) {
-        const preset: FightPresetWithMonsters = await response.json()
+      // Fetch preset and monsters database in parallel
+      const [presetResponse, monstersResponse] = await Promise.all([
+        fetch(`/api/campaigns/${campaignId}/fight-presets/${presetId}`),
+        fetch('/api/monsters')
+      ])
 
-        // Convert preset monsters to CombatParticipant format
-        const participants: CombatParticipant[] = (preset.monsters || []).flatMap((pm) => {
-          const isPlayer = pm.participant_type === 'player'
-          return Array.from({ length: pm.quantity }, (_, i) => {
-            // Use reference_id for players to maintain identity, otherwise generate unique ID
-            const participantId = isPlayer && pm.reference_id ? pm.reference_id : `preset-${pm.id}-${i}`
-            return {
-              id: participantId,
-              name: pm.quantity > 1 ? `${pm.name} ${i + 1}` : pm.name,
-              initiative: pm.initiative,
-              currentHp: pm.hp,
-              maxHp: pm.max_hp,
-              conditions: [],
-              exhaustionLevel: 0,
-              type: pm.participant_type || 'monster',
-              xp: pm.xp,
-              // Check if player is actually connected
-              isConnected: isPlayer ? connectedPlayerIds.includes(participantId) : undefined,
-            }
-          })
-        })
+      if (!presetResponse.ok) throw new Error("Failed to load preset")
 
-        onLoadPreset(participants)
-        setLoadSheetOpen(false)
-        toast.success("Combat chargé!", {
-          description: `${preset.name} - ${participants.length} participant(s)`,
-        })
-      } else {
-        throw new Error("Failed to load")
+      const preset: FightPresetWithMonsters = await presetResponse.json()
+
+      // Build a name-to-XP lookup map from database monsters
+      let monsterXpMap: Record<string, number> = {}
+      if (monstersResponse.ok) {
+        const dbMonsters = await monstersResponse.json()
+        monsterXpMap = dbMonsters.reduce((acc: Record<string, number>, m: { name: string; challenge_rating_xp: number | null }) => {
+          if (m.challenge_rating_xp) {
+            acc[m.name.toLowerCase()] = m.challenge_rating_xp
+          }
+          return acc
+        }, {})
       }
+
+      // Convert preset monsters to CombatParticipant format
+      const participants: CombatParticipant[] = (preset.monsters || []).flatMap((pm) => {
+        const isPlayer = pm.participant_type === 'player'
+        // Try to get XP from preset first, then fallback to database lookup by name
+        const presetXp = pm.xp
+        const dbXp = monsterXpMap[pm.name.toLowerCase()]
+        const resolvedXp = presetXp || dbXp || undefined
+
+        return Array.from({ length: pm.quantity }, (_, i) => {
+          // Use reference_id for players to maintain identity, otherwise generate unique ID
+          const participantId = isPlayer && pm.reference_id ? pm.reference_id : `preset-${pm.id}-${i}`
+          return {
+            id: participantId,
+            name: pm.quantity > 1 ? `${pm.name} ${i + 1}` : pm.name,
+            initiative: pm.initiative,
+            currentHp: pm.hp,
+            maxHp: pm.max_hp,
+            conditions: [],
+            exhaustionLevel: 0,
+            type: pm.participant_type || 'monster',
+            xp: isPlayer ? undefined : resolvedXp,
+            // Check if player is actually connected
+            isConnected: isPlayer ? connectedPlayerIds.includes(participantId) : undefined,
+          }
+        })
+      })
+
+      onLoadPreset(participants)
+      setLoadSheetOpen(false)
+      toast.success("Combat chargé!", {
+        description: `${preset.name} - ${participants.length} participant(s)`,
+      })
     } catch (error) {
       console.error("Failed to load preset:", error)
       toast.error("Erreur lors du chargement")
