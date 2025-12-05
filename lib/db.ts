@@ -33,16 +33,20 @@ export interface Monster {
   size: string | null;
   challenge_rating_xp: number | null;
   actions: Array<{ name: string; description: string }>;
+  bonus_actions: Array<{ name: string; description: string }>;
+  reactions: Array<{ name: string; description: string }>;
   legendary_actions: Array<{ name: string; description: string; cost: number }>;
   traits: {
     skills: string[];
     senses: string[];
     languages: string[];
+    damage_vulnerabilities: string[];
     damage_resistances: string[];
     damage_immunities: string[];
     condition_immunities: string[];
     special_abilities: Array<{ name: string; description: string }>;
   };
+  description: string | null;
   image_url: string | null;
   ai_generated: string | null;  // AI-generated image path (local only)
   notion_id: string | null;      // Notion page ID (for sync tracking)
@@ -188,8 +192,9 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       name, armor_class, hit_points, speed, strength, dexterity, constitution,
       intelligence, wisdom, charisma, strength_mod, dexterity_mod, constitution_mod,
       intelligence_mod, wisdom_mod, charisma_mod, creature_type, size,
-      challenge_rating_xp, actions, legendary_actions, traits, image_url, notion_id, ai_generated
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+      challenge_rating_xp, actions, bonus_actions, reactions, legendary_actions, traits,
+      description, image_url, notion_id, ai_generated
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
     ON CONFLICT (name)
     DO UPDATE SET
       armor_class = EXCLUDED.armor_class,
@@ -211,8 +216,11 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       size = EXCLUDED.size,
       challenge_rating_xp = EXCLUDED.challenge_rating_xp,
       actions = EXCLUDED.actions,
+      bonus_actions = EXCLUDED.bonus_actions,
+      reactions = EXCLUDED.reactions,
       legendary_actions = EXCLUDED.legendary_actions,
       traits = EXCLUDED.traits,
+      description = EXCLUDED.description,
       image_url = EXCLUDED.image_url,
       notion_id = EXCLUDED.notion_id
       -- NOTE: ai_generated is NOT updated here, preserving local AI-generated images
@@ -238,16 +246,20 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       monster.size,
       monster.challenge_rating_xp,
       JSON.stringify(monster.actions || []),
+      JSON.stringify(monster.bonus_actions || []),
+      JSON.stringify(monster.reactions || []),
       JSON.stringify(monster.legendary_actions || []),
       JSON.stringify(monster.traits || {
         skills: [],
         senses: [],
         languages: [],
+        damage_vulnerabilities: [],
         damage_resistances: [],
         damage_immunities: [],
         condition_immunities: [],
         special_abilities: [],
       }),
+      monster.description || null,
       monster.image_url,
       monster.notion_id || null,
       monster.ai_generated || null,
