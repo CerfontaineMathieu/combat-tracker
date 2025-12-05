@@ -81,30 +81,30 @@ function DraggableDbMonsterCard({ monster, onAddClick, onViewClick }: DraggableD
         </div>
 
         {/* Stats and Action Buttons */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Badge variant="outline" className="text-xs border-crimson/30 text-crimson hidden sm:flex">
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
+          <Badge variant="outline" className="text-xs border-crimson/30 text-crimson whitespace-nowrap">
             PV {monster.hit_points}
           </Badge>
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
+            className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
             onClick={(e) => {
               e.stopPropagation()
               onViewClick(monster)
             }}
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
           <Button
             size="icon"
-            className="h-9 w-9 bg-crimson hover:bg-crimson/80 text-white"
+            className="h-7 w-7 sm:h-9 sm:w-9 bg-crimson hover:bg-crimson/80 text-white"
             onClick={(e) => {
               e.stopPropagation()
               onAddClick(monster, e)
             }}
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
         </div>
       </div>
