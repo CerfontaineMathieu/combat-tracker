@@ -29,6 +29,17 @@ docker-compose up --build
 
 Both environments can run in parallel thanks to different ports.
 
+### Synology Production Server
+- **IP**: 192.168.1.2
+- **SSH User**: mathieu
+- **SSH Key**: Available locally
+- **Docker path**: Uses `docker-compose.synology.yml`
+
+To connect:
+```bash
+ssh mathieu@192.168.1.2
+```
+
 ## Commands (inside container)
 
 ```bash
