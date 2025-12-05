@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Shield, Heart, Zap, Swords, Star, BookOpen } from "lucide-react"
+import { Shield, Heart, Zap, Swords, Star, BookOpen, ShieldAlert, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -9,6 +9,14 @@ import type { DbMonster } from "@/lib/types"
 
 interface MonsterDetailProps {
   monster: DbMonster
+}
+
+/**
+ * Calculate ability modifier from score using D&D formula
+ */
+function calculateMod(score: number | null): number | null {
+  if (score === null) return null
+  return Math.floor((score - 10) / 2)
 }
 
 function formatMod(mod: number | null): string {
@@ -36,11 +44,14 @@ function FormattedText({ text }: { text: string }) {
 }
 
 function AbilityScore({ label, score, mod }: { label: string; score: number | null; mod: number | null }) {
+  // Use provided mod, or calculate from score if mod is null/0
+  const effectiveMod = (mod !== null && mod !== 0) ? mod : calculateMod(score)
+
   return (
     <div className="text-center">
       <div className="text-xs text-muted-foreground uppercase">{label}</div>
       <div className="text-lg font-bold">{score ?? "-"}</div>
-      <div className="text-sm text-gold">{formatMod(mod)}</div>
+      <div className="text-sm text-gold">{formatMod(effectiveMod)}</div>
     </div>
   )
 }
@@ -82,6 +93,11 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
             )}
           </div>
         </div>
+
+        {/* Description */}
+        {monster.description && (
+          <p className="text-sm text-muted-foreground italic">{monster.description}</p>
+        )}
 
         {/* Combat Stats */}
         <Card className="bg-secondary/30 border-border/50">
@@ -139,6 +155,12 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
               <div className="text-sm">
                 <span className="font-semibold text-gold">Langues: </span>
                 <span className="text-muted-foreground">{monster.traits.languages.join(", ")}</span>
+              </div>
+            )}
+            {monster.traits.damage_vulnerabilities?.length > 0 && (
+              <div className="text-sm">
+                <span className="font-semibold text-crimson">Vulnérabilités: </span>
+                <span className="text-muted-foreground">{monster.traits.damage_vulnerabilities.join(", ")}</span>
               </div>
             )}
             {monster.traits.damage_resistances?.length > 0 && (
@@ -200,6 +222,52 @@ export function MonsterDetail({ monster }: MonsterDetailProps) {
                     <span className="font-semibold text-foreground">{action.name}. </span>
                     <span className="text-muted-foreground">
                       <FormattedText text={action.description} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Bonus Actions */}
+        {monster.bonus_actions?.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <h3 className="font-semibold text-cyan-400 flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4" />
+                Actions bonus
+              </h3>
+              <div className="space-y-3">
+                {monster.bonus_actions.map((action, idx) => (
+                  <div key={idx} className="text-sm">
+                    <span className="font-semibold text-foreground">{action.name}. </span>
+                    <span className="text-muted-foreground">
+                      <FormattedText text={action.description} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Reactions */}
+        {monster.reactions?.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <h3 className="font-semibold text-amber-400 flex items-center gap-2 mb-2">
+                <ShieldAlert className="w-4 h-4" />
+                Réactions
+              </h3>
+              <div className="space-y-3">
+                {monster.reactions.map((reaction, idx) => (
+                  <div key={idx} className="text-sm">
+                    <span className="font-semibold text-foreground">{reaction.name}. </span>
+                    <span className="text-muted-foreground">
+                      <FormattedText text={reaction.description} />
                     </span>
                   </div>
                 ))}

@@ -127,6 +127,9 @@ function CombatTrackerContent() {
   const [dmLoading, setDmLoading] = useState(false)
   const [pendingDmPassword, setPendingDmPassword] = useState<string | null>(null)
 
+  // State for monster list refresh (incremented after Notion sync)
+  const [monsterRefreshKey, setMonsterRefreshKey] = useState(0)
+
   // State for XP summary modal
   const [showXpModal, setShowXpModal] = useState(false)
   const [xpSummaryData, setXpSummaryData] = useState<{ killedMonsters: { name: string; xp: number }[]; playerCount: number }>({
@@ -1746,6 +1749,7 @@ function CombatTrackerContent() {
               {activeTab === "bestiary" && mode === "mj" && (
                 <MonsterPickerPanel
                   onAddMonsters={addMonstersFromDb}
+                  refreshKey={monsterRefreshKey}
                 />
               )}
             </div>
@@ -1835,6 +1839,7 @@ function CombatTrackerContent() {
                   <div className="col-span-3 overflow-auto">
                     <MonsterPickerPanel
                       onAddMonsters={addMonstersFromDb}
+                      refreshKey={monsterRefreshKey}
                     />
                   </div>
                 )}
@@ -1922,6 +1927,7 @@ function CombatTrackerContent() {
                   <div className="col-span-3 overflow-auto">
                     <MonsterPickerPanel
                       onAddMonsters={addMonstersFromDb}
+                      refreshKey={monsterRefreshKey}
                     />
                   </div>
                 )}
@@ -1954,6 +1960,7 @@ function CombatTrackerContent() {
         campaignId={campaignId}
         campaignName={campaignName}
         onCampaignNameChange={setCampaignName}
+        onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
       />
     </div>
   )
