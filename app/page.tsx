@@ -266,21 +266,28 @@ function CombatTrackerContent() {
     }
   }
 
-  // Load HP from database for a character (returns null if not persisted)
-  const loadCharacterHp = async (characterId: string): Promise<number | null> => {
+  // Load status (HP, exhaustion, conditions) from database for a character
+  interface CharacterStatus {
+    currentHp: number | null
+    exhaustionLevel: number | null
+    conditions: string[] | null
+  }
+  const loadCharacterStatus = async (characterId: string): Promise<CharacterStatus> => {
     try {
       const response = await fetch(`/api/characters/${characterId}/hp`)
       if (response.ok) {
         const data = await response.json()
-        if (data.currentHp !== null) {
-          console.log('[HP] Loaded from database:', characterId, data.currentHp)
-          return data.currentHp
+        console.log('[Status] Loaded from database:', characterId, data)
+        return {
+          currentHp: data.currentHp ?? null,
+          exhaustionLevel: data.exhaustionLevel ?? null,
+          conditions: data.conditions ?? null
         }
       }
     } catch (error) {
-      console.error('Failed to load HP for character:', characterId, error)
+      console.error('Failed to load status for character:', characterId, error)
     }
-    return null
+    return { currentHp: null, exhaustionLevel: null, conditions: null }
   }
 
   // Load inventory from database for a character
@@ -310,33 +317,36 @@ function CombatTrackerContent() {
     // Persist mode and characters to localStorage
     localStorage.setItem("combatTrackerMode", "joueur")
     if (characters.length > 0) {
-      // Load inventories from database for each character
-      const charactersWithInventories = await Promise.all(
+      // Load inventories and status from database for each character
+      const charactersWithData = await Promise.all(
         characters.map(async (char) => {
-          const inventory = await loadCharacterInventory(char.id)
+          const [inventory, persistedStatus] = await Promise.all([
+            loadCharacterInventory(char.id),
+            loadCharacterStatus(char.id),
+          ])
           return {
             odNumber: char.id,
             name: char.name,
             class: char.class,
             level: char.level,
-            currentHp: char.current_hp,
+            currentHp: persistedStatus.currentHp ?? char.current_hp,
             maxHp: char.max_hp,
             ac: char.ac,
             initiative: char.initiative,
-            conditions: char.conditions || [],
-            exhaustionLevel: 0,
+            conditions: persistedStatus.conditions ?? char.conditions ?? [],
+            exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
             inventory,
           }
         })
       )
 
-      localStorage.setItem("combatTrackerCharacters", JSON.stringify(charactersWithInventories))
+      localStorage.setItem("combatTrackerCharacters", JSON.stringify(charactersWithData))
       // Also keep in sessionStorage for backward compatibility
-      sessionStorage.setItem("selectedCharacters", JSON.stringify(charactersWithInventories))
+      sessionStorage.setItem("selectedCharacters", JSON.stringify(charactersWithData))
       // Join campaign as player with characters
       if (socketState.isConnected) {
-        console.log('[Socket] User selected player with characters:', charactersWithInventories.map(c => c.name).join(', '))
-        joinCampaign({ role: 'player', characters: charactersWithInventories })
+        console.log('[Socket] User selected player with characters:', charactersWithData.map(c => c.name).join(', '))
+        joinCampaign({ role: 'player', characters: charactersWithData })
       }
     }
   }
@@ -380,22 +390,22 @@ function CombatTrackerContent() {
               charisma: number | null
             }) => {
               // Load persisted data from database in parallel
-              const [inventory, persistedHp] = await Promise.all([
+              const [inventory, persistedStatus] = await Promise.all([
                 loadCharacterInventory(c.id),
-                loadCharacterHp(c.id),
+                loadCharacterStatus(c.id),
               ])
               return {
                 id: c.id,
                 name: c.name,
                 class: c.class,
                 level: c.level,
-                // Use persisted HP if available, otherwise use Notion HP
-                currentHp: persistedHp ?? c.current_hp,
+                // Use persisted values if available, otherwise use Notion values
+                currentHp: persistedStatus.currentHp ?? c.current_hp,
                 maxHp: c.max_hp,
                 ac: c.ac,
                 initiative: c.initiative,
-                conditions: c.conditions || [],
-                exhaustionLevel: 0,
+                conditions: persistedStatus.conditions ?? c.conditions ?? [],
+                exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
                 isConnected: false,
                 inventory,
                 passivePerception: c.passive_perception,
@@ -755,6 +765,7 @@ function CombatTrackerContent() {
           initiative: m.initiative,
           currentHp: m.hp,
           maxHp: m.maxHp,
+          ac: m.ac,
           conditions: m.conditions || [],
           exhaustionLevel: m.exhaustionLevel || 0,
           type: "monster" as const,
@@ -1117,7 +1128,17 @@ function CombatTrackerContent() {
       })
     }
 
-    // Note: Character conditions are session-only (from Notion), no DB persistence
+    // Persist conditions to database
+    try {
+      await fetch(`/api/characters/${id}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditions }),
+      })
+      console.log('[Conditions] Persisted to database:', id, conditions)
+    } catch (error) {
+      console.error('Failed to persist conditions:', error)
+    }
   }
 
   const updatePlayerExhaustion = async (id: string, exhaustionLevel: number) => {
@@ -1135,7 +1156,17 @@ function CombatTrackerContent() {
       })
     }
 
-    // Note: Character exhaustion is session-only (from Notion), no DB persistence
+    // Persist exhaustion to database
+    try {
+      await fetch(`/api/characters/${id}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exhaustionLevel }),
+      })
+      console.log('[Exhaustion] Persisted to database:', id, exhaustionLevel)
+    } catch (error) {
+      console.error('Failed to persist exhaustion:', error)
+    }
   }
 
   const updatePlayerInventory = async (id: string, inventory: CharacterInventory) => {
@@ -1395,6 +1426,7 @@ function CombatTrackerContent() {
       initiative: randomInitiative,
       currentHp: monster.hp,
       maxHp: monster.maxHp,
+      ac: monster.ac,
       conditions: monster.conditions || [],
       exhaustionLevel: monster.exhaustionLevel || 0,
       type: "monster",
@@ -1460,6 +1492,7 @@ function CombatTrackerContent() {
       initiative: Math.floor(Math.random() * 20) + 1,
       currentHp: dbMonster.hit_points || 10,
       maxHp: dbMonster.hit_points || 10,
+      ac: dbMonster.armor_class || undefined,
       conditions: [],
       exhaustionLevel: 0,
       type: "monster",
@@ -1493,6 +1526,7 @@ function CombatTrackerContent() {
       initiative: Math.floor(Math.random() * 20) + 1,
       currentHp: monster.hp,
       maxHp: monster.maxHp,
+      ac: monster.ac,
       conditions: monster.conditions || [],
       exhaustionLevel: monster.exhaustionLevel || 0,
       type: "monster",

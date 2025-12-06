@@ -585,11 +585,28 @@ app.prepare().then(() => {
     });
 
     // Exhaustion changes
-    socket.on('exhaustion-change', (data: ExhaustionChangeData) => {
+    socket.on('exhaustion-change', async (data: ExhaustionChangeData) => {
       if (socket.data.campaignId) {
         const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
         io.to(room).emit('exhaustion-change', data);
         console.log(`[Socket.io] Exhaustion change in ${room}:`, data.participantId);
+
+        // Persist to Redis combat state (like HP and condition changes)
+        const combatState = await getCombatState(campaignId);
+        if (combatState && combatState.participants) {
+          const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; exhaustionLevel?: number }>).map(p =>
+            p.id === data.participantId && p.type === data.participantType
+              ? { ...p, exhaustionLevel: data.exhaustionLevel }
+              : p
+          );
+          await setCombatState(campaignId, {
+            ...combatState,
+            participants: updatedParticipants,
+          });
+          console.log(`[Socket.io] Persisted exhaustion for ${data.participantId}: ${data.exhaustionLevel}`);
+        }
       }
     });
 

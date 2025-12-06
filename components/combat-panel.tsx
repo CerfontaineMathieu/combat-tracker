@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import type { CombatParticipant } from "@/lib/types"
+import type { CombatParticipant, DbMonster } from "@/lib/types"
+import { MonsterDetail } from "@/components/monster-detail"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
 
@@ -68,6 +69,8 @@ export function CombatPanel({
   const [hpAmount, setHpAmount] = useState("")
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [editingNameValue, setEditingNameValue] = useState("")
+  const [selectedMonsterDetail, setSelectedMonsterDetail] = useState<DbMonster | null>(null)
+  const [isLoadingMonster, setIsLoadingMonster] = useState(false)
 
   // Calculate total XP from all monsters in combat (MJ only)
   const totalXp = participants
@@ -122,6 +125,37 @@ export function CombatPanel({
     } else if (e.key === "Escape") {
       setEditingNameId(null)
       setEditingNameValue("")
+    }
+  }
+
+  // Extract numeric database ID from participant ID (e.g., "m-123" -> 123, "db-456-..." -> 456)
+  const getNumericMonsterId = (participantId: string): number | null => {
+    if (participantId.startsWith("m-")) {
+      return parseInt(participantId.replace("m-", ""), 10)
+    }
+    if (participantId.startsWith("db-")) {
+      const parts = participantId.split("-")
+      return parts[1] ? parseInt(parts[1], 10) : null
+    }
+    return null
+  }
+
+  // Open monster stat block modal
+  const handleOpenMonsterStatBlock = async (participantId: string) => {
+    const numericId = getNumericMonsterId(participantId)
+    if (!numericId) return
+
+    setIsLoadingMonster(true)
+    try {
+      const response = await fetch(`/api/monsters/${numericId}`)
+      if (response.ok) {
+        const monster = await response.json()
+        setSelectedMonsterDetail(monster)
+      }
+    } catch (error) {
+      console.error('Failed to fetch monster details:', error)
+    } finally {
+      setIsLoadingMonster(false)
     }
   }
 
@@ -278,6 +312,13 @@ export function CombatPanel({
                             {participant.name}
                           </h3>
                         )}
+                        {/* AC Badge for monsters */}
+                        {participant.type === "monster" && participant.ac && (
+                          <Badge variant="outline" className="text-xs ml-1 border-crimson/50 text-crimson shrink-0">
+                            <Shield className="w-3 h-3 mr-0.5" />
+                            {participant.ac}
+                          </Badge>
+                        )}
                       </div>
 
                       {/* Crown for current turn */}
@@ -339,6 +380,19 @@ export function CombatPanel({
                                 onClick={() => onRemoveFromCombat(participant.id)}
                               >
                                 <X className="w-5 h-5" />
+                              </Button>
+                            )}
+                            {/* Eye icon for monster stat block */}
+                            {participant.type === "monster" && getNumericMonsterId(participant.id) && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-muted-foreground hover:text-crimson hover:bg-crimson/10 transition-smooth"
+                                onClick={() => handleOpenMonsterStatBlock(participant.id)}
+                                title="Voir fiche monstre"
+                                disabled={isLoadingMonster}
+                              >
+                                <Eye className="w-5 h-5" />
                               </Button>
                             )}
                             {onUpdateConditions && onUpdateExhaustion && (
@@ -606,13 +660,15 @@ export function CombatPanel({
                             {participant.name}
                           </h3>
                         )}
+                        {/* AC Badge for monsters */}
+                        {participant.type === "monster" && participant.ac && (
+                          <Badge variant="outline" className="text-xs border-crimson/50 text-crimson shrink-0">
+                            <Shield className="w-3 h-3 mr-0.5" />
+                            {participant.ac}
+                          </Badge>
+                        )}
                         {index === currentTurn && (
                           <Crown className="w-4 h-4 text-gold flex-shrink-0 animate-bounce" />
-                        )}
-                        {participant.type === "monster" && (
-                          <Badge variant="outline" className="text-xs border-crimson/50 text-crimson shrink-0">
-                            Monstre
-                          </Badge>
                         )}
                       </div>
 
@@ -762,6 +818,19 @@ export function CombatPanel({
                             <X className="w-4 h-4" />
                           </Button>
                         )}
+                        {/* Eye icon for monster stat block */}
+                        {participant.type === "monster" && getNumericMonsterId(participant.id) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-10 w-10 text-muted-foreground hover:text-crimson hover:bg-crimson/10 transition-smooth"
+                            onClick={() => handleOpenMonsterStatBlock(participant.id)}
+                            title="Voir fiche monstre"
+                            disabled={isLoadingMonster}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        )}
                         {onUpdateConditions && onUpdateExhaustion && (
                           <ConditionManager
                             targetName={participant.name}
@@ -908,6 +977,19 @@ export function CombatPanel({
           </div>
         )}
       </CardContent>
+
+      {/* Monster Stat Block Modal */}
+      <Dialog open={!!selectedMonsterDetail} onOpenChange={(open) => !open && setSelectedMonsterDetail(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-crimson flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              {selectedMonsterDetail?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedMonsterDetail && <MonsterDetail monster={selectedMonsterDetail} />}
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
