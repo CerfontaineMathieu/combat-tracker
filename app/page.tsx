@@ -1307,8 +1307,20 @@ function CombatTrackerContent() {
       level: player.level,  // For difficulty calculation (2024 rules)
       isConnected: player.isConnected,
     }
-    setCombatParticipants(prev => sortParticipantsByInitiative([...prev, participant]))
+    const updated = sortParticipantsByInitiative([...combatParticipants, participant])
+    setCombatParticipants(updated)
     toast.success(`${player.name} ajouté au combat`)
+
+    // Sync with players via WebSocket when adding mid-combat
+    if (combatActive) {
+      emitCombatUpdate({
+        type: 'state-sync',
+        combatActive: true,
+        currentTurn,
+        roundNumber,
+        participants: updated,
+      })
+    }
   }
 
   const addMonsterToCombat = (monster: Monster) => {
@@ -1323,8 +1335,20 @@ function CombatTrackerContent() {
       exhaustionLevel: monster.exhaustionLevel || 0,
       type: "monster",
     }
-    setCombatParticipants(prev => sortParticipantsByInitiative([...prev, participant]))
+    const updated = sortParticipantsByInitiative([...combatParticipants, participant])
+    setCombatParticipants(updated)
     toast.success(`${monster.name} ajouté au combat (initiative: ${randomInitiative})`)
+
+    // Sync with players via WebSocket when adding mid-combat
+    if (combatActive) {
+      emitCombatUpdate({
+        type: 'state-sync',
+        combatActive: true,
+        currentTurn,
+        roundNumber,
+        participants: updated,
+      })
+    }
   }
 
   const removeFromCombat = (id: string) => {
