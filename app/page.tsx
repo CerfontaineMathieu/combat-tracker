@@ -302,6 +302,23 @@ function CombatTrackerContent() {
     return DEFAULT_INVENTORY
   }
 
+  // Load status (conditions + exhaustion) from database for a character
+  const loadCharacterStatus = async (characterId: string): Promise<{ conditions: string[] | null; exhaustionLevel: number | null }> => {
+    try {
+      const response = await fetch(`/api/characters/${characterId}/status`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.conditions !== null || data.exhaustionLevel !== null) {
+          console.log('[Status] Loaded from database:', characterId, data)
+          return data
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load status for character:', characterId, error)
+    }
+    return { conditions: null, exhaustionLevel: null }
+  }
+
   // Handle players selection (multiple characters)
   const handleSelectPlayers = async (characters: SelectedCharacters) => {
     setMode("joueur")
@@ -380,9 +397,10 @@ function CombatTrackerContent() {
               charisma: number | null
             }) => {
               // Load persisted data from database in parallel
-              const [inventory, persistedHp] = await Promise.all([
+              const [inventory, persistedHp, persistedStatus] = await Promise.all([
                 loadCharacterInventory(c.id),
                 loadCharacterHp(c.id),
+                loadCharacterStatus(c.id),
               ])
               return {
                 id: c.id,
@@ -394,8 +412,9 @@ function CombatTrackerContent() {
                 maxHp: c.max_hp,
                 ac: c.ac,
                 initiative: c.initiative,
-                conditions: c.conditions || [],
-                exhaustionLevel: 0,
+                // Use persisted conditions/exhaustion if available
+                conditions: persistedStatus.conditions ?? c.conditions ?? [],
+                exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
                 isConnected: false,
                 inventory,
                 passivePerception: c.passive_perception,
@@ -1117,7 +1136,16 @@ function CombatTrackerContent() {
       })
     }
 
-    // Note: Character conditions are session-only (from Notion), no DB persistence
+    // Persist conditions to database for session persistence
+    try {
+      await fetch(`/api/characters/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditions }),
+      })
+    } catch (error) {
+      console.error('Failed to persist conditions:', error)
+    }
   }
 
   const updatePlayerExhaustion = async (id: string, exhaustionLevel: number) => {
@@ -1135,7 +1163,16 @@ function CombatTrackerContent() {
       })
     }
 
-    // Note: Character exhaustion is session-only (from Notion), no DB persistence
+    // Persist exhaustion to database for session persistence
+    try {
+      await fetch(`/api/characters/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exhaustionLevel }),
+      })
+    } catch (error) {
+      console.error('Failed to persist exhaustion:', error)
+    }
   }
 
   const updatePlayerInventory = async (id: string, inventory: CharacterInventory) => {

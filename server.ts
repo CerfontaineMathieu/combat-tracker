@@ -3,7 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
-import { getDmPassword, getCharacterInventory, getCharacterHp } from './lib/db';
+import { getDmPassword, getCharacterInventory, getCharacterHp, getCharacterStatus } from './lib/db';
 import {
   getRedis,
   getDmSession,
@@ -291,19 +291,25 @@ app.prepare().then(() => {
             exhaustionLevel?: number;
           }) => {
             const characterId = String(char.odNumber);
-            const [inventory, persistedHp] = await Promise.all([
+            const [inventory, persistedHp, persistedStatus] = await Promise.all([
               getCharacterInventory(characterId),
               getCharacterHp(characterId, campaignId),
+              getCharacterStatus(characterId, campaignId),
             ]);
 
             // Use persisted HP if available, otherwise use client HP (fallback to maxHp)
             const currentHp = persistedHp !== null ? persistedHp : char.currentHp;
+            // Use persisted conditions/exhaustion if available
+            const conditions = persistedStatus?.conditions ?? char.conditions ?? [];
+            const exhaustionLevel = persistedStatus?.exhaustionLevel ?? char.exhaustionLevel ?? 0;
 
-            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): inventory, HP=${currentHp} (persisted=${persistedHp})`);
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): inventory, HP=${currentHp}, conditions=${conditions.length}, exhaustion=${exhaustionLevel}`);
             return {
               ...char,
               inventory,
               currentHp,
+              conditions,
+              exhaustionLevel,
             };
           })
         );
@@ -585,11 +591,28 @@ app.prepare().then(() => {
     });
 
     // Exhaustion changes
-    socket.on('exhaustion-change', (data: ExhaustionChangeData) => {
+    socket.on('exhaustion-change', async (data: ExhaustionChangeData) => {
       if (socket.data.campaignId) {
         const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
         io.to(room).emit('exhaustion-change', data);
         console.log(`[Socket.io] Exhaustion change in ${room}:`, data.participantId);
+
+        // Persist to Redis combat state (like conditions)
+        const combatState = await getCombatState(campaignId);
+        if (combatState && combatState.participants) {
+          const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; exhaustionLevel?: number }>).map(p =>
+            p.id === data.participantId && p.type === data.participantType
+              ? { ...p, exhaustionLevel: data.exhaustionLevel }
+              : p
+          );
+          await setCombatState(campaignId, {
+            ...combatState,
+            participants: updatedParticipants,
+          });
+          console.log(`[Socket.io] Persisted exhaustion for ${data.participantId}: ${data.exhaustionLevel}`);
+        }
       }
     });
 

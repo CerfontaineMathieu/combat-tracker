@@ -1177,3 +1177,32 @@ export async function getCharacterHp(
 
   return result.rows[0].current_hp;
 }
+
+// ============================================
+// Character Status Persistence Functions
+// ============================================
+
+export interface CharacterStatus {
+  conditions: string[];
+  exhaustionLevel: number;
+}
+
+// Get persisted status for a character (returns null if not found)
+export async function getCharacterStatus(
+  characterId: string,
+  campaignId: number = 1
+): Promise<CharacterStatus | null> {
+  const result = await pool.query(
+    'SELECT conditions, exhaustion_level FROM character_status WHERE character_id = $1 AND campaign_id = $2',
+    [characterId, campaignId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return {
+    conditions: result.rows[0].conditions || [],
+    exhaustionLevel: result.rows[0].exhaustion_level || 0,
+  };
+}
