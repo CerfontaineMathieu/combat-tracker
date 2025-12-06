@@ -1156,3 +1156,24 @@ export async function updateCatalogItemDescription(notionId: string, description
     [description, notionId]
   );
 }
+
+// ============================================
+// Character HP Persistence Functions
+// ============================================
+
+// Get persisted HP for a character (returns null if not found)
+export async function getCharacterHp(
+  characterId: string,
+  campaignId: number = 1
+): Promise<number | null> {
+  const result = await pool.query(
+    'SELECT current_hp FROM character_hp WHERE character_id = $1 AND campaign_id = $2',
+    [characterId, campaignId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return result.rows[0].current_hp;
+}

@@ -3,7 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
-import { getDmPassword, getCharacterInventory } from './lib/db';
+import { getDmPassword, getCharacterInventory, getCharacterHp } from './lib/db';
 import {
   getRedis,
   getDmSession,
@@ -276,7 +276,7 @@ app.prepare().then(() => {
 
       // Handle player joining with characters
       if (role === 'player' && characters && characters.length > 0) {
-        // Load inventories from database for each character
+        // Load inventories and persisted HP from database for each character
         const charactersWithInventories = await Promise.all(
           characters.map(async (char: {
             odNumber: string | number;
@@ -290,11 +290,20 @@ app.prepare().then(() => {
             conditions: string[];
             exhaustionLevel?: number;
           }) => {
-            const inventory = await getCharacterInventory(String(char.odNumber));
-            console.log(`[Socket.io] Loaded inventory for character ${char.name} (${char.odNumber}):`, inventory);
+            const characterId = String(char.odNumber);
+            const [inventory, persistedHp] = await Promise.all([
+              getCharacterInventory(characterId),
+              getCharacterHp(characterId, campaignId),
+            ]);
+
+            // Use persisted HP if available, otherwise use client HP (fallback to maxHp)
+            const currentHp = persistedHp !== null ? persistedHp : char.currentHp;
+
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): inventory, HP=${currentHp} (persisted=${persistedHp})`);
             return {
               ...char,
               inventory,
+              currentHp,
             };
           })
         );
