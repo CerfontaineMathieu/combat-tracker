@@ -300,10 +300,8 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
     )
   }
 
-  // During combat, only show players who are in the combat
-  const playersToShow = combatActive
-    ? players.filter(p => combatParticipants.some(cp => cp.id === p.id))
-    : players
+  // Show all players, but render differently based on combat participation
+  const playersToShow = players
 
   return (
     <Card className="bg-card border-border h-full flex flex-col">
@@ -344,7 +342,65 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                     "space-y-2",
                     characters.length > 1 && "pl-2 border-l-2 border-gold/20"
                   )}>
-                    {characters.map((player, index) => (
+                    {characters.map((player, index) => {
+                      const inCombat = isPlayerInCombat(player.id)
+                      const isDisconnected = !player.isConnected
+
+                      // During combat, show simplified card for players NOT in combat
+                      if (combatActive && !inCombat && mode === "mj") {
+                        return (
+                          <div
+                            key={player.id}
+                            className={cn(
+                              "p-3 rounded-lg border transition-smooth",
+                              isDisconnected
+                                ? "bg-muted/20 border-border/30 opacity-60"
+                                : "bg-secondary/20 border-border/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <h3 className={cn(
+                                  "font-semibold truncate",
+                                  isDisconnected ? "text-muted-foreground" : "text-foreground"
+                                )}>
+                                  {player.name}
+                                </h3>
+                                {isDisconnected ? (
+                                  <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-xs shrink-0">
+                                    <WifiOff className="w-3 h-3 mr-1" />
+                                    Hors ligne
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-emerald/50 text-emerald text-xs shrink-0">
+                                    <Wifi className="w-3 h-3 mr-1" />
+                                    En ligne
+                                  </Badge>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                className={cn(
+                                  "ml-2 shrink-0",
+                                  isDisconnected
+                                    ? "bg-amber-600 hover:bg-amber-600/80 text-white"
+                                    : "bg-gold hover:bg-gold/80 text-background"
+                                )}
+                                onClick={() => setPlayerToAdd(player)}
+                              >
+                                <UserPlus className="w-4 h-4 mr-1" />
+                                Ajouter
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {player.class} Niv. {player.level} • CA {player.ac}
+                            </p>
+                          </div>
+                        )
+                      }
+
+                      // Regular card for players in combat (or when combat is not active)
+                      return (
                 <div
                   key={player.id}
                   className={cn(
@@ -663,7 +719,8 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                     </div>
                   )}
                 </div>
-              ))}
+              )
+                    })}
                   </div>
                 </div>
               ))
@@ -671,6 +728,55 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
           </div>
         </ScrollArea>
       </CardContent>
+
+      {/* Initiative Dialog for adding players mid-combat */}
+      {combatActive && mode === "mj" && (
+        <Dialog open={!!playerToAdd} onOpenChange={(open) => !open && setPlayerToAdd(null)}>
+          <DialogContent className="bg-card border-border max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="text-gold">
+                Ajouter {playerToAdd?.name} au combat
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Initiative (1-20)
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={initiativeValue}
+                onChange={(e) => setInitiativeValue(e.target.value)}
+                placeholder="Entrez l'initiative..."
+                className="text-center text-lg font-bold bg-gold/10 border-gold text-gold"
+                autoFocus
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setPlayerToAdd(null)}>
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  if (playerToAdd && onAddToCombat) {
+                    const parsed = parseInt(initiativeValue)
+                    const init = isNaN(parsed) || parsed < 1 ? 1 : Math.min(20, parsed)
+                    onUpdateInitiative(playerToAdd.id, init)
+                    onAddToCombat({ ...playerToAdd, initiative: init })
+                    setPlayerToAdd(null)
+                    setInitiativeValue("")
+                  }
+                }}
+                className="bg-gold hover:bg-gold/80 text-background"
+              >
+                <UserPlus className="w-4 h-4 mr-1" />
+                Ajouter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   )
 }
