@@ -1689,9 +1689,10 @@ function CombatTrackerContent() {
                   onUpdateExhaustion={updatePlayerExhaustion}
                   onUpdateInventory={updatePlayerInventory}
                   mode={mode}
+                  combatActive={combatActive}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   combatParticipants={combatParticipants}
-                  onAddToCombat={!combatActive ? addPlayerToCombat : undefined}
+                  onAddToCombat={addPlayerToCombat}
                 />
               )}
               {activeTab === "players" && mode === "joueur" && (
@@ -1787,6 +1788,7 @@ function CombatTrackerContent() {
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
                       ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                      onAddToCombat={addPlayerToCombat}
                     />
                   </div>
                 )}
@@ -1901,6 +1903,7 @@ function CombatTrackerContent() {
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
                       ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                      onAddToCombat={addPlayerToCombat}
                     />
                   </div>
                 )}
