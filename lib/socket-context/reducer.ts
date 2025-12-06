@@ -249,13 +249,35 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       }
 
       if (data.type === 'state-sync') {
+        const participants = (data.participants as CombatParticipant[]) ?? state.combatState.participants;
+
+        // Update connectedPlayers from restored participants (sync conditions, HP, exhaustion)
+        const updatedConnectedPlayers = state.connectedPlayers.map(cp => ({
+          ...cp,
+          characters: cp.characters.map(char => {
+            const participant = participants?.find(
+              p => p.id === String(char.odNumber) && p.type === 'player'
+            );
+            if (participant) {
+              return {
+                ...char,
+                conditions: participant.conditions,
+                currentHp: participant.currentHp,
+                exhaustionLevel: participant.exhaustionLevel ?? char.exhaustionLevel,
+              };
+            }
+            return char;
+          })
+        }));
+
         return {
           ...state,
+          connectedPlayers: updatedConnectedPlayers,
           combatState: {
             active: data.combatActive,
             currentTurn: data.currentTurn,
             roundNumber: data.roundNumber ?? state.combatState.roundNumber,
-            participants: (data.participants as CombatParticipant[]) ?? state.combatState.participants,
+            participants,
           },
         };
       }

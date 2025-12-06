@@ -607,6 +607,12 @@ function CombatTrackerContent() {
         connectedCharacterIds.add(id)
         // Get static data from campaign characters (includes stats from Notion)
         const campaignChar = allCampaignCharacters.find(c => c.id === id)
+        // Get local player state for conditions/exhaustion (DM may have updated them)
+        const localPlayer = players.find(p => p.id === id)
+        // Check combat participants for conditions (they persist in Redis across refresh)
+        const combatParticipant = socketState.combatState.participants.find(
+          p => p.id === id && p.type === 'player'
+        )
         connectedCharactersMap.set(id, {
           id,
           name: char.name,
@@ -617,8 +623,13 @@ function CombatTrackerContent() {
           ac: char.ac,
           // Use initiative override if set, otherwise use character's initiative
           initiative: playerInitiatives[id] ?? char.initiative,
-          conditions: char.conditions || [],
-          exhaustionLevel: char.exhaustionLevel || 0,
+          // CRITICAL: Prefer combat participant conditions (source of truth during combat)
+          conditions: (combatParticipant?.conditions?.length ?? 0) > 0
+            ? combatParticipant.conditions
+            : (localPlayer?.conditions?.length ?? 0) > 0
+              ? localPlayer.conditions
+              : char.conditions ?? [],
+          exhaustionLevel: combatParticipant?.exhaustionLevel ?? localPlayer?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
           inventory: char.inventory || DEFAULT_INVENTORY,
           isConnected: true,
           playerSocketId: player.socketId,
@@ -653,13 +664,27 @@ function CombatTrackerContent() {
       }
       // Otherwise, use static data with isConnected: false
       // Apply initiative override if set
-      // CRITICAL: Also check players state for HP and inventory updates (DM may have updated it)
+      // CRITICAL: Also check players state and combat participants for updates (DM may have updated them)
       const localPlayer = players.find(p => p.id === char.id)
+      // Check combat participants for conditions (they persist in Redis across refresh)
+      const combatParticipant = socketState.combatState.participants.find(
+        p => p.id === char.id && p.type === 'player'
+      )
+      // Determine conditions: prefer combat participant (source of truth during combat), then local, then char
+      const conditions = (combatParticipant?.conditions?.length ?? 0) > 0
+        ? combatParticipant.conditions
+        : (localPlayer?.conditions?.length ?? 0) > 0
+          ? localPlayer.conditions
+          : char.conditions ?? []
+      const exhaustionLevel = combatParticipant?.exhaustionLevel ?? localPlayer?.exhaustionLevel ?? char.exhaustionLevel ?? 0
+
       return {
         ...char,
         isConnected: false,
         initiative: playerInitiatives[char.id] ?? char.initiative,
-        currentHp: localPlayer?.currentHp ?? char.currentHp,
+        currentHp: localPlayer?.currentHp ?? combatParticipant?.currentHp ?? char.currentHp,
+        conditions,
+        exhaustionLevel,
         inventory: localPlayer?.inventory || char.inventory,
       }
     })

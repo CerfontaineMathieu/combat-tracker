@@ -465,8 +465,20 @@ app.prepare().then(() => {
           // Clear combat state on stop
           await deleteCombatState(campaignId);
           console.log(`[Socket.io] Combat state cleared for campaign ${campaignId}`);
+        } else if (data.type === 'next-turn' && data.combatActive) {
+          // Update turn/round in existing combat state
+          const existingState = await getCombatState(campaignId);
+          if (existingState) {
+            await setCombatState(campaignId, {
+              ...existingState,
+              currentTurn: data.currentTurn,
+              roundNumber: data.roundNumber || existingState.roundNumber,
+              lastUpdate: Date.now(),
+            });
+            console.log(`[Socket.io] Combat turn updated for campaign ${campaignId}: turn=${data.currentTurn}, round=${data.roundNumber}`);
+          }
         } else if (data.combatActive && data.participants) {
-          // Save combat state
+          // Save full combat state (start, state-sync)
           await setCombatState(campaignId, {
             combatActive: data.combatActive,
             currentTurn: data.currentTurn,
@@ -547,11 +559,28 @@ app.prepare().then(() => {
     });
 
     // Condition changes
-    socket.on('condition-change', (data: ConditionChangeData) => {
+    socket.on('condition-change', async (data: ConditionChangeData) => {
       if (socket.data.campaignId) {
         const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
         io.to(room).emit('condition-change', data);
         console.log(`[Socket.io] Condition change in ${room}:`, data.participantId);
+
+        // Persist to Redis combat state (like HP changes)
+        const combatState = await getCombatState(campaignId);
+        if (combatState && combatState.participants) {
+          const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; conditions?: string[]; conditionDurations?: Record<string, number> }>).map(p =>
+            p.id === data.participantId && p.type === data.participantType
+              ? { ...p, conditions: data.conditions, conditionDurations: data.conditionDurations }
+              : p
+          );
+          await setCombatState(campaignId, {
+            ...combatState,
+            participants: updatedParticipants,
+          });
+          console.log(`[Socket.io] Persisted conditions for ${data.participantId}`);
+        }
       }
     });
 
