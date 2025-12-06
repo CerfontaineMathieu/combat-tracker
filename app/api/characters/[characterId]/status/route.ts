@@ -39,19 +39,24 @@ export async function PUT(
 ) {
   try {
     const { characterId } = await params;
-    const { conditions, exhaustionLevel, campaignId = 1 } = await request.json();
+    const body = await request.json();
+    const campaignId = body.campaignId ?? 1;
+
+    // Only pass values that were explicitly provided (use null for COALESCE to work)
+    const conditionsValue = body.conditions !== undefined ? JSON.stringify(body.conditions) : null;
+    const exhaustionValue = body.exhaustionLevel !== undefined ? body.exhaustionLevel : null;
 
     // Upsert: insert or update if exists
     const result = await pool.query(
       `INSERT INTO character_status (character_id, campaign_id, conditions, exhaustion_level, updated_at)
-       VALUES ($1, $2, $3::jsonb, $4, CURRENT_TIMESTAMP)
+       VALUES ($1, $2, COALESCE($3::jsonb, '[]'::jsonb), COALESCE($4, 0), CURRENT_TIMESTAMP)
        ON CONFLICT (campaign_id, character_id)
        DO UPDATE SET
          conditions = COALESCE($3::jsonb, character_status.conditions),
          exhaustion_level = COALESCE($4, character_status.exhaustion_level),
          updated_at = CURRENT_TIMESTAMP
        RETURNING conditions, exhaustion_level`,
-      [characterId, campaignId, JSON.stringify(conditions ?? []), exhaustionLevel ?? 0]
+      [characterId, campaignId, conditionsValue, exhaustionValue]
     );
 
     return NextResponse.json({
