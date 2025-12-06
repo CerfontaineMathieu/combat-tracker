@@ -482,6 +482,19 @@ app.prepare().then(() => {
           console.log(`[Socket.io] Persisted HP for character ${data.participantId}: ${data.newHp}`);
         }
 
+        // Also update combat state participants HP so it persists across refreshes
+        const combatState = await getCombatState(campaignId);
+        if (combatState && combatState.participants) {
+          const updatedParticipants = combatState.participants.map(p =>
+            p.id === data.participantId ? { ...p, currentHp: data.newHp } : p
+          );
+          await setCombatState(campaignId, {
+            ...combatState,
+            participants: updatedParticipants,
+          });
+          console.log(`[Socket.io] Updated combat state HP for ${data.participantId}: ${data.newHp}`);
+        }
+
         // Broadcast to all clients in room
         io.to(room).emit('hp-change', data);
         console.log(`[Socket.io] HP change in ${room}:`, data);

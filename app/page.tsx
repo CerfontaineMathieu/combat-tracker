@@ -266,6 +266,23 @@ function CombatTrackerContent() {
     }
   }
 
+  // Load HP from database for a character (returns null if not persisted)
+  const loadCharacterHp = async (characterId: string): Promise<number | null> => {
+    try {
+      const response = await fetch(`/api/characters/${characterId}/hp`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.currentHp !== null) {
+          console.log('[HP] Loaded from database:', characterId, data.currentHp)
+          return data.currentHp
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load HP for character:', characterId, error)
+    }
+    return null
+  }
+
   // Load inventory from database for a character
   const loadCharacterInventory = async (characterId: string): Promise<CharacterInventory> => {
     console.log('[Inventory] Loading inventory for character:', characterId)
@@ -362,13 +379,18 @@ function CombatTrackerContent() {
               wisdom: number | null
               charisma: number | null
             }) => {
-              const inventory = await loadCharacterInventory(c.id)
+              // Load persisted data from database in parallel
+              const [inventory, persistedHp] = await Promise.all([
+                loadCharacterInventory(c.id),
+                loadCharacterHp(c.id),
+              ])
               return {
                 id: c.id,
                 name: c.name,
                 class: c.class,
                 level: c.level,
-                currentHp: c.current_hp,
+                // Use persisted HP if available, otherwise use Notion HP
+                currentHp: persistedHp ?? c.current_hp,
                 maxHp: c.max_hp,
                 ac: c.ac,
                 initiative: c.initiative,
@@ -619,23 +641,25 @@ function CombatTrackerContent() {
       // If connected, use real-time data
       if (connectedCharacterIds.has(char.id)) {
         const connectedChar = connectedCharactersMap.get(char.id)!
-        // Merge with local player state to preserve inventory updates
+        // Merge with local player state to preserve HP and inventory updates
         const localPlayer = players.find(p => p.id === char.id)
         return {
           ...connectedChar,
+          // CRITICAL: Use local HP if player is in local state (DM may have updated it)
+          currentHp: localPlayer ? localPlayer.currentHp : connectedChar.currentHp,
           // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
-          // Only fall back to connectedChar inventory if player is not in local state yet
           inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
         }
       }
       // Otherwise, use static data with isConnected: false
       // Apply initiative override if set
-      // CRITICAL: Also check players state for inventory updates (DM may have updated it)
+      // CRITICAL: Also check players state for HP and inventory updates (DM may have updated it)
       const localPlayer = players.find(p => p.id === char.id)
       return {
         ...char,
         isConnected: false,
         initiative: playerInitiatives[char.id] ?? char.initiative,
+        currentHp: localPlayer?.currentHp ?? char.currentHp,
         inventory: localPlayer?.inventory || char.inventory,
       }
     })
@@ -942,9 +966,15 @@ function CombatTrackerContent() {
     }
 
     // Update locally first for immediate feedback
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p)),
-    )
+    setPlayers((prev) => {
+      const exists = prev.some(p => p.id === id)
+      if (exists) {
+        return prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p))
+      } else {
+        // Add player to state with updated HP (player was not in local state yet)
+        return [...prev, { ...player, currentHp: newHp }]
+      }
+    })
 
     // Always emit HP change to sync with other clients (including socket state)
     emitHpChange({
@@ -966,7 +996,16 @@ function CombatTrackerContent() {
       }
     }
 
-    // Note: Character HP is session-only (from Notion), no DB persistence
+    // Persist HP to database for session persistence
+    try {
+      await fetch(`/api/characters/${id}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentHp: newHp }),
+      })
+    } catch (error) {
+      console.error('Failed to persist HP:', error)
+    }
   }
 
   const updateMonsterHp = async (id: string, change: number) => {
