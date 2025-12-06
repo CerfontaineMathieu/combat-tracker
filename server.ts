@@ -3,7 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
-import { getDmPassword, getCharacterInventory, getCharacterHp } from './lib/db';
+import { getDmPassword, getCharacterInventory, getCharacterStatus } from './lib/db';
 import {
   getRedis,
   getDmSession,
@@ -291,19 +291,23 @@ app.prepare().then(() => {
             exhaustionLevel?: number;
           }) => {
             const characterId = String(char.odNumber);
-            const [inventory, persistedHp] = await Promise.all([
+            const [inventory, persistedStatus] = await Promise.all([
               getCharacterInventory(characterId),
-              getCharacterHp(characterId, campaignId),
+              getCharacterStatus(characterId, campaignId),
             ]);
 
-            // Use persisted HP if available, otherwise use client HP (fallback to maxHp)
-            const currentHp = persistedHp !== null ? persistedHp : char.currentHp;
+            // Use persisted values if available, otherwise use client values
+            const currentHp = persistedStatus.currentHp !== null ? persistedStatus.currentHp : char.currentHp;
+            const conditions = persistedStatus.conditions !== null ? persistedStatus.conditions : (char.conditions || []);
+            const exhaustionLevel = persistedStatus.exhaustionLevel !== null ? persistedStatus.exhaustionLevel : (char.exhaustionLevel || 0);
 
-            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): inventory, HP=${currentHp} (persisted=${persistedHp})`);
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, conditions=${JSON.stringify(conditions)}, exhaustion=${exhaustionLevel}`);
             return {
               ...char,
               inventory,
               currentHp,
+              conditions,
+              exhaustionLevel,
             };
           })
         );
@@ -381,8 +385,33 @@ app.prepare().then(() => {
       // If DM joins, send them the connected players list and restore combat state
       if (role === 'dm') {
         const allPlayers = await getConnectedPlayers(campaignId);
-        console.log(`[Socket.io] Sending connected-players to DM: ${allPlayers.length} players`, allPlayers.map(p => p.characters.map(c => c.name).join(', ')));
-        socket.emit('connected-players', { players: allPlayers });
+
+        // Refresh player status from database (in case it changed during combat)
+        const playersWithFreshStatus = await Promise.all(
+          allPlayers.map(async (player) => ({
+            ...player,
+            characters: await Promise.all(
+              player.characters.map(async (char: {
+                odNumber: string | number;
+                name: string;
+                currentHp: number;
+                conditions?: string[];
+                exhaustionLevel?: number;
+              }) => {
+                const status = await getCharacterStatus(String(char.odNumber), campaignId);
+                return {
+                  ...char,
+                  currentHp: status.currentHp ?? char.currentHp,
+                  conditions: status.conditions ?? char.conditions ?? [],
+                  exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+                };
+              })
+            ),
+          }))
+        );
+
+        console.log(`[Socket.io] Sending connected-players to DM: ${playersWithFreshStatus.length} players`, playersWithFreshStatus.map(p => p.characters.map((c: { name: string }) => c.name).join(', ')));
+        socket.emit('connected-players', { players: playersWithFreshStatus });
 
         // Restore combat state from Redis if available
         const combatState = await getCombatState(campaignId);
@@ -445,8 +474,33 @@ app.prepare().then(() => {
       const campaignId = data?.campaignId || socket.data.campaignId;
       if (campaignId) {
         const allPlayers = await getConnectedPlayers(campaignId);
-        console.log(`[Socket.io] request-connected-players from ${socket.id} for campaign ${campaignId}: ${allPlayers.length} players`);
-        socket.emit('connected-players', { players: allPlayers });
+
+        // Refresh player status from database (especially important for DM)
+        const playersWithFreshStatus = await Promise.all(
+          allPlayers.map(async (player) => ({
+            ...player,
+            characters: await Promise.all(
+              player.characters.map(async (char: {
+                odNumber: string | number;
+                name: string;
+                currentHp: number;
+                conditions?: string[];
+                exhaustionLevel?: number;
+              }) => {
+                const status = await getCharacterStatus(String(char.odNumber), campaignId);
+                return {
+                  ...char,
+                  currentHp: status.currentHp ?? char.currentHp,
+                  conditions: status.conditions ?? char.conditions ?? [],
+                  exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+                };
+              })
+            ),
+          }))
+        );
+
+        console.log(`[Socket.io] request-connected-players from ${socket.id} for campaign ${campaignId}: ${playersWithFreshStatus.length} players`);
+        socket.emit('connected-players', { players: playersWithFreshStatus });
       }
     });
 

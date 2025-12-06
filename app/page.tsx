@@ -481,6 +481,31 @@ function CombatTrackerContent() {
     }
   }, [socketState.combatState, combatActive, currentTurn, roundNumber])
 
+  // Sync individual participant updates (HP, conditions, exhaustion) from socket
+  // This ensures changes from other clients are reflected immediately
+  useEffect(() => {
+    const socketParticipants = socketState.combatState.participants
+    if (socketParticipants.length === 0 || !combatActive) return
+
+    setCombatParticipants(prev => {
+      // Check if any participant has different HP/conditions/exhaustion
+      let hasChanges = false
+      const updated = prev.map(p => {
+        const socketP = socketParticipants.find(sp => sp.id === p.id && sp.type === p.type)
+        if (socketP && (
+          socketP.currentHp !== p.currentHp ||
+          socketP.exhaustionLevel !== p.exhaustionLevel ||
+          JSON.stringify(socketP.conditions) !== JSON.stringify(p.conditions)
+        )) {
+          hasChanges = true
+          return { ...p, currentHp: socketP.currentHp, exhaustionLevel: socketP.exhaustionLevel, conditions: socketP.conditions }
+        }
+        return p
+      })
+      return hasChanges ? updated : prev
+    })
+  }, [socketState.combatState.participants, combatActive])
+
   // Sync ambient effect from socket context
   useEffect(() => {
     if (socketState.ambientEffect !== ambientEffect) {
@@ -617,29 +642,27 @@ function CombatTrackerContent() {
         connectedCharacterIds.add(id)
         // Get static data from campaign characters (includes stats from Notion)
         const campaignChar = allCampaignCharacters.find(c => c.id === id)
-        // Get local player state for conditions/exhaustion (DM may have updated them)
-        const localPlayer = players.find(p => p.id === id)
-        // Check combat participants for conditions (they persist in Redis across refresh)
+        // Check combat participants for combat-specific state (they persist in Redis)
         const combatParticipant = socketState.combatState.participants.find(
           p => p.id === id && p.type === 'player'
         )
+        // For connected players, socket state is source of truth for HP, conditions, exhaustion
+        // Combat participant takes priority during combat, otherwise use char (from connectedPlayers)
         connectedCharactersMap.set(id, {
           id,
           name: char.name,
           class: char.class,
           level: char.level,
-          currentHp: char.currentHp,
+          // HP: combat participant during combat, otherwise from connectedPlayers socket state
+          currentHp: combatParticipant?.currentHp ?? char.currentHp,
           maxHp: char.maxHp,
           ac: char.ac,
           // Use initiative override if set, otherwise use character's initiative
           initiative: playerInitiatives[id] ?? char.initiative,
-          // CRITICAL: Prefer combat participant conditions (source of truth during combat)
-          conditions: (combatParticipant?.conditions?.length ?? 0) > 0
-            ? combatParticipant.conditions
-            : (localPlayer?.conditions?.length ?? 0) > 0
-              ? localPlayer.conditions
-              : char.conditions ?? [],
-          exhaustionLevel: combatParticipant?.exhaustionLevel ?? localPlayer?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+          // Conditions: combat participant during combat, otherwise from connectedPlayers socket state
+          conditions: combatParticipant?.conditions ?? char.conditions ?? [],
+          // Exhaustion: combat participant during combat, otherwise from connectedPlayers socket state
+          exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
           inventory: char.inventory || DEFAULT_INVENTORY,
           isConnected: true,
           playerSocketId: player.socketId,
@@ -659,42 +682,36 @@ function CombatTrackerContent() {
 
     // Merge with all campaign characters
     const allPlayers: Character[] = allCampaignCharacters.map(char => {
-      // If connected, use real-time data
+      // If connected, use real-time data from socket (source of truth)
       if (connectedCharacterIds.has(char.id)) {
         const connectedChar = connectedCharactersMap.get(char.id)!
-        // Merge with local player state to preserve HP and inventory updates
+        // Merge with local player state for inventory only (HP comes from socket)
         const localPlayer = players.find(p => p.id === char.id)
         return {
           ...connectedChar,
-          // CRITICAL: Use local HP if player is in local state (DM may have updated it)
-          currentHp: localPlayer ? localPlayer.currentHp : connectedChar.currentHp,
+          // HP from socket is source of truth for connected players (synced via hp-change events)
+          currentHp: connectedChar.currentHp,
           // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
           inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
         }
       }
       // Otherwise, use static data with isConnected: false
-      // Apply initiative override if set
-      // CRITICAL: Also check players state and combat participants for updates (DM may have updated them)
-      const localPlayer = players.find(p => p.id === char.id)
-      // Check combat participants for conditions (they persist in Redis across refresh)
+      // Check combat participants for state (they persist in Redis across refresh)
       const combatParticipant = socketState.combatState.participants.find(
         p => p.id === char.id && p.type === 'player'
       )
-      // Determine conditions: prefer combat participant (source of truth during combat), then local, then char
-      const conditions = (combatParticipant?.conditions?.length ?? 0) > 0
-        ? combatParticipant.conditions
-        : (localPlayer?.conditions?.length ?? 0) > 0
-          ? localPlayer.conditions
-          : char.conditions ?? []
-      const exhaustionLevel = combatParticipant?.exhaustionLevel ?? localPlayer?.exhaustionLevel ?? char.exhaustionLevel ?? 0
+      // For disconnected players, combat participant is source of truth during combat
+      // Fall back to campaign character data (char) from initial load
+      const localPlayer = players.find(p => p.id === char.id)
 
       return {
         ...char,
         isConnected: false,
         initiative: playerInitiatives[char.id] ?? char.initiative,
-        currentHp: localPlayer?.currentHp ?? combatParticipant?.currentHp ?? char.currentHp,
-        conditions,
-        exhaustionLevel,
+        // Combat participant is source of truth during combat
+        currentHp: combatParticipant?.currentHp ?? localPlayer?.currentHp ?? char.currentHp,
+        conditions: combatParticipant?.conditions ?? char.conditions ?? [],
+        exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
         inventory: localPlayer?.inventory || char.inventory,
       }
     })
