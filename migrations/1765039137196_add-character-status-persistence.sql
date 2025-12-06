@@ -1,19 +1,7 @@
 -- Add exhaustion_level and conditions columns to character_hp table
 -- This extends the existing character_hp table with status persistence
+-- Note: Using ADD COLUMN IF NOT EXISTS (PostgreSQL 9.6+) instead of DO $$ blocks
+-- because node-pg-migrate doesn't properly handle PL/pgSQL blocks in SQL files
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'character_hp' AND column_name = 'exhaustion_level'
-    ) THEN
-        ALTER TABLE character_hp ADD COLUMN exhaustion_level INTEGER DEFAULT 0;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'character_hp' AND column_name = 'conditions'
-    ) THEN
-        ALTER TABLE character_hp ADD COLUMN conditions JSONB DEFAULT '[]'::jsonb;
-    END IF;
-END $$;
+ALTER TABLE character_hp ADD COLUMN IF NOT EXISTS exhaustion_level INTEGER DEFAULT 0;
+ALTER TABLE character_hp ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT '[]'::jsonb;
