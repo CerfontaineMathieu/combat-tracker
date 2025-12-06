@@ -100,6 +100,7 @@ export interface CombatParticipant {
   initiative: number
   currentHp: number
   maxHp: number
+  ac?: number // AC for monsters (and optionally players)
   conditions: string[]
   conditionDurations?: Record<string, number> // conditionId -> remaining turns (only during combat)
   exhaustionLevel: number
