@@ -1,7 +1,6 @@
 "use client"
 
-import Link from "next/link"
-import { Users, Swords, Map, Settings2, Database } from "lucide-react"
+import { Users, Swords, Settings2, Database } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type MobileTab = "players" | "combat" | "setup" | "bestiary"
@@ -10,11 +9,10 @@ interface MobileNavProps {
   activeTab?: MobileTab
   onTabChange?: (tab: MobileTab) => void
   mode: "mj" | "joueur"
-  currentPage?: "home" | "map"
   combatActive?: boolean
 }
 
-export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", combatActive = false }: MobileNavProps) {
+export function MobileNav({ activeTab, onTabChange, mode, combatActive = false }: MobileNavProps) {
   // DM tabs depend on combat state
   const dmTabs = combatActive
     ? [
@@ -44,24 +42,7 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
       <div className="flex items-center justify-around h-16 px-4" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
         {tabs.map((tab) => {
           const Icon = tab.icon
-          const isActive = currentPage === "home" && activeTab === tab.id
-
-          // On map page, tabs link back to home
-          if (currentPage === "map") {
-            return (
-              <Link
-                key={tab.id}
-                href="/"
-                className={cn(
-                  "flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-lg transition-smooth touch-target",
-                  "text-muted-foreground hover:text-foreground active:scale-95"
-                )}
-              >
-                <Icon className="w-5 h-5 mb-0.5" />
-                <span className="text-xs font-medium">{tab.label}</span>
-              </Link>
-            )
-          }
+          const isActive = activeTab === tab.id
 
           return (
             <button
@@ -82,21 +63,6 @@ export function MobileNav({ activeTab, onTabChange, mode, currentPage = "home", 
             </button>
           )
         })}
-
-        {/* Map link - for all users */}
-        <Link
-          href="/map"
-          className={cn(
-            "flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-lg transition-smooth touch-target",
-            currentPage === "map"
-              ? "text-gold bg-gold/10"
-              : "text-muted-foreground hover:text-emerald active:scale-95"
-          )}
-          aria-label="Carte"
-        >
-          <Map className={cn("w-5 h-5 mb-0.5", currentPage === "map" && "animate-scale-in")} />
-          <span className="text-xs font-medium">Carte</span>
-        </Link>
       </div>
     </nav>
   )

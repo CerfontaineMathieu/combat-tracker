@@ -11,6 +11,7 @@ import type {
   ExhaustionChangeData,
   DeathSaveChangeData,
   InventoryUpdateData,
+  BuffChangeData,
 } from '../socket-events';
 import type { Character, Monster, CombatParticipant, CharacterInventory } from '../types';
 
@@ -26,6 +27,7 @@ export type {
   ExhaustionChangeData,
   DeathSaveChangeData,
   InventoryUpdateData,
+  BuffChangeData,
 };
 
 // Typed socket
@@ -115,6 +117,7 @@ export type SocketAction =
   | { type: 'HP_CHANGE'; participantId: string; participantType: 'player' | 'monster'; newHp: number }
   | { type: 'CONDITION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; conditions: string[]; conditionDurations?: Record<string, number> }
   | { type: 'EXHAUSTION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; exhaustionLevel: number }
+  | { type: 'BUFF_CHANGE'; participantId: string; participantType: 'player' | 'monster'; buffs: import('../types').ActiveBuff[] }
   | { type: 'DEATH_SAVE_CHANGE'; participantId: string; participantType: 'player' | 'monster'; deathSaves: { successes: number; failures: number }; isStabilized: boolean; isDead: boolean }
 
   // Inventory
@@ -193,6 +196,7 @@ export interface JoinCampaignParams {
     initiative: number;
     conditions: string[];
     exhaustionLevel?: number;
+    buffs?: import('../types').ActiveBuff[];
   }>;
 }
 
@@ -210,6 +214,7 @@ export interface SocketContextType {
   emitHpChange: (data: HpChangeData) => void;
   emitConditionChange: (data: ConditionChangeData) => void;
   emitExhaustionChange: (data: ExhaustionChangeData) => void;
+  emitBuffChange: (data: BuffChangeData) => void;
   emitDeathSaveChange: (data: DeathSaveChangeData) => void;
 
   // Inventory actions

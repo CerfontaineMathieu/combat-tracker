@@ -455,6 +455,53 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
     }
 
+    case 'BUFF_CHANGE': {
+      const { participantId, participantType, buffs } = action;
+
+      // Update in players/monsters arrays
+      let players = state.players;
+      let monsters = state.monsters;
+      let connectedPlayers = state.connectedPlayers;
+
+      if (participantType === 'player') {
+        players = state.players.map((p) =>
+          p.id === participantId ? { ...p, buffs } : p
+        );
+
+        // Also update in connectedPlayers (for player view and MJ "Groupe" panel)
+        connectedPlayers = state.connectedPlayers.map((cp) => ({
+          ...cp,
+          characters: cp.characters.map((char) =>
+            String(char.odNumber) === participantId
+              ? { ...char, buffs }
+              : char
+          ),
+        }));
+      } else {
+        monsters = state.monsters.map((m) =>
+          m.id === participantId ? { ...m, buffs } : m
+        );
+      }
+
+      // Update in combat participants
+      const participants = state.combatState.participants.map((p) =>
+        p.id === participantId && p.type === participantType
+          ? { ...p, buffs }
+          : p
+      );
+
+      return {
+        ...state,
+        players,
+        monsters,
+        connectedPlayers,
+        combatState: {
+          ...state.combatState,
+          participants,
+        },
+      };
+    }
+
     case 'DEATH_SAVE_CHANGE': {
       const { participantId, participantType, deathSaves, isStabilized, isDead } = action;
 

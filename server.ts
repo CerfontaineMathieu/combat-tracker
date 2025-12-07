@@ -136,6 +136,12 @@ interface ExhaustionChangeData {
   exhaustionLevel: number;
 }
 
+interface BuffChangeData {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  buffs: import('@/lib/types').ActiveBuff[];
+}
+
 interface DeathSaveChangeData {
   participantId: string;
   participantType: 'player' | 'monster';
@@ -152,7 +158,7 @@ interface InventoryUpdateData {
 }
 
 interface AmbientEffectData {
-  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
+  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success' | 'concentration-broken';
 }
 
 interface PlayerPositionData {
@@ -300,14 +306,16 @@ app.prepare().then(() => {
             const currentHp = persistedStatus.currentHp !== null ? persistedStatus.currentHp : char.currentHp;
             const conditions = persistedStatus.conditions !== null ? persistedStatus.conditions : (char.conditions || []);
             const exhaustionLevel = persistedStatus.exhaustionLevel !== null ? persistedStatus.exhaustionLevel : (char.exhaustionLevel || 0);
+            const buffs = persistedStatus.buffs !== null ? persistedStatus.buffs : [];
 
-            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, conditions=${JSON.stringify(conditions)}, exhaustion=${exhaustionLevel}`);
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, conditions=${JSON.stringify(conditions)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}`);
             return {
               ...char,
               inventory,
               currentHp,
               conditions,
               exhaustionLevel,
+              buffs,
             };
           })
         );
@@ -397,6 +405,7 @@ app.prepare().then(() => {
                 currentHp: number;
                 conditions?: string[];
                 exhaustionLevel?: number;
+                buffs?: unknown[];
               }) => {
                 const status = await getCharacterStatus(String(char.odNumber), campaignId);
                 return {
@@ -404,6 +413,7 @@ app.prepare().then(() => {
                   currentHp: status.currentHp ?? char.currentHp,
                   conditions: status.conditions ?? char.conditions ?? [],
                   exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+                  buffs: status.buffs ?? char.buffs ?? [],
                 };
               })
             ),
@@ -486,6 +496,7 @@ app.prepare().then(() => {
                 currentHp: number;
                 conditions?: string[];
                 exhaustionLevel?: number;
+                buffs?: unknown[];
               }) => {
                 const status = await getCharacterStatus(String(char.odNumber), campaignId);
                 return {
@@ -493,6 +504,7 @@ app.prepare().then(() => {
                   currentHp: status.currentHp ?? char.currentHp,
                   conditions: status.conditions ?? char.conditions ?? [],
                   exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+                  buffs: status.buffs ?? char.buffs ?? [],
                 };
               })
             ),
@@ -660,6 +672,32 @@ app.prepare().then(() => {
             participants: updatedParticipants,
           });
           console.log(`[Socket.io] Persisted exhaustion for ${data.participantId}: ${data.exhaustionLevel}`);
+        }
+      }
+    });
+
+    // Buff changes
+    socket.on('buff-change', async (data: BuffChangeData) => {
+      if (socket.data.campaignId) {
+        const room = `campaign-${socket.data.campaignId}`;
+        const campaignId = socket.data.campaignId;
+
+        io.to(room).emit('buff-change', data);
+        console.log(`[Socket.io] Buff change in ${room}:`, data.participantId);
+
+        // Persist to Redis combat state (like condition changes)
+        const combatState = await getCombatState(campaignId);
+        if (combatState && combatState.participants) {
+          const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; buffs?: import('@/lib/types').ActiveBuff[] }>).map(p =>
+            p.id === data.participantId && p.type === data.participantType
+              ? { ...p, buffs: data.buffs }
+              : p
+          );
+          await setCombatState(campaignId, {
+            ...combatState,
+            participants: updatedParticipants,
+          });
+          console.log(`[Socket.io] Persisted buffs for ${data.participantId}`);
         }
       }
     });

@@ -13,6 +13,7 @@ import type {
   HpChangeData,
   ConditionChangeData,
   ExhaustionChangeData,
+  BuffChangeData,
   DeathSaveChangeData,
   AmbientEffectData,
   PlayerPositionData,
@@ -185,6 +186,15 @@ export function SocketProvider({ children }: SocketProviderProps) {
       });
     });
 
+    socket.on('buff-change', (data) => {
+      dispatch({
+        type: 'BUFF_CHANGE',
+        participantId: data.participantId,
+        participantType: data.participantType,
+        buffs: data.buffs,
+      });
+    });
+
     socket.on('death-save-change', (data) => {
       dispatch({
         type: 'DEATH_SAVE_CHANGE',
@@ -270,6 +280,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('hp-change');
       socket.off('condition-change');
       socket.off('exhaustion-change');
+      socket.off('buff-change');
       socket.off('death-save-change');
       socket.off('request-state-sync');
       socket.off('ambient-effect');
@@ -419,6 +430,13 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('exhaustion-change', data);
   }, []);
 
+  const emitBuffChange = useCallback((data: BuffChangeData) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    socket.emit('buff-change', data);
+  }, []);
+
   const emitDeathSaveChange = useCallback((data: DeathSaveChangeData) => {
     const socket = socketRef.current;
     if (!socket?.connected) return;
@@ -488,6 +506,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
     emitAmbientEffect,
@@ -504,6 +523,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
     emitAmbientEffect,

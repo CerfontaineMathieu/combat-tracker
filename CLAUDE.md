@@ -90,22 +90,18 @@ CREATE INDEX IF NOT EXISTS idx_player_notes_character ON player_notes(character_
 ### Rules for migrations
 
 1. **Always use `IF NOT EXISTS`** for CREATE TABLE/INDEX statements
-2. **Use DO $$ blocks** for ALTER TABLE to check if column exists first
-3. **Never modify existing migrations** - create a new one instead
-4. **Commit migration files** with your feature code
+2. **Use `ADD COLUMN IF NOT EXISTS`** for ALTER TABLE (PostgreSQL 9.6+)
+3. **NEVER use `DO $$` PL/pgSQL blocks** - node-pg-migrate doesn't handle them properly
+4. **Never modify existing migrations** - create a new one instead
+5. **Commit migration files** with your feature code
 
 ### Example: Adding a column safely
 
 ```sql
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'characters' AND column_name = 'new_column'
-    ) THEN
-        ALTER TABLE characters ADD COLUMN new_column VARCHAR(100);
-    END IF;
-END $$;
+-- Use ADD COLUMN IF NOT EXISTS (PostgreSQL 9.6+)
+-- This is simpler and works correctly with node-pg-migrate
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS new_column VARCHAR(100);
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS another_column JSONB DEFAULT '[]'::jsonb;
 ```
 
 ### Migration files location

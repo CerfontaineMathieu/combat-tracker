@@ -18,11 +18,13 @@ import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
-import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory } from "@/lib/types"
+import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import { XpSummaryModal } from "@/components/xp-summary-modal"
+import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
+import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
 import {
   Dialog,
   DialogContent,
@@ -71,6 +73,7 @@ function CombatTrackerContent() {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
     emitAmbientEffect,
@@ -136,6 +139,22 @@ function CombatTrackerContent() {
     killedMonsters: [],
     playerCount: 0,
   })
+
+  // State for orphan pet dialog (when removing an owner with pets)
+  const [orphanPetDialog, setOrphanPetDialog] = useState<{
+    owner: CombatParticipant
+    pets: CombatParticipant[]
+  } | null>(null)
+
+  // State for concentration check dialog (when concentrated participant takes damage)
+  const [concentrationCheck, setConcentrationCheck] = useState<{
+    participantId: string
+    participantName: string
+    participantType: 'player' | 'monster'
+    damage: number
+    dc: number
+    pendingChange: number // The HP change to apply after check
+  } | null>(null)
 
   // Persist combat state to sessionStorage
   useEffect(() => {
@@ -266,11 +285,12 @@ function CombatTrackerContent() {
     }
   }
 
-  // Load status (HP, exhaustion, conditions) from database for a character
+  // Load status (HP, exhaustion, conditions, buffs) from database for a character
   interface CharacterStatus {
     currentHp: number | null
     exhaustionLevel: number | null
     conditions: string[] | null
+    buffs: ActiveBuff[] | null
   }
   const loadCharacterStatus = async (characterId: string): Promise<CharacterStatus> => {
     try {
@@ -281,13 +301,14 @@ function CombatTrackerContent() {
         return {
           currentHp: data.currentHp ?? null,
           exhaustionLevel: data.exhaustionLevel ?? null,
-          conditions: data.conditions ?? null
+          conditions: data.conditions ?? null,
+          buffs: data.buffs ?? null
         }
       }
     } catch (error) {
       console.error('Failed to load status for character:', characterId, error)
     }
-    return { currentHp: null, exhaustionLevel: null, conditions: null }
+    return { currentHp: null, exhaustionLevel: null, conditions: null, buffs: null }
   }
 
   // Load inventory from database for a character
@@ -335,6 +356,7 @@ function CombatTrackerContent() {
             initiative: char.initiative,
             conditions: persistedStatus.conditions ?? char.conditions ?? [],
             exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
+            buffs: persistedStatus.buffs ?? [],
             inventory,
           }
         })
@@ -406,6 +428,7 @@ function CombatTrackerContent() {
                 initiative: c.initiative,
                 conditions: persistedStatus.conditions ?? c.conditions ?? [],
                 exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
+                buffs: persistedStatus.buffs ?? [],
                 isConnected: false,
                 inventory,
                 passivePerception: c.passive_perception,
@@ -663,6 +686,8 @@ function CombatTrackerContent() {
           conditions: combatParticipant?.conditions ?? char.conditions ?? [],
           // Exhaustion: combat participant during combat, otherwise from connectedPlayers socket state
           exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+          // Buffs: combat participant during combat, otherwise from socket connected player data
+          buffs: combatParticipant?.buffs ?? char.buffs ?? [],
           inventory: char.inventory || DEFAULT_INVENTORY,
           isConnected: true,
           playerSocketId: player.socketId,
@@ -693,6 +718,9 @@ function CombatTrackerContent() {
           currentHp: connectedChar.currentHp,
           // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
           inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
+          // Socket state (connectedChar) is source of truth for buffs - it's updated via buff-change events
+          // localPlayer.buffs is only updated on DM side, not player side
+          buffs: connectedChar.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
         }
       }
       // Otherwise, use static data with isConnected: false
@@ -712,6 +740,7 @@ function CombatTrackerContent() {
         currentHp: combatParticipant?.currentHp ?? localPlayer?.currentHp ?? char.currentHp,
         conditions: combatParticipant?.conditions ?? char.conditions ?? [],
         exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+        buffs: combatParticipant?.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
         inventory: localPlayer?.inventory || char.inventory,
       }
     })
@@ -775,6 +804,7 @@ function CombatTrackerContent() {
           ...p,
           type: "player" as const,
           exhaustionLevel: p.exhaustionLevel || 0,
+          buffs: p.buffs || [],
         })),
         ...monsters.map((m) => ({
           id: m.id,
@@ -785,6 +815,7 @@ function CombatTrackerContent() {
           ac: m.ac,
           conditions: m.conditions || [],
           exhaustionLevel: m.exhaustionLevel || 0,
+          buffs: m.buffs || [],
           type: "monster" as const,
         })),
       ].sort((a, b) => b.initiative - a.initiative)
@@ -812,9 +843,9 @@ function CombatTrackerContent() {
 
   // Show XP summary modal before ending combat
   const stopCombat = () => {
-    // Calculate XP from all monsters that are dead (HP = 0)
+    // Calculate XP from all monsters that are dead (HP = 0), excluding pets
     const deadMonsters = combatParticipants
-      .filter(p => p.type === "monster" && p.currentHp <= 0)
+      .filter(p => p.type === "monster" && p.currentHp <= 0 && !p.isPet)
       .map(p => ({ name: p.name, xp: p.xp || 0 }))
 
     const playerCount = combatParticipants.filter(p => p.type === "player").length
@@ -971,6 +1002,60 @@ function CombatTrackerContent() {
       }
     }
 
+    // Process buff/debuff durations for the NEXT participant (at the START of their turn)
+    if (nextParticipant?.buffs && nextParticipant.buffs.length > 0) {
+      const expiredBuffs: string[] = []
+      const updatedBuffs: ActiveBuff[] = []
+
+      for (const buff of nextParticipant.buffs) {
+        if (buff.remainingTurns === null) {
+          // Permanent/concentration-based buff - keep as is
+          updatedBuffs.push(buff)
+        } else if (buff.remainingTurns > 1) {
+          // Decrement duration
+          updatedBuffs.push({ ...buff, remainingTurns: buff.remainingTurns - 1 })
+        } else {
+          // Duration expired (remainingTurns <= 1)
+          expiredBuffs.push(buff.buffId)
+        }
+      }
+
+      // Only update if there were changes
+      if (expiredBuffs.length > 0 || updatedBuffs.some((b, i) => b.remainingTurns !== nextParticipant.buffs![i].remainingTurns)) {
+        setCombatParticipants(prev =>
+          prev.map(p => p.id === nextParticipant.id ? { ...p, buffs: updatedBuffs } : p)
+        )
+
+        // Update local players/monsters state too
+        if (nextParticipant.type === 'player') {
+          setPlayers(prev => prev.map(p => p.id === nextParticipant.id ? { ...p, buffs: updatedBuffs } : p))
+        } else {
+          setMonsters(prev => prev.map(m => m.id === nextParticipant.id ? { ...m, buffs: updatedBuffs } : m))
+        }
+
+        // Emit buff change
+        emitBuffChange({
+          participantId: nextParticipant.id,
+          participantType: nextParticipant.type,
+          buffs: updatedBuffs,
+        })
+
+        // Persist to database for players
+        if (nextParticipant.type === 'player') {
+          fetch(`/api/characters/${nextParticipant.id}/hp`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ buffs: updatedBuffs }),
+          }).catch(err => console.error('Failed to persist buff duration update:', err))
+        }
+
+        // Notify about expired buffs
+        if (expiredBuffs.length > 0) {
+          toast(`${nextParticipant.name}: effet expiré`, { duration: 2000 })
+        }
+      }
+    }
+
     setCurrentTurn(nextIndex)
     if (passedZero) {
       setRoundNumber(newRound)
@@ -998,10 +1083,28 @@ function CombatTrackerContent() {
     }
   }
 
-  const updatePlayerHp = async (id: string, change: number) => {
+  const updatePlayerHp = async (id: string, change: number, skipConcentrationCheck = false) => {
     // Look in displayPlayers which has the merged data from socket and campaign
     const player = displayPlayers.find(p => p.id === id)
     if (!player) return
+
+    // Check for concentration when taking damage (DM only, during combat)
+    if (mode === 'mj' && combatActive && change < 0 && !skipConcentrationCheck) {
+      const isConcentrated = player.conditions?.includes("concentre")
+      if (isConcentrated) {
+        const damage = Math.abs(change)
+        const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)))
+        setConcentrationCheck({
+          participantId: id,
+          participantName: player.name,
+          participantType: 'player',
+          damage,
+          dc,
+          pendingChange: change,
+        })
+        return // Wait for concentration check result
+      }
+    }
 
     const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + change))
     const wasAtZeroHp = player.currentHp === 0
@@ -1061,7 +1164,7 @@ function CombatTrackerContent() {
     }
   }
 
-  const updateMonsterHp = async (id: string, change: number) => {
+  const updateMonsterHp = async (id: string, change: number, skipConcentrationCheck = false) => {
     // Try to find in monsters array first, then fall back to combat participants
     const monster = monsters.find(m => m.id === id)
     const participant = combatParticipants.find(p => p.id === id && p.type === 'monster')
@@ -1072,6 +1175,26 @@ function CombatTrackerContent() {
     const currentHp = monster?.hp ?? participant?.currentHp ?? 0
     const maxHp = monster?.maxHp ?? participant?.maxHp ?? currentHp
     const name = monster?.name ?? participant?.name ?? 'Monster'
+    const conditions = monster?.conditions ?? participant?.conditions ?? []
+
+    // Check for concentration when taking damage (DM only, during combat)
+    if (mode === 'mj' && combatActive && change < 0 && !skipConcentrationCheck) {
+      const isConcentrated = conditions.includes("concentre")
+      if (isConcentrated) {
+        const damage = Math.abs(change)
+        const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)))
+        setConcentrationCheck({
+          participantId: id,
+          participantName: name,
+          participantType: 'monster',
+          damage,
+          dc,
+          pendingChange: change,
+        })
+        return // Wait for concentration check result
+      }
+    }
+
     const newHp = Math.max(0, Math.min(maxHp, currentHp + change))
 
     // Add history entry for damage/heal
@@ -1287,6 +1410,71 @@ function CombatTrackerContent() {
     }
   }
 
+  // Handle concentration check result (passed or failed)
+  const handleConcentrationResult = async (passed: boolean) => {
+    if (!concentrationCheck) return
+
+    const { participantId, participantName, participantType, pendingChange, dc } = concentrationCheck
+
+    // Apply the pending damage with skipConcentrationCheck flag
+    if (participantType === 'player') {
+      await updatePlayerHp(participantId, pendingChange, true)
+    } else {
+      await updateMonsterHp(participantId, pendingChange, true)
+    }
+
+    // If concentration check failed, remove the "concentre" condition
+    if (!passed) {
+      if (participantType === 'player') {
+        const player = displayPlayers.find(p => p.id === participantId)
+        if (player) {
+          const newConditions = (player.conditions || []).filter(c => c !== 'concentre')
+          await updatePlayerConditions(participantId, newConditions)
+        }
+      } else {
+        const monster = monsters.find(m => m.id === participantId)
+        const participant = combatParticipants.find(p => p.id === participantId)
+        const currentConditions = monster?.conditions ?? participant?.conditions ?? []
+        const newConditions = currentConditions.filter(c => c !== 'concentre')
+        await updateMonsterConditions(participantId, newConditions)
+      }
+
+      // Add history entry for broken concentration
+      addHistoryEntry({
+        type: "condition_remove",
+        target: participantName,
+        condition: "Concentration brisée (DD " + dc + ")",
+      })
+
+      // Broadcast the concentration broken effect to all players
+      emitAmbientEffect({ effect: 'concentration-broken' })
+
+      toast.error(`${participantName} perd sa concentration !`)
+    } else {
+      toast.success(`${participantName} maintient sa concentration !`)
+    }
+
+    // Clear the concentration check state
+    setConcentrationCheck(null)
+  }
+
+  // Handle concentration check cancel (apply damage but skip the check)
+  const handleConcentrationCancel = async () => {
+    if (!concentrationCheck) return
+
+    const { participantId, participantType, pendingChange } = concentrationCheck
+
+    // Apply the pending damage with skipConcentrationCheck flag
+    if (participantType === 'player') {
+      await updatePlayerHp(participantId, pendingChange, true)
+    } else {
+      await updateMonsterHp(participantId, pendingChange, true)
+    }
+
+    // Clear the concentration check state
+    setConcentrationCheck(null)
+  }
+
   const updateMonsterExhaustion = async (id: string, exhaustionLevel: number) => {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, exhaustionLevel } : m)))
     if (combatActive) {
@@ -1313,6 +1501,52 @@ function CombatTrackerContent() {
       console.error('Failed to update monster exhaustion:', error)
       toast.error("Erreur de sauvegarde")
     }
+  }
+
+  const updatePlayerBuffs = async (id: string, buffs: ActiveBuff[]) => {
+    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, buffs } : p)))
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, buffs } : p))
+      )
+
+      // Emit buff change to sync with other clients
+      emitBuffChange({
+        participantId: id,
+        participantType: 'player',
+        buffs,
+      })
+    }
+
+    // Persist buffs to database
+    try {
+      await fetch(`/api/characters/${id}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buffs }),
+      })
+      console.log('[Buffs] Persisted to database:', id, buffs)
+    } catch (error) {
+      console.error('Failed to persist buffs:', error)
+    }
+  }
+
+  const updateMonsterBuffs = async (id: string, buffs: ActiveBuff[]) => {
+    setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, buffs } : m)))
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, buffs } : p))
+      )
+
+      // Emit buff change to sync with other clients
+      emitBuffChange({
+        participantId: id,
+        participantType: 'monster',
+        buffs,
+      })
+    }
+
+    // Note: Monster buffs are not persisted to database (session-only)
   }
 
   // Update death saves for a participant (players only in practice)
@@ -1400,8 +1634,29 @@ function CombatTrackerContent() {
   }
 
   // Helper function to sort participants by initiative (descending - highest first)
+  // Pets are placed immediately after their owner in the initiative order
   const sortParticipantsByInitiative = (participants: CombatParticipant[]) => {
-    return [...participants].sort((a, b) => b.initiative - a.initiative)
+    // Separate pets from owners
+    const owners = participants.filter(p => !p.isPet)
+    const pets = participants.filter(p => p.isPet)
+
+    // Sort owners by initiative (descending)
+    const sortedOwners = [...owners].sort((a, b) => b.initiative - a.initiative)
+
+    // Build final list, inserting pets after their respective owners
+    const result: CombatParticipant[] = []
+    for (const owner of sortedOwners) {
+      result.push(owner)
+      // Add all pets belonging to this owner
+      const ownerPets = pets.filter(p => p.ownerId === owner.id)
+      result.push(...ownerPets)
+    }
+
+    // Add orphaned pets (owner was removed) at the end
+    const orphanedPets = pets.filter(p => !sortedOwners.some(o => o.id === p.ownerId))
+    result.push(...orphanedPets)
+
+    return result
   }
 
   // Combat setup functions
@@ -1415,6 +1670,7 @@ function CombatTrackerContent() {
       maxHp: player.maxHp,
       conditions: player.conditions || [],  // Keep current conditions
       exhaustionLevel: player.exhaustionLevel || 0,  // Keep current exhaustion
+      buffs: player.buffs || [],  // Keep current buffs
       type: "player",
       level: player.level,  // For difficulty calculation (2024 rules)
       isConnected: player.isConnected,
@@ -1446,6 +1702,7 @@ function CombatTrackerContent() {
       ac: monster.ac,
       conditions: monster.conditions || [],
       exhaustionLevel: monster.exhaustionLevel || 0,
+      buffs: monster.buffs || [],
       type: "monster",
     }
     const updated = sortParticipantsByInitiative([...combatParticipants, participant])
@@ -1464,24 +1721,96 @@ function CombatTrackerContent() {
     }
   }
 
+  // Add a pet to an owner (player or monster)
+  const addPetToOwner = (ownerId: string, pet: Omit<CombatParticipant, 'id'>) => {
+    const owner = combatParticipants.find(p => p.id === ownerId)
+    if (!owner) {
+      toast.error("Propriétaire introuvable")
+      return
+    }
+
+    const newPet: CombatParticipant = {
+      ...pet,
+      id: `pet-${Date.now()}`,
+      initiative: owner.initiative, // Same initiative as owner
+      isPet: true,
+      ownerId: owner.id,
+      ownerType: owner.type,
+    }
+
+    const updated = sortParticipantsByInitiative([...combatParticipants, newPet])
+    setCombatParticipants(updated)
+    toast(`${newPet.name} ajouté comme familier de ${owner.name}`)
+
+    // Sync with players via WebSocket
+    if (combatActive) {
+      emitCombatUpdate({
+        type: 'state-sync',
+        combatActive: true,
+        currentTurn,
+        roundNumber,
+        participants: updated,
+      })
+    }
+  }
+
   const removeFromCombat = (id: string) => {
+    const participant = combatParticipants.find(p => p.id === id)
+    if (!participant) return
+
+    // Check if this participant has any pets
+    const pets = combatParticipants.filter(p => p.ownerId === id)
+
+    if (pets.length > 0) {
+      // Show orphan pet dialog
+      setOrphanPetDialog({ owner: participant, pets })
+      return
+    }
+
+    // No pets, proceed with removal
+    executeRemoveFromCombat(id)
+  }
+
+  // Execute the actual removal (called directly or after orphan pet dialog)
+  const executeRemoveFromCombat = (id: string, additionalIdsToRemove: string[] = []) => {
     const participantIndex = combatParticipants.findIndex(p => p.id === id)
     const participant = combatParticipants[participantIndex]
-    const updatedParticipants = combatParticipants.filter(p => p.id !== id)
-    setCombatParticipants(updatedParticipants)
+
+    // Remove the participant and any additional IDs (pets to remove)
+    const idsToRemove = new Set([id, ...additionalIdsToRemove])
+    const updatedParticipants = combatParticipants.filter(p => !idsToRemove.has(p.id))
+
+    // For kept pets, remove their owner reference (make them orphans)
+    const finalParticipants = updatedParticipants.map(p => {
+      if (p.ownerId === id) {
+        // This pet's owner is being removed but the pet is kept
+        return { ...p, ownerId: undefined, ownerType: undefined }
+      }
+      return p
+    })
+
+    setCombatParticipants(finalParticipants)
 
     if (participant) {
-      toast(`${participant.name} retiré du combat`)
+      const removedCount = idsToRemove.size
+      if (removedCount > 1) {
+        toast(`${participant.name} et ${removedCount - 1} familier${removedCount > 2 ? 's' : ''} retirés du combat`)
+      } else {
+        toast(`${participant.name} retiré du combat`)
+      }
 
       // Adjust currentTurn if needed
       let newCurrentTurn = currentTurn
-      if (combatActive && updatedParticipants.length > 0) {
-        if (participantIndex < currentTurn) {
-          // Removed participant was before current turn, shift back
-          newCurrentTurn = currentTurn - 1
-        } else if (currentTurn >= updatedParticipants.length) {
-          // Current turn is now out of bounds
-          newCurrentTurn = Math.max(0, updatedParticipants.length - 1)
+      if (combatActive && finalParticipants.length > 0) {
+        // Count how many removed participants were before current turn
+        const removedBeforeCurrentTurn = combatParticipants
+          .slice(0, currentTurn)
+          .filter(p => idsToRemove.has(p.id)).length
+
+        newCurrentTurn = currentTurn - removedBeforeCurrentTurn
+
+        if (newCurrentTurn >= finalParticipants.length) {
+          newCurrentTurn = Math.max(0, finalParticipants.length - 1)
         }
         if (newCurrentTurn !== currentTurn) {
           setCurrentTurn(newCurrentTurn)
@@ -1495,10 +1824,18 @@ function CombatTrackerContent() {
           combatActive: true,
           currentTurn: newCurrentTurn,
           roundNumber,
-          participants: updatedParticipants,
+          participants: finalParticipants,
         })
       }
     }
+  }
+
+  // Handle orphan pet dialog confirmation
+  const handleOrphanPetConfirm = (petsToKeep: string[], petsToRemove: string[]) => {
+    if (!orphanPetDialog) return
+
+    executeRemoveFromCombat(orphanPetDialog.owner.id, petsToRemove)
+    setOrphanPetDialog(null)
   }
 
   // Add monsters from database with quantity
@@ -1512,6 +1849,7 @@ function CombatTrackerContent() {
       ac: dbMonster.armor_class || undefined,
       conditions: [],
       exhaustionLevel: 0,
+      buffs: [],
       type: "monster",
       xp: dbMonster.challenge_rating_xp || undefined,
     }))
@@ -1546,6 +1884,7 @@ function CombatTrackerContent() {
       ac: monster.ac,
       conditions: monster.conditions || [],
       exhaustionLevel: monster.exhaustionLevel || 0,
+      buffs: monster.buffs || [],
       type: "monster",
     }))
 
@@ -1782,6 +2121,27 @@ function CombatTrackerContent() {
         playerCount={xpSummaryData.playerCount}
       />
 
+      {/* Orphan Pet Dialog */}
+      {orphanPetDialog && (
+        <OrphanPetDialog
+          owner={orphanPetDialog.owner}
+          pets={orphanPetDialog.pets}
+          open={true}
+          onConfirm={handleOrphanPetConfirm}
+          onCancel={() => setOrphanPetDialog(null)}
+        />
+      )}
+
+      {/* Concentration Check Dialog */}
+      <ConcentrationCheckDialog
+        open={!!concentrationCheck}
+        participantName={concentrationCheck?.participantName || ""}
+        damage={concentrationCheck?.damage || 0}
+        dc={concentrationCheck?.dc || 10}
+        onResult={handleConcentrationResult}
+        onCancel={handleConcentrationCancel}
+      />
+
       <Header
         mode={mode}
         campaignName={campaignName}
@@ -1864,9 +2224,14 @@ function CombatTrackerContent() {
                     if (type === "player") updatePlayerExhaustion(id, level)
                     else updateMonsterExhaustion(id, level)
                   } : undefined}
+                  onUpdateBuffs={mode === "mj" ? (id, buffs, type) => {
+                    if (type === "player") updatePlayerBuffs(id, buffs)
+                    else updateMonsterBuffs(id, buffs)
+                  } : undefined}
                   onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                   onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                   onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
+                  onAddPet={mode === "mj" ? addPetToOwner : undefined}
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                 />
@@ -1967,9 +2332,14 @@ function CombatTrackerContent() {
                       if (type === "player") updatePlayerExhaustion(id, level)
                       else updateMonsterExhaustion(id, level)
                     } : undefined}
+                    onUpdateBuffs={mode === "mj" ? (id, buffs, type) => {
+                      if (type === "player") updatePlayerBuffs(id, buffs)
+                      else updateMonsterBuffs(id, buffs)
+                    } : undefined}
                     onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                     onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                     onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
+                    onAddPet={mode === "mj" ? addPetToOwner : undefined}
                     mode={mode}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   />

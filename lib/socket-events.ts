@@ -1,6 +1,6 @@
 // Socket.io event type definitions
 
-import type { CharacterInventory } from './types';
+import type { CharacterInventory, ActiveBuff } from './types';
 
 export interface JoinCampaignData {
   campaignId: number;
@@ -16,6 +16,7 @@ export interface JoinCampaignData {
     initiative: number;
     conditions: string[];
     exhaustionLevel?: number;
+    buffs?: ActiveBuff[]; // Character buffs/debuffs
     inventory?: CharacterInventory; // Character inventory for sync
   }>; // Characters array when joining as player
 }
@@ -35,6 +36,7 @@ export interface ConnectedPlayer {
     initiative: number;
     conditions: string[];
     exhaustionLevel?: number;
+    buffs?: ActiveBuff[]; // Character buffs/debuffs
     inventory?: CharacterInventory; // Character inventory for sync
   }>;
 }
@@ -148,6 +150,12 @@ export interface ExhaustionChangeData {
   exhaustionLevel: number;
 }
 
+export interface BuffChangeData {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  buffs: import('./types').ActiveBuff[];
+}
+
 export interface DeathSaveChangeData {
   participantId: string;
   participantType: 'player' | 'monster';
@@ -157,7 +165,7 @@ export interface DeathSaveChangeData {
 }
 
 export interface AmbientEffectData {
-  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success';
+  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success' | 'concentration-broken';
 }
 
 export interface PlayerPositionData {
@@ -201,9 +209,10 @@ export interface ServerToClientEvents {
   'connected-players': (data: ConnectedPlayersData) => void;
   // Notification events
   'notification': (data: NotificationData) => void;
-  // Condition and state events
+  // Condition, buff, and state events
   'condition-change': (data: ConditionChangeData) => void;
   'exhaustion-change': (data: ExhaustionChangeData) => void;
+  'buff-change': (data: BuffChangeData) => void;
   'death-save-change': (data: DeathSaveChangeData) => void;
   'ambient-effect': (data: AmbientEffectData) => void;
   // Map position events
@@ -231,9 +240,10 @@ export interface ClientToServerEvents {
   'request-connected-players': () => void;
   // Notification events
   'notification': (data: NotificationData) => void;
-  // Condition and state events
+  // Condition, buff, and state events
   'condition-change': (data: ConditionChangeData) => void;
   'exhaustion-change': (data: ExhaustionChangeData) => void;
+  'buff-change': (data: BuffChangeData) => void;
   'death-save-change': (data: DeathSaveChangeData) => void;
   'ambient-effect': (data: AmbientEffectData) => void;
   // Map position events

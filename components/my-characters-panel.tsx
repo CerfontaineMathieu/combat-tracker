@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { User, Shield, Heart, Minus, Plus, Zap, HeartPulse, Backpack } from "lucide-react"
+import { User, Shield, Heart, Minus, Plus, Zap, HeartPulse, Backpack, Sparkles } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import type { Character, CharacterInventory } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { ConditionList } from "@/components/condition-badge"
+import { BuffList } from "@/components/buff-badge"
 import { InventoryManager } from "@/components/inventory-manager"
 
 interface MyCharactersPanelProps {
@@ -248,6 +249,17 @@ export function MyCharactersPanel({ characters, onUpdateHp, onUpdateInventory, c
                       exhaustionLevel={character.exhaustionLevel}
                       size="md"
                     />
+                  </div>
+                )}
+
+                {/* Buffs/Debuffs */}
+                {character.buffs && character.buffs.length > 0 && (
+                  <div className="p-4 border-t border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm font-medium text-muted-foreground">Effets</span>
+                    </div>
+                    <BuffList buffs={character.buffs} size="md" />
                   </div>
                 )}
               </div>
