@@ -133,6 +133,7 @@ export function InventoryManager({
   // Items state
   const [newItemName, setNewItemName] = useState("")
   const [newItemDesc, setNewItemDesc] = useState("")
+  const [newItemQty, setNewItemQty] = useState("1")
 
   // Detail dialog state
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
@@ -308,9 +309,11 @@ export function InventoryManager({
   // Item handlers
   const addItem = () => {
     if (!newItemName.trim()) return
+    const qty = parseInt(newItemQty) || 1
     const newItem: MiscItem = {
       id: `item-${Date.now()}`,
       name: newItemName.trim(),
+      quantity: Math.max(1, qty),
       description: newItemDesc.trim() || pendingItem.description,
       rarity: pendingItem.rarity,
       catalogNotionId: pendingItem.catalogNotionId,
@@ -323,6 +326,7 @@ export function InventoryManager({
     onInventoryChange(updatedInventory)
     setNewItemName("")
     setNewItemDesc("")
+    setNewItemQty("1")
     setPendingItem({})
   }
 
@@ -331,6 +335,7 @@ export function InventoryManager({
     const newItem: MiscItem = {
       id: `item-${Date.now()}`,
       name: item.name,
+      quantity: 1,
       description: item.description || undefined,
       rarity: item.rarity || undefined,
       catalogNotionId: item.notion_id,
@@ -343,7 +348,23 @@ export function InventoryManager({
     onInventoryChange(updatedInventory)
     setNewItemName("")
     setNewItemDesc("")
+    setNewItemQty("1")
     setPendingItem({})
+  }
+
+  const updateItemQty = (id: string, delta: number) => {
+    const updatedInventory = {
+      ...localInventory,
+      items: localInventory.items
+        .map(item =>
+          item.id === id
+            ? { ...item, quantity: Math.max(0, (item.quantity || 1) + delta) }
+            : item
+        )
+        .filter(item => (item.quantity || 1) > 0),
+    }
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
   }
 
   const removeItem = (id: string) => {
@@ -750,6 +771,17 @@ export function InventoryManager({
                       </Button>
                     }
                   />
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="Qté"
+                    value={newItemQty}
+                    onChange={(e) => setNewItemQty(e.target.value)}
+                    className="w-16"
+                  />
+                  <Button onClick={addItem} size="icon" className="shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
                 <Input
                   placeholder="Description (optionnel)..."
@@ -757,10 +789,6 @@ export function InventoryManager({
                   onChange={(e) => setNewItemDesc(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addItem()}
                 />
-                <Button onClick={addItem} className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter
-                </Button>
               </div>
             )}
 
@@ -776,16 +804,17 @@ export function InventoryManager({
                     <div
                       key={item.id}
                       className={cn(
-                        "p-3 rounded-lg border bg-secondary/30 border-border/50",
-                        item.description && "cursor-pointer hover:bg-secondary/50"
+                        "p-2 rounded-lg border bg-secondary/30 border-border/50",
+                        (item.description || item.rarity) && "cursor-pointer hover:bg-secondary/50"
                       )}
                       onClick={() => {
-                        if (item.description) {
+                        if (item.description || item.rarity) {
                           setDetailItem({
                             name: item.name,
                             description: item.description,
                             rarity: item.rarity,
                             type: 'misc',
+                            quantity: item.quantity || 1,
                           })
                         }
                       }}
@@ -801,22 +830,53 @@ export function InventoryManager({
                             )}
                           </div>
                           {item.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.description}</p>
                           )}
                         </div>
-                        {!readonly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-crimson hover:text-crimson/80 shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removeItem(item.id)
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!readonly && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateItemQty(item.id, -1)
+                              }}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Badge variant="outline" className="min-w-[3rem] justify-center">
+                            {item.quantity || 1}
+                          </Badge>
+                          {!readonly && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  updateItemQty(item.id, 1)
+                                }}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-crimson hover:text-crimson/80"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeItem(item.id)
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -876,6 +936,11 @@ export function InventoryManager({
                 <>
                   <Box className="w-4 h-4" />
                   <span>Objet</span>
+                  {detailItem.quantity !== undefined && (
+                    <Badge variant="outline" className="ml-2">
+                      Quantité: {detailItem.quantity}
+                    </Badge>
+                  )}
                 </>
               )}
             </div>

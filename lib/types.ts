@@ -28,6 +28,7 @@ export interface CurrencyInventory {
 export interface MiscItem {
   id: string
   name: string
+  quantity: number
   description?: string
   rarity?: string
   catalogNotionId?: string  // Reference to item_catalog for auto-updates
