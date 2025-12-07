@@ -56,8 +56,8 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
     if (effect === "concentration-broken") {
       setShowCritical(true)
 
-      // Play the crit fail sound for concentration break
-      playSound("critFail")
+      // Play glass breaking sound for concentration break
+      playSound("glassBreak")
 
       const timer = setTimeout(() => {
         setShowCritical(false)

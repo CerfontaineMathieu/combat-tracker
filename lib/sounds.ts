@@ -4,6 +4,7 @@ import { Howl } from 'howler'
 const soundDefinitions = {
   critFail: '/sounds/crit-fail.mp3',
   critSuccess: '/sounds/crit-success.mp3',
+  glassBreak: '/sounds/glass-break.mp3',
   // Future sounds:
   // combatStart: '/sounds/combat-start.mp3',
   // victory: '/sounds/victory.mp3',
