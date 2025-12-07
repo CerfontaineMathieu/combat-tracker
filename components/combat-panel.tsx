@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield, Wand2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import type { CombatParticipant, DbMonster } from "@/lib/types"
+import type { CombatParticipant, DbMonster, ActiveBuff } from "@/lib/types"
 import { MonsterDetail } from "@/components/monster-detail"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
+import { BuffList } from "@/components/buff-badge"
+import { BuffManager } from "@/components/buff-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
@@ -40,6 +42,7 @@ interface CombatPanelProps {
   onUpdateHp?: (id: string, change: number, type: "player" | "monster") => void
   onUpdateConditions?: (id: string, conditions: string[], type: "player" | "monster", conditionDurations?: Record<string, number>) => void
   onUpdateExhaustion?: (id: string, level: number, type: "player" | "monster") => void
+  onUpdateBuffs?: (id: string, buffs: ActiveBuff[], type: "player" | "monster") => void
   onUpdateDeathSaves?: (id: string, type: "player" | "monster", deathSaves: { successes: number; failures: number }, isStabilized: boolean, isDead: boolean) => void
   onUpdateName?: (id: string, name: string) => void
   onRemoveFromCombat?: (id: string) => void
@@ -59,6 +62,7 @@ export function CombatPanel({
   onUpdateHp,
   onUpdateConditions,
   onUpdateExhaustion,
+  onUpdateBuffs,
   onUpdateDeathSaves,
   onUpdateName,
   onRemoveFromCombat,
@@ -340,6 +344,17 @@ export function CombatPanel({
                       </div>
                     )}
 
+                    {/* Buffs display */}
+                    {participant.buffs && participant.buffs.length > 0 && (
+                      <div>
+                        <BuffList
+                          buffs={participant.buffs}
+                          showLabels={false}
+                          size="sm"
+                        />
+                      </div>
+                    )}
+
                     {/* Row 2: HP Bar + Action Buttons */}
                     {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
                       <div className="flex items-center gap-2">
@@ -426,6 +441,41 @@ export function CombatPanel({
                                     <Zap className="w-5 h-5" />
                                   </Button>
                                 }
+                              />
+                            )}
+                            {onUpdateBuffs && (
+                              <BuffManager
+                                targetName={participant.name}
+                                currentBuffs={participant.buffs || []}
+                                onToggleBuff={(buffId, duration) => {
+                                  const currentBuffs = participant.buffs || []
+                                  const existingIndex = currentBuffs.findIndex(b => b.buffId === buffId)
+                                  let newBuffs: ActiveBuff[]
+                                  if (existingIndex >= 0) {
+                                    newBuffs = currentBuffs.filter(b => b.buffId !== buffId)
+                                  } else {
+                                    newBuffs = [...currentBuffs, { buffId, remainingTurns: duration }]
+                                  }
+                                  onUpdateBuffs(participant.id, newBuffs, participant.type)
+                                }}
+                                onAddCustomBuff={(name, effect, type, duration) => {
+                                  const currentBuffs = participant.buffs || []
+                                  const customBuff: ActiveBuff = {
+                                    buffId: "custom",
+                                    remainingTurns: duration,
+                                    customName: name,
+                                    customEffect: effect,
+                                    customType: type,
+                                  }
+                                  onUpdateBuffs(participant.id, [...currentBuffs, customBuff], participant.type)
+                                }}
+                                onRemoveBuff={(buffId, customName) => {
+                                  const currentBuffs = participant.buffs || []
+                                  const newBuffs = customName
+                                    ? currentBuffs.filter(b => !(b.buffId === buffId && b.customName === customName))
+                                    : currentBuffs.filter(b => b.buffId !== buffId)
+                                  onUpdateBuffs(participant.id, newBuffs, participant.type)
+                                }}
                               />
                             )}
                             <Dialog>
@@ -685,6 +735,17 @@ export function CombatPanel({
                         </div>
                       )}
 
+                      {/* Buffs display */}
+                      {participant.buffs && participant.buffs.length > 0 && (
+                        <div className="mt-1">
+                          <BuffList
+                            buffs={participant.buffs}
+                            showLabels={false}
+                            size="sm"
+                          />
+                        </div>
+                      )}
+
                       {/* HP Bar */}
                       {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
                         <div className="mt-1.5">
@@ -860,6 +921,50 @@ export function CombatPanel({
                                 className="h-10 w-10 border-border hover:border-purple-500 hover:text-purple-500 bg-transparent transition-smooth"
                               >
                                 <Zap className="w-4 h-4" />
+                              </Button>
+                            }
+                          />
+                        )}
+                        {onUpdateBuffs && (
+                          <BuffManager
+                            targetName={participant.name}
+                            currentBuffs={participant.buffs || []}
+                            onToggleBuff={(buffId, duration) => {
+                              const currentBuffs = participant.buffs || []
+                              const existingIndex = currentBuffs.findIndex(b => b.buffId === buffId)
+                              let newBuffs: ActiveBuff[]
+                              if (existingIndex >= 0) {
+                                newBuffs = currentBuffs.filter((_, i) => i !== existingIndex)
+                              } else {
+                                newBuffs = [...currentBuffs, { buffId, remainingTurns: duration ?? null }]
+                              }
+                              onUpdateBuffs(participant.id, newBuffs, participant.type)
+                            }}
+                            onAddCustomBuff={(name, effect, type, duration) => {
+                              const currentBuffs = participant.buffs || []
+                              const customBuff: ActiveBuff = {
+                                buffId: `custom-${Date.now()}`,
+                                remainingTurns: duration ?? null,
+                                customName: name,
+                                customEffect: effect,
+                                customType: type,
+                              }
+                              onUpdateBuffs(participant.id, [...currentBuffs, customBuff], participant.type)
+                            }}
+                            onRemoveBuff={(buffId, customName) => {
+                              const currentBuffs = participant.buffs || []
+                              const newBuffs = customName
+                                ? currentBuffs.filter(b => b.customName !== customName)
+                                : currentBuffs.filter(b => b.buffId !== buffId)
+                              onUpdateBuffs(participant.id, newBuffs, participant.type)
+                            }}
+                            trigger={
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-10 w-10 border-border hover:border-emerald-500 hover:text-emerald-500 bg-transparent transition-smooth"
+                              >
+                                <Wand2 className="w-4 h-4" />
                               </Button>
                             }
                           />

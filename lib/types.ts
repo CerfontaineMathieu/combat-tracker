@@ -63,6 +63,7 @@ export interface Character {
   ac: number
   conditions: string[]
   exhaustionLevel: number
+  buffs?: ActiveBuff[]
   initiative: number
   inventory?: CharacterInventory
   // Connection status
@@ -92,6 +93,7 @@ export interface Monster {
   status: "actif" | "mort"
   conditions: string[]
   exhaustionLevel: number
+  buffs?: ActiveBuff[]
 }
 
 export interface CombatParticipant {
@@ -104,6 +106,7 @@ export interface CombatParticipant {
   conditions: string[]
   conditionDurations?: Record<string, number> // conditionId -> remaining turns (only during combat)
   exhaustionLevel: number
+  buffs?: ActiveBuff[] // Active buffs/debuffs on this participant
   type: "player" | "monster"
   xp?: number // XP value for monsters (from challenge_rating_xp)
   level?: number // Level for players (used in difficulty calculation)
@@ -323,6 +326,260 @@ export const CONDITION_COLORS: Record<string, { bg: string; border: string; text
   blue: { bg: "bg-blue-500/20", border: "border-blue-500/50", text: "text-blue-500" },
   gray: { bg: "bg-gray-500/20", border: "border-gray-500/50", text: "text-gray-400" },
   sky: { bg: "bg-sky-500/20", border: "border-sky-500/50", text: "text-sky-500" },
+}
+
+// ============================================
+// Buff/Debuff System
+// ============================================
+
+export type BuffType = "buff" | "debuff"
+
+// Buff definition with icon, color, and effect description
+export interface Buff {
+  id: string
+  name: string
+  effect: string // Effect description (e.g., "+1d4 aux jets d'attaque")
+  type: BuffType
+  icon: string // Lucide icon name
+  color: string // Tailwind color name
+  isCustom?: boolean // true for user-created buffs
+}
+
+// Active buff on a participant (with duration tracking)
+export interface ActiveBuff {
+  buffId: string
+  remainingTurns: number | null // null = permanent/concentration-based
+  customName?: string // For custom buffs
+  customEffect?: string // For custom buffs
+  customType?: BuffType // For custom buffs
+}
+
+// D&D 5e Common Buffs and Debuffs - French
+export const BUFFS: Buff[] = [
+  // === BUFFS (green/gold/cyan colors) ===
+  {
+    id: "benediction",
+    name: "Bénédiction",
+    effect: "+1d4 aux jets d'attaque et de sauvegarde",
+    type: "buff",
+    icon: "sparkles",
+    color: "emerald"
+  },
+  {
+    id: "hate",
+    name: "Hâte",
+    effect: "Vitesse x2, +2 CA, avantage DEX, action supplémentaire",
+    type: "buff",
+    icon: "zap",
+    color: "gold"
+  },
+  {
+    id: "heroisme",
+    name: "Héroïsme",
+    effect: "Immunité effrayé, PV temp = mod. incantation/tour",
+    type: "buff",
+    icon: "shield",
+    color: "gold"
+  },
+  {
+    id: "bouclier-foi",
+    name: "Bouclier de la Foi",
+    effect: "+2 CA",
+    type: "buff",
+    icon: "shield-plus",
+    color: "emerald"
+  },
+  {
+    id: "resistance",
+    name: "Résistance",
+    effect: "+1d4 à un jet de sauvegarde (une fois)",
+    type: "buff",
+    icon: "heart-pulse",
+    color: "emerald"
+  },
+  {
+    id: "aide",
+    name: "Aide",
+    effect: "+5 PV max pendant 8h",
+    type: "buff",
+    icon: "heart",
+    color: "emerald"
+  },
+  {
+    id: "armure-mage",
+    name: "Armure du Mage",
+    effect: "CA = 13 + mod. DEX",
+    type: "buff",
+    icon: "shirt",
+    color: "cyan"
+  },
+  {
+    id: "peau-ecorce",
+    name: "Peau d'Écorce",
+    effect: "CA minimum 16",
+    type: "buff",
+    icon: "tree-deciduous",
+    color: "lime"
+  },
+  {
+    id: "faveur-divine",
+    name: "Faveur Divine",
+    effect: "+1d4 dégâts radiants aux attaques",
+    type: "buff",
+    icon: "sun",
+    color: "amber"
+  },
+  {
+    id: "agrandissement",
+    name: "Agrandissement",
+    effect: "Taille x2, avantage FOR, +1d4 dégâts armes",
+    type: "buff",
+    icon: "maximize-2",
+    color: "gold"
+  },
+  {
+    id: "protection-mal",
+    name: "Protection contre le Mal",
+    effect: "Désavantage des aberrations/célestes/fiélons/etc.",
+    type: "buff",
+    icon: "shield-check",
+    color: "sky"
+  },
+  {
+    id: "vol",
+    name: "Vol",
+    effect: "Vitesse de vol 18m",
+    type: "buff",
+    icon: "wind",
+    color: "sky"
+  },
+  {
+    id: "inspiration-bardique",
+    name: "Inspiration Bardique",
+    effect: "+1d6/d8/d10/d12 à un jet (une fois)",
+    type: "buff",
+    icon: "music",
+    color: "violet"
+  },
+
+  // === DEBUFFS (purple/red/rose colors) ===
+  {
+    id: "fleau",
+    name: "Fléau",
+    effect: "-1d4 aux jets d'attaque et de sauvegarde",
+    type: "debuff",
+    icon: "cloud",
+    color: "purple"
+  },
+  {
+    id: "lenteur",
+    name: "Lenteur",
+    effect: "Vitesse /2, -2 CA et DEX, pas de réaction",
+    type: "debuff",
+    icon: "snail",
+    color: "purple"
+  },
+  {
+    id: "malediction",
+    name: "Malédiction",
+    effect: "Désavantage aux jets d'attaque et sauvegardes",
+    type: "debuff",
+    icon: "skull",
+    color: "red"
+  },
+  {
+    id: "rapetissement",
+    name: "Rapetissement",
+    effect: "Taille /2, désavantage FOR, -1d4 dégâts armes",
+    type: "debuff",
+    icon: "minimize-2",
+    color: "purple"
+  },
+  {
+    id: "rayon-affaiblissant",
+    name: "Rayon Affaiblissant",
+    effect: "Dégâts /2 pour attaques basées sur FOR",
+    type: "debuff",
+    icon: "zap-off",
+    color: "rose"
+  },
+  {
+    id: "marque-chasseur",
+    name: "Marque du Chasseur",
+    effect: "+1d6 dégâts de l'attaquant contre cible",
+    type: "debuff",
+    icon: "crosshair",
+    color: "orange"
+  },
+  {
+    id: "lueur-feerique",
+    name: "Lueur Féerique",
+    effect: "Ne peut être invisible, avantage contre cible",
+    type: "debuff",
+    icon: "sparkle",
+    color: "violet"
+  },
+  {
+    id: "immobilisation",
+    name: "Immobilisation de Personne",
+    effect: "Paralysé (humanoïde uniquement)",
+    type: "debuff",
+    icon: "lock",
+    color: "red"
+  },
+  {
+    id: "cecite",
+    name: "Cécité/Surdité",
+    effect: "Aveuglé ou assourdi",
+    type: "debuff",
+    icon: "eye-off",
+    color: "rose"
+  },
+  {
+    id: "couronne-folie",
+    name: "Couronne de Folie",
+    effect: "Doit attaquer une créature au choix du lanceur",
+    type: "debuff",
+    icon: "crown",
+    color: "purple"
+  },
+  {
+    id: "projectile-magique",
+    name: "Projectile Magique (marqué)",
+    effect: "Dégâts automatiques 1d4+1 force par projectile",
+    type: "debuff",
+    icon: "target",
+    color: "indigo"
+  },
+]
+
+// Buff color classes for Tailwind (distinct colors for buffs/debuffs)
+export const BUFF_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  // Buff colors (greens/golds)
+  emerald: { bg: "bg-emerald-500/20", border: "border-emerald-500/50", text: "text-emerald-500" },
+  gold: { bg: "bg-yellow-500/20", border: "border-yellow-500/50", text: "text-yellow-500" },
+  lime: { bg: "bg-lime-500/20", border: "border-lime-500/50", text: "text-lime-500" },
+  cyan: { bg: "bg-cyan-500/20", border: "border-cyan-500/50", text: "text-cyan-400" },
+  sky: { bg: "bg-sky-500/20", border: "border-sky-500/50", text: "text-sky-400" },
+  amber: { bg: "bg-amber-500/20", border: "border-amber-500/50", text: "text-amber-500" },
+  // Debuff colors (purples/reds)
+  purple: { bg: "bg-purple-500/20", border: "border-purple-500/50", text: "text-purple-500" },
+  violet: { bg: "bg-violet-500/20", border: "border-violet-500/50", text: "text-violet-500" },
+  rose: { bg: "bg-rose-500/20", border: "border-rose-500/50", text: "text-rose-500" },
+  red: { bg: "bg-red-500/20", border: "border-red-500/50", text: "text-red-500" },
+  orange: { bg: "bg-orange-500/20", border: "border-orange-500/50", text: "text-orange-500" },
+  indigo: { bg: "bg-indigo-500/20", border: "border-indigo-500/50", text: "text-indigo-500" },
+  gray: { bg: "bg-gray-500/20", border: "border-gray-500/50", text: "text-gray-400" },
+}
+
+// Helper to get buff by ID
+export const getBuffById = (id: string): Buff | undefined => {
+  return BUFFS.find(b => b.id === id)
+}
+
+// Helper to get buffs by type
+export const getBuffsByType = (type: BuffType): Buff[] => {
+  return BUFFS.filter(b => b.type === type)
 }
 
 // Notion Sync types

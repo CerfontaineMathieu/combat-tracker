@@ -20,6 +20,7 @@ import { DEFAULT_INVENTORY } from "@/lib/types"
 import { DraggablePlayerCard } from "@/components/draggable-card"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
+import { BuffList } from "@/components/buff-badge"
 import { InventoryManager } from "@/components/inventory-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
@@ -488,6 +489,13 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                           exhaustionLevel={player.exhaustionLevel}
                           size="sm"
                         />
+                      </div>
+                    )}
+
+                    {/* Buffs/Debuffs */}
+                    {player.buffs && player.buffs.length > 0 && (
+                      <div className="mt-2">
+                        <BuffList buffs={player.buffs} size="sm" />
                       </div>
                     )}
                   </div>
