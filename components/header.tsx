@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Sword, Settings, Skull, Crown, User, LogOut, Map, Sparkles, Menu, QrCode, Volume2, VolumeX } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Sparkles, Menu, QrCode, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -182,17 +182,6 @@ export function Header({
                     </Button>
                   </Link>
                 )}
-                {/* Carte de Faerûn */}
-                <Link href="/map">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 lg:h-10 lg:w-10 hover:bg-primary/20 hover:text-emerald transition-smooth"
-                    title="Carte de Faerûn"
-                  >
-                    <Map className="w-4 h-4 lg:w-5 lg:h-5" />
-                  </Button>
-                </Link>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -243,15 +232,6 @@ export function Header({
                         </Button>
                       </>
                     )}
-                    <Link href="/map" className="w-full">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-emerald"
-                      >
-                        <Map className="w-4 h-4" />
-                        <span className="text-sm">Carte</span>
-                      </Button>
-                    </Link>
                     <Button
                       variant="ghost"
                       onClick={onSettingsClick}

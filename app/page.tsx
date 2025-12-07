@@ -18,7 +18,7 @@ import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
-import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory } from "@/lib/types"
+import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
@@ -71,6 +71,7 @@ function CombatTrackerContent() {
     emitHpChange,
     emitConditionChange,
     emitExhaustionChange,
+    emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
     emitAmbientEffect,
@@ -266,11 +267,12 @@ function CombatTrackerContent() {
     }
   }
 
-  // Load status (HP, exhaustion, conditions) from database for a character
+  // Load status (HP, exhaustion, conditions, buffs) from database for a character
   interface CharacterStatus {
     currentHp: number | null
     exhaustionLevel: number | null
     conditions: string[] | null
+    buffs: ActiveBuff[] | null
   }
   const loadCharacterStatus = async (characterId: string): Promise<CharacterStatus> => {
     try {
@@ -281,13 +283,14 @@ function CombatTrackerContent() {
         return {
           currentHp: data.currentHp ?? null,
           exhaustionLevel: data.exhaustionLevel ?? null,
-          conditions: data.conditions ?? null
+          conditions: data.conditions ?? null,
+          buffs: data.buffs ?? null
         }
       }
     } catch (error) {
       console.error('Failed to load status for character:', characterId, error)
     }
-    return { currentHp: null, exhaustionLevel: null, conditions: null }
+    return { currentHp: null, exhaustionLevel: null, conditions: null, buffs: null }
   }
 
   // Load inventory from database for a character
@@ -335,6 +338,7 @@ function CombatTrackerContent() {
             initiative: char.initiative,
             conditions: persistedStatus.conditions ?? char.conditions ?? [],
             exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
+            buffs: persistedStatus.buffs ?? [],
             inventory,
           }
         })
@@ -406,6 +410,7 @@ function CombatTrackerContent() {
                 initiative: c.initiative,
                 conditions: persistedStatus.conditions ?? c.conditions ?? [],
                 exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
+                buffs: persistedStatus.buffs ?? [],
                 isConnected: false,
                 inventory,
                 passivePerception: c.passive_perception,
@@ -663,6 +668,8 @@ function CombatTrackerContent() {
           conditions: combatParticipant?.conditions ?? char.conditions ?? [],
           // Exhaustion: combat participant during combat, otherwise from connectedPlayers socket state
           exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+          // Buffs: combat participant during combat, otherwise from socket connected player data
+          buffs: combatParticipant?.buffs ?? char.buffs ?? [],
           inventory: char.inventory || DEFAULT_INVENTORY,
           isConnected: true,
           playerSocketId: player.socketId,
@@ -693,6 +700,9 @@ function CombatTrackerContent() {
           currentHp: connectedChar.currentHp,
           // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
           inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
+          // Socket state (connectedChar) is source of truth for buffs - it's updated via buff-change events
+          // localPlayer.buffs is only updated on DM side, not player side
+          buffs: connectedChar.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
         }
       }
       // Otherwise, use static data with isConnected: false
@@ -712,6 +722,7 @@ function CombatTrackerContent() {
         currentHp: combatParticipant?.currentHp ?? localPlayer?.currentHp ?? char.currentHp,
         conditions: combatParticipant?.conditions ?? char.conditions ?? [],
         exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+        buffs: combatParticipant?.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
         inventory: localPlayer?.inventory || char.inventory,
       }
     })
@@ -775,6 +786,7 @@ function CombatTrackerContent() {
           ...p,
           type: "player" as const,
           exhaustionLevel: p.exhaustionLevel || 0,
+          buffs: p.buffs || [],
         })),
         ...monsters.map((m) => ({
           id: m.id,
@@ -785,6 +797,7 @@ function CombatTrackerContent() {
           ac: m.ac,
           conditions: m.conditions || [],
           exhaustionLevel: m.exhaustionLevel || 0,
+          buffs: m.buffs || [],
           type: "monster" as const,
         })),
       ].sort((a, b) => b.initiative - a.initiative)
@@ -968,6 +981,60 @@ function CombatTrackerContent() {
           conditions: nextParticipant.conditions,
           conditionDurations: newDurations,
         })
+      }
+    }
+
+    // Process buff/debuff durations for the NEXT participant (at the START of their turn)
+    if (nextParticipant?.buffs && nextParticipant.buffs.length > 0) {
+      const expiredBuffs: string[] = []
+      const updatedBuffs: ActiveBuff[] = []
+
+      for (const buff of nextParticipant.buffs) {
+        if (buff.remainingTurns === null) {
+          // Permanent/concentration-based buff - keep as is
+          updatedBuffs.push(buff)
+        } else if (buff.remainingTurns > 1) {
+          // Decrement duration
+          updatedBuffs.push({ ...buff, remainingTurns: buff.remainingTurns - 1 })
+        } else {
+          // Duration expired (remainingTurns <= 1)
+          expiredBuffs.push(buff.buffId)
+        }
+      }
+
+      // Only update if there were changes
+      if (expiredBuffs.length > 0 || updatedBuffs.some((b, i) => b.remainingTurns !== nextParticipant.buffs![i].remainingTurns)) {
+        setCombatParticipants(prev =>
+          prev.map(p => p.id === nextParticipant.id ? { ...p, buffs: updatedBuffs } : p)
+        )
+
+        // Update local players/monsters state too
+        if (nextParticipant.type === 'player') {
+          setPlayers(prev => prev.map(p => p.id === nextParticipant.id ? { ...p, buffs: updatedBuffs } : p))
+        } else {
+          setMonsters(prev => prev.map(m => m.id === nextParticipant.id ? { ...m, buffs: updatedBuffs } : m))
+        }
+
+        // Emit buff change
+        emitBuffChange({
+          participantId: nextParticipant.id,
+          participantType: nextParticipant.type,
+          buffs: updatedBuffs,
+        })
+
+        // Persist to database for players
+        if (nextParticipant.type === 'player') {
+          fetch(`/api/characters/${nextParticipant.id}/hp`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ buffs: updatedBuffs }),
+          }).catch(err => console.error('Failed to persist buff duration update:', err))
+        }
+
+        // Notify about expired buffs
+        if (expiredBuffs.length > 0) {
+          toast(`${nextParticipant.name}: effet expiré`, { duration: 2000 })
+        }
       }
     }
 
@@ -1315,6 +1382,52 @@ function CombatTrackerContent() {
     }
   }
 
+  const updatePlayerBuffs = async (id: string, buffs: ActiveBuff[]) => {
+    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, buffs } : p)))
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, buffs } : p))
+      )
+
+      // Emit buff change to sync with other clients
+      emitBuffChange({
+        participantId: id,
+        participantType: 'player',
+        buffs,
+      })
+    }
+
+    // Persist buffs to database
+    try {
+      await fetch(`/api/characters/${id}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buffs }),
+      })
+      console.log('[Buffs] Persisted to database:', id, buffs)
+    } catch (error) {
+      console.error('Failed to persist buffs:', error)
+    }
+  }
+
+  const updateMonsterBuffs = async (id: string, buffs: ActiveBuff[]) => {
+    setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, buffs } : m)))
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, buffs } : p))
+      )
+
+      // Emit buff change to sync with other clients
+      emitBuffChange({
+        participantId: id,
+        participantType: 'monster',
+        buffs,
+      })
+    }
+
+    // Note: Monster buffs are not persisted to database (session-only)
+  }
+
   // Update death saves for a participant (players only in practice)
   const updateDeathSaves = (
     id: string,
@@ -1415,6 +1528,7 @@ function CombatTrackerContent() {
       maxHp: player.maxHp,
       conditions: player.conditions || [],  // Keep current conditions
       exhaustionLevel: player.exhaustionLevel || 0,  // Keep current exhaustion
+      buffs: player.buffs || [],  // Keep current buffs
       type: "player",
       level: player.level,  // For difficulty calculation (2024 rules)
       isConnected: player.isConnected,
@@ -1446,6 +1560,7 @@ function CombatTrackerContent() {
       ac: monster.ac,
       conditions: monster.conditions || [],
       exhaustionLevel: monster.exhaustionLevel || 0,
+      buffs: monster.buffs || [],
       type: "monster",
     }
     const updated = sortParticipantsByInitiative([...combatParticipants, participant])
@@ -1512,6 +1627,7 @@ function CombatTrackerContent() {
       ac: dbMonster.armor_class || undefined,
       conditions: [],
       exhaustionLevel: 0,
+      buffs: [],
       type: "monster",
       xp: dbMonster.challenge_rating_xp || undefined,
     }))
@@ -1546,6 +1662,7 @@ function CombatTrackerContent() {
       ac: monster.ac,
       conditions: monster.conditions || [],
       exhaustionLevel: monster.exhaustionLevel || 0,
+      buffs: monster.buffs || [],
       type: "monster",
     }))
 
@@ -1864,6 +1981,10 @@ function CombatTrackerContent() {
                     if (type === "player") updatePlayerExhaustion(id, level)
                     else updateMonsterExhaustion(id, level)
                   } : undefined}
+                  onUpdateBuffs={mode === "mj" ? (id, buffs, type) => {
+                    if (type === "player") updatePlayerBuffs(id, buffs)
+                    else updateMonsterBuffs(id, buffs)
+                  } : undefined}
                   onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                   onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                   onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
@@ -1966,6 +2087,10 @@ function CombatTrackerContent() {
                     onUpdateExhaustion={mode === "mj" ? (id, level, type) => {
                       if (type === "player") updatePlayerExhaustion(id, level)
                       else updateMonsterExhaustion(id, level)
+                    } : undefined}
+                    onUpdateBuffs={mode === "mj" ? (id, buffs, type) => {
+                      if (type === "player") updatePlayerBuffs(id, buffs)
+                      else updateMonsterBuffs(id, buffs)
                     } : undefined}
                     onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                     onUpdateName={mode === "mj" ? updateParticipantName : undefined}
