@@ -23,6 +23,7 @@ import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import { XpSummaryModal } from "@/components/xp-summary-modal"
+import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
 import {
   Dialog,
   DialogContent,
@@ -137,6 +138,12 @@ function CombatTrackerContent() {
     killedMonsters: [],
     playerCount: 0,
   })
+
+  // State for orphan pet dialog (when removing an owner with pets)
+  const [orphanPetDialog, setOrphanPetDialog] = useState<{
+    owner: CombatParticipant
+    pets: CombatParticipant[]
+  } | null>(null)
 
   // Persist combat state to sessionStorage
   useEffect(() => {
@@ -825,9 +832,9 @@ function CombatTrackerContent() {
 
   // Show XP summary modal before ending combat
   const stopCombat = () => {
-    // Calculate XP from all monsters that are dead (HP = 0)
+    // Calculate XP from all monsters that are dead (HP = 0), excluding pets
     const deadMonsters = combatParticipants
-      .filter(p => p.type === "monster" && p.currentHp <= 0)
+      .filter(p => p.type === "monster" && p.currentHp <= 0 && !p.isPet)
       .map(p => ({ name: p.name, xp: p.xp || 0 }))
 
     const playerCount = combatParticipants.filter(p => p.type === "player").length
@@ -1513,8 +1520,29 @@ function CombatTrackerContent() {
   }
 
   // Helper function to sort participants by initiative (descending - highest first)
+  // Pets are placed immediately after their owner in the initiative order
   const sortParticipantsByInitiative = (participants: CombatParticipant[]) => {
-    return [...participants].sort((a, b) => b.initiative - a.initiative)
+    // Separate pets from owners
+    const owners = participants.filter(p => !p.isPet)
+    const pets = participants.filter(p => p.isPet)
+
+    // Sort owners by initiative (descending)
+    const sortedOwners = [...owners].sort((a, b) => b.initiative - a.initiative)
+
+    // Build final list, inserting pets after their respective owners
+    const result: CombatParticipant[] = []
+    for (const owner of sortedOwners) {
+      result.push(owner)
+      // Add all pets belonging to this owner
+      const ownerPets = pets.filter(p => p.ownerId === owner.id)
+      result.push(...ownerPets)
+    }
+
+    // Add orphaned pets (owner was removed) at the end
+    const orphanedPets = pets.filter(p => !sortedOwners.some(o => o.id === p.ownerId))
+    result.push(...orphanedPets)
+
+    return result
   }
 
   // Combat setup functions
@@ -1579,24 +1607,96 @@ function CombatTrackerContent() {
     }
   }
 
+  // Add a pet to an owner (player or monster)
+  const addPetToOwner = (ownerId: string, pet: Omit<CombatParticipant, 'id'>) => {
+    const owner = combatParticipants.find(p => p.id === ownerId)
+    if (!owner) {
+      toast.error("Propriétaire introuvable")
+      return
+    }
+
+    const newPet: CombatParticipant = {
+      ...pet,
+      id: `pet-${Date.now()}`,
+      initiative: owner.initiative, // Same initiative as owner
+      isPet: true,
+      ownerId: owner.id,
+      ownerType: owner.type,
+    }
+
+    const updated = sortParticipantsByInitiative([...combatParticipants, newPet])
+    setCombatParticipants(updated)
+    toast(`${newPet.name} ajouté comme familier de ${owner.name}`)
+
+    // Sync with players via WebSocket
+    if (combatActive) {
+      emitCombatUpdate({
+        type: 'state-sync',
+        combatActive: true,
+        currentTurn,
+        roundNumber,
+        participants: updated,
+      })
+    }
+  }
+
   const removeFromCombat = (id: string) => {
+    const participant = combatParticipants.find(p => p.id === id)
+    if (!participant) return
+
+    // Check if this participant has any pets
+    const pets = combatParticipants.filter(p => p.ownerId === id)
+
+    if (pets.length > 0) {
+      // Show orphan pet dialog
+      setOrphanPetDialog({ owner: participant, pets })
+      return
+    }
+
+    // No pets, proceed with removal
+    executeRemoveFromCombat(id)
+  }
+
+  // Execute the actual removal (called directly or after orphan pet dialog)
+  const executeRemoveFromCombat = (id: string, additionalIdsToRemove: string[] = []) => {
     const participantIndex = combatParticipants.findIndex(p => p.id === id)
     const participant = combatParticipants[participantIndex]
-    const updatedParticipants = combatParticipants.filter(p => p.id !== id)
-    setCombatParticipants(updatedParticipants)
+
+    // Remove the participant and any additional IDs (pets to remove)
+    const idsToRemove = new Set([id, ...additionalIdsToRemove])
+    const updatedParticipants = combatParticipants.filter(p => !idsToRemove.has(p.id))
+
+    // For kept pets, remove their owner reference (make them orphans)
+    const finalParticipants = updatedParticipants.map(p => {
+      if (p.ownerId === id) {
+        // This pet's owner is being removed but the pet is kept
+        return { ...p, ownerId: undefined, ownerType: undefined }
+      }
+      return p
+    })
+
+    setCombatParticipants(finalParticipants)
 
     if (participant) {
-      toast(`${participant.name} retiré du combat`)
+      const removedCount = idsToRemove.size
+      if (removedCount > 1) {
+        toast(`${participant.name} et ${removedCount - 1} familier${removedCount > 2 ? 's' : ''} retirés du combat`)
+      } else {
+        toast(`${participant.name} retiré du combat`)
+      }
 
       // Adjust currentTurn if needed
       let newCurrentTurn = currentTurn
-      if (combatActive && updatedParticipants.length > 0) {
-        if (participantIndex < currentTurn) {
-          // Removed participant was before current turn, shift back
-          newCurrentTurn = currentTurn - 1
-        } else if (currentTurn >= updatedParticipants.length) {
-          // Current turn is now out of bounds
-          newCurrentTurn = Math.max(0, updatedParticipants.length - 1)
+      if (combatActive && finalParticipants.length > 0) {
+        // Count how many removed participants were before current turn
+        const removedBeforeCurrentTurn = combatParticipants
+          .slice(0, currentTurn)
+          .filter(p => idsToRemove.has(p.id)).length
+
+        newCurrentTurn = currentTurn - removedBeforeCurrentTurn
+
+        if (newCurrentTurn >= finalParticipants.length) {
+          newCurrentTurn = Math.max(0, finalParticipants.length - 1)
         }
         if (newCurrentTurn !== currentTurn) {
           setCurrentTurn(newCurrentTurn)
@@ -1610,10 +1710,18 @@ function CombatTrackerContent() {
           combatActive: true,
           currentTurn: newCurrentTurn,
           roundNumber,
-          participants: updatedParticipants,
+          participants: finalParticipants,
         })
       }
     }
+  }
+
+  // Handle orphan pet dialog confirmation
+  const handleOrphanPetConfirm = (petsToKeep: string[], petsToRemove: string[]) => {
+    if (!orphanPetDialog) return
+
+    executeRemoveFromCombat(orphanPetDialog.owner.id, petsToRemove)
+    setOrphanPetDialog(null)
   }
 
   // Add monsters from database with quantity
@@ -1899,6 +2007,17 @@ function CombatTrackerContent() {
         playerCount={xpSummaryData.playerCount}
       />
 
+      {/* Orphan Pet Dialog */}
+      {orphanPetDialog && (
+        <OrphanPetDialog
+          owner={orphanPetDialog.owner}
+          pets={orphanPetDialog.pets}
+          open={true}
+          onConfirm={handleOrphanPetConfirm}
+          onCancel={() => setOrphanPetDialog(null)}
+        />
+      )}
+
       <Header
         mode={mode}
         campaignName={campaignName}
@@ -1988,6 +2107,7 @@ function CombatTrackerContent() {
                   onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                   onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                   onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
+                  onAddPet={mode === "mj" ? addPetToOwner : undefined}
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                 />
@@ -2095,6 +2215,7 @@ function CombatTrackerContent() {
                     onUpdateDeathSaves={mode === "mj" ? updateDeathSaves : undefined}
                     onUpdateName={mode === "mj" ? updateParticipantName : undefined}
                     onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
+                    onAddPet={mode === "mj" ? addPetToOwner : undefined}
                     mode={mode}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   />

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield, Wand2 } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield, Wand2, Dog, Link } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,7 @@ import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
 import { BuffList } from "@/components/buff-badge"
 import { BuffManager } from "@/components/buff-manager"
+import { AddPetDialog } from "@/components/add-pet-dialog"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
@@ -46,6 +47,7 @@ interface CombatPanelProps {
   onUpdateDeathSaves?: (id: string, type: "player" | "monster", deathSaves: { successes: number; failures: number }, isStabilized: boolean, isDead: boolean) => void
   onUpdateName?: (id: string, name: string) => void
   onRemoveFromCombat?: (id: string) => void
+  onAddPet?: (ownerId: string, pet: Omit<CombatParticipant, 'id'>) => void
   mode: "mj" | "joueur"
   ownCharacterIds?: string[] // IDs of characters owned by the current player
 }
@@ -66,10 +68,12 @@ export function CombatPanel({
   onUpdateDeathSaves,
   onUpdateName,
   onRemoveFromCombat,
+  onAddPet,
   mode,
   ownCharacterIds = [],
 }: CombatPanelProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
+  const [petDialogOwner, setPetDialogOwner] = useState<CombatParticipant | null>(null)
   const [hpAmount, setHpAmount] = useState("")
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [editingNameValue, setEditingNameValue] = useState("")
@@ -263,10 +267,25 @@ export function CombatPanel({
                 <div
                   key={participant.id}
                   className={cn(
+                    "relative",
+                    // Pet indentation with connector line
+                    participant.isPet && "ml-6 before:absolute before:left-[-16px] before:top-0 before:bottom-1/2 before:w-4 before:border-l-2 before:border-b-2 before:border-muted-foreground/30 before:rounded-bl-md"
+                  )}
+                >
+                <div
+                  className={cn(
                     "p-[var(--card-padding-mobile)] md:p-3 rounded-lg border transition-all",
-                    index === currentTurn
-                      ? "bg-gold/10 border-gold shadow-lg shadow-gold/10 animate-pulse-gold"
-                      : "bg-secondary/30 border-border/50 hover:bg-secondary/50",
+                    // Pet styling: light background with gold border for player pets, red for monster pets
+                    participant.isPet
+                      ? cn(
+                          "bg-slate-200 dark:bg-slate-700",
+                          participant.ownerType === "player"
+                            ? "border-gold/70 dark:border-gold/50"
+                            : "border-crimson/70 dark:border-crimson/50"
+                        )
+                      : index === currentTurn
+                        ? "bg-gold/10 border-gold shadow-lg shadow-gold/10 animate-pulse-gold"
+                        : "bg-secondary/30 border-border/50 hover:bg-secondary/50",
                     participant.currentHp === 0 && "opacity-50",
                     index === 0 && "animate-fade-in"
                   )}
@@ -275,15 +294,15 @@ export function CombatPanel({
                   <div className="flex flex-col gap-1.5 md:hidden">
                     {/* Row 1: Initiative + Name + Crown */}
                     <div className="flex items-center gap-2">
-                      {/* Initiative Badge */}
+                      {/* Initiative Badge - use ownerType for pets */}
                       <div
                         className={cn(
                           "h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] rounded-lg flex items-center justify-center font-bold text-sm shrink-0 transition-smooth",
                           index === currentTurn
-                            ? participant.type === "monster"
+                            ? (participant.isPet ? participant.ownerType === "monster" : participant.type === "monster")
                               ? "bg-crimson text-white"
                               : "bg-gold text-background"
-                            : participant.type === "monster"
+                            : (participant.isPet ? participant.ownerType === "monster" : participant.type === "monster")
                               ? "bg-crimson/60 text-white"
                               : "bg-gold/60 text-background"
                         )}
@@ -308,7 +327,9 @@ export function CombatPanel({
                             onClick={() => mode === "mj" && participant.type === "monster" && onUpdateName && handleStartEditingName(participant)}
                             className={cn(
                               "font-semibold truncate",
-                              participant.type === "monster" ? "text-crimson" : "text-foreground",
+                              participant.isPet
+                                ? "text-slate-800 dark:text-white"
+                                : participant.type === "monster" ? "text-crimson" : "text-foreground",
                               mode === "mj" && participant.type === "monster" && onUpdateName && "cursor-pointer hover:underline hover:decoration-dotted"
                             )}
                             title={mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined}
@@ -477,6 +498,18 @@ export function CombatPanel({
                                   onUpdateBuffs(participant.id, newBuffs, participant.type)
                                 }}
                               />
+                            )}
+                            {/* Add Pet button - only for non-pets and DM mode */}
+                            {mode === "mj" && !participant.isPet && onAddPet && (
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] border-border hover:border-emerald hover:text-emerald bg-transparent transition-smooth"
+                                onClick={() => setPetDialogOwner(participant)}
+                                title="Ajouter un familier"
+                              >
+                                <Dog className="w-5 h-5" />
+                              </Button>
                             )}
                             <Dialog>
                               <DialogTrigger asChild>
@@ -668,15 +701,15 @@ export function CombatPanel({
 
                   {/* Desktop: Original layout */}
                   <div className="hidden md:flex items-center gap-3">
-                    {/* Initiative Badge */}
+                    {/* Initiative Badge - use ownerType for pets */}
                     <div
                       className={cn(
                         "w-11 h-11 rounded-lg flex items-center justify-center font-bold text-lg shrink-0 transition-smooth",
                         index === currentTurn
-                          ? participant.type === "monster"
+                          ? (participant.isPet ? participant.ownerType === "monster" : participant.type === "monster")
                             ? "bg-crimson text-white"
                             : "bg-gold text-background"
-                          : participant.type === "monster"
+                          : (participant.isPet ? participant.ownerType === "monster" : participant.type === "monster")
                             ? "bg-crimson/60 text-white"
                             : "bg-gold/60 text-background"
                       )}
@@ -702,7 +735,9 @@ export function CombatPanel({
                             onClick={() => mode === "mj" && participant.type === "monster" && onUpdateName && handleStartEditingName(participant)}
                             className={cn(
                               "font-semibold truncate",
-                              participant.type === "monster" ? "text-crimson" : "text-foreground",
+                              participant.isPet
+                                ? "text-slate-800 dark:text-white"
+                                : participant.type === "monster" ? "text-crimson" : "text-foreground",
                               mode === "mj" && participant.type === "monster" && onUpdateName && "cursor-pointer hover:underline hover:decoration-dotted"
                             )}
                             title={mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined}
@@ -969,6 +1004,18 @@ export function CombatPanel({
                             }
                           />
                         )}
+                        {/* Add Pet button - desktop layout */}
+                        {mode === "mj" && !participant.isPet && onAddPet && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 border-border hover:border-emerald hover:text-emerald bg-transparent transition-smooth"
+                            onClick={() => setPetDialogOwner(participant)}
+                            title="Ajouter un familier"
+                          >
+                            <Dog className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button
@@ -1064,6 +1111,7 @@ export function CombatPanel({
                     )}
                   </div>
                 </div>
+                </div>
               ))}
               </div>
             </ScrollArea>
@@ -1095,6 +1143,16 @@ export function CombatPanel({
           {selectedMonsterDetail && <MonsterDetail monster={selectedMonsterDetail} />}
         </DialogContent>
       </Dialog>
+
+      {/* Add Pet Dialog */}
+      {petDialogOwner && onAddPet && (
+        <AddPetDialog
+          owner={petDialogOwner}
+          open={!!petDialogOwner}
+          onOpenChange={(open) => !open && setPetDialogOwner(null)}
+          onAddPet={(pet) => onAddPet(petDialogOwner.id, pet)}
+        />
+      )}
     </Card>
   )
 }

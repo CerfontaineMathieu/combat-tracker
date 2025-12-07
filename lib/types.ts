@@ -119,6 +119,10 @@ export interface CombatParticipant {
   }
   isStabilized?: boolean
   isDead?: boolean
+  // Pet relationship fields
+  isPet?: boolean              // true if this participant is a pet/summon/familiar
+  ownerId?: string             // ID of the owner participant (player or monster)
+  ownerType?: "player" | "monster"  // Type of owner (for visual styling)
 }
 
 export interface Note {

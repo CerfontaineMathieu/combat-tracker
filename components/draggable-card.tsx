@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, X, Plus, Wifi, WifiOff, Eye } from "lucide-react"
+import { GripVertical, X, Plus, Wifi, WifiOff, Eye, Link } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -347,6 +347,7 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
   }
 
   const isPlayer = participant.type === "player"
+  const isPet = participant.isPet === true
 
   const getHpColor = (current: number, max: number) => {
     const ratio = current / max
@@ -405,13 +406,22 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
       style={style}
       className={cn(
         "group relative p-[var(--card-padding-mobile)] md:p-3 rounded-lg border-2 transition-all",
-        "bg-secondary/60 hover:bg-secondary/80",
+        isPet
+          ? cn(
+              "bg-slate-200 dark:bg-slate-700 ml-6 before:absolute before:left-[-16px] before:top-0 before:bottom-1/2 before:w-4 before:border-l-2 before:border-b-2 before:border-muted-foreground/30 before:rounded-bl-md",
+              participant.ownerType === "player"
+                ? "border-gold/70 dark:border-gold/50 hover:border-gold"
+                : "border-crimson/70 dark:border-crimson/50 hover:border-crimson"
+            )
+          : cn(
+              "bg-secondary/60 hover:bg-secondary/80",
+              isPlayer
+                ? "border-gold/40 hover:border-gold/60"
+                : "border-crimson/40 hover:border-crimson/60"
+            ),
         isDragging
           ? "opacity-80 shadow-lg z-10 scale-[1.02]"
-          : "opacity-100",
-        isPlayer
-          ? "border-gold/40 hover:border-gold/60"
-          : "border-crimson/40 hover:border-crimson/60"
+          : "opacity-100"
       )}
     >
       {/* Mobile: Two-row layout for guaranteed fit */}
@@ -478,13 +488,14 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
               <h3
                 onClick={() => canEditName && setIsEditingName(true)}
                 className={cn(
-                  "font-semibold truncate",
-                  isPlayer ? "text-foreground" : "text-crimson",
+                  "font-semibold truncate flex items-center gap-1",
+                  isPet ? "text-slate-800 dark:text-white" : isPlayer ? "text-foreground" : "text-crimson",
                   canEditName && "cursor-pointer hover:underline hover:decoration-dotted"
                 )}
                 title={canEditName ? "Cliquez pour renommer" : undefined}
               >
-                {participant.name}
+                {isPet && <Link className="w-3.5 h-3.5 shrink-0" />}
+                <span className="truncate">{participant.name}</span>
               </h3>
             )}
           </div>
@@ -599,16 +610,21 @@ export function SortableParticipantCard({ participant, onRemove, onUpdateInitiat
               <h3
                 onClick={() => canEditName && setIsEditingName(true)}
                 className={cn(
-                  "font-semibold truncate",
-                  isPlayer ? "text-foreground" : "text-crimson",
+                  "font-semibold truncate flex items-center gap-1",
+                  isPet ? "text-slate-800 dark:text-white" : isPlayer ? "text-foreground" : "text-crimson",
                   canEditName && "cursor-pointer hover:underline hover:decoration-dotted"
                 )}
                 title={canEditName ? "Cliquez pour renommer" : undefined}
               >
-                {participant.name}
+                {isPet && <Link className="w-3.5 h-3.5 shrink-0" />}
+                <span className="truncate">{participant.name}</span>
               </h3>
             )}
-            {!isPlayer && (
+            {isPet ? (
+              <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground px-1.5 py-0 shrink-0">
+                Familier
+              </Badge>
+            ) : !isPlayer && (
               <>
                 <Badge variant="outline" className="text-xs border-crimson/30 text-crimson px-1.5 py-0 shrink-0">
                   Monstre
