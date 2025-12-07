@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
 // GET /api/characters/[characterId]/hp
-// Returns HP, exhaustion, conditions, and buffs (full status)
+// Returns HP, exhaustion, conditions, conditionDurations, and buffs (full status)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ characterId: string }> }
@@ -11,7 +11,7 @@ export async function GET(
     const { characterId } = await params;
 
     const result = await pool.query(
-      'SELECT current_hp, exhaustion_level, conditions, buffs FROM character_hp WHERE character_id = $1',
+      'SELECT current_hp, exhaustion_level, conditions, condition_durations, buffs FROM character_hp WHERE character_id = $1',
       [characterId]
     );
 
@@ -21,6 +21,7 @@ export async function GET(
         currentHp: null,
         exhaustionLevel: null,
         conditions: null,
+        conditionDurations: null,
         buffs: null
       });
     }
@@ -30,6 +31,7 @@ export async function GET(
       currentHp: row.current_hp,
       exhaustionLevel: row.exhaustion_level ?? null,
       conditions: row.conditions ?? null,
+      conditionDurations: row.condition_durations ?? null,
       buffs: row.buffs ?? null
     });
   } catch (error) {
@@ -42,14 +44,16 @@ export async function GET(
 }
 
 // PUT /api/characters/[characterId]/hp
-// Saves HP, and optionally exhaustion, conditions, and buffs
+// Saves HP, and optionally exhaustion, conditions, conditionDurations, and buffs
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ characterId: string }> }
 ) {
   try {
     const { characterId } = await params;
-    const { currentHp, exhaustionLevel, conditions, buffs, campaignId = 1 } = await request.json();
+    const { currentHp, exhaustionLevel, conditions, conditionDurations, buffs, campaignId = 1 } = await request.json();
+
+    console.log('[HP API] PUT request for', characterId, '- conditionDurations:', conditionDurations);
 
     // Check if row exists
     const existing = await pool.query(
@@ -64,28 +68,30 @@ export async function PUT(
         // Cannot create without HP, but save exhaustion/conditions/buffs anyway
         // by first creating with a placeholder HP of 0
         result = await pool.query(
-          `INSERT INTO character_hp (character_id, campaign_id, current_hp, exhaustion_level, conditions, buffs, updated_at)
-           VALUES ($1, $2, 0, $3, $4, $5, CURRENT_TIMESTAMP)
-           RETURNING current_hp, exhaustion_level, conditions, buffs`,
+          `INSERT INTO character_hp (character_id, campaign_id, current_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
+           VALUES ($1, $2, 0, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+           RETURNING current_hp, exhaustion_level, conditions, condition_durations, buffs`,
           [
             characterId,
             campaignId,
             exhaustionLevel ?? 0,
             conditions ? JSON.stringify(conditions) : '[]',
+            conditionDurations ? JSON.stringify(conditionDurations) : '{}',
             buffs ? JSON.stringify(buffs) : '[]'
           ]
         );
       } else {
         result = await pool.query(
-          `INSERT INTO character_hp (character_id, campaign_id, current_hp, exhaustion_level, conditions, buffs, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-           RETURNING current_hp, exhaustion_level, conditions, buffs`,
+          `INSERT INTO character_hp (character_id, campaign_id, current_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+           RETURNING current_hp, exhaustion_level, conditions, condition_durations, buffs`,
           [
             characterId,
             campaignId,
             currentHp,
             exhaustionLevel ?? 0,
             conditions ? JSON.stringify(conditions) : '[]',
+            conditionDurations ? JSON.stringify(conditionDurations) : '{}',
             buffs ? JSON.stringify(buffs) : '[]'
           ]
         );
@@ -108,6 +114,12 @@ export async function PUT(
         updates.push(`conditions = $${paramIndex++}`);
         values.push(JSON.stringify(conditions));
       }
+      // Only update conditionDurations if explicitly provided with content
+      // Skip empty objects {} to avoid accidentally clearing durations
+      if (conditionDurations !== undefined && (conditionDurations === null || Object.keys(conditionDurations).length > 0)) {
+        updates.push(`condition_durations = $${paramIndex++}`);
+        values.push(JSON.stringify(conditionDurations));
+      }
       if (buffs !== undefined) {
         updates.push(`buffs = $${paramIndex++}`);
         values.push(JSON.stringify(buffs));
@@ -119,7 +131,7 @@ export async function PUT(
       result = await pool.query(
         `UPDATE character_hp SET ${updates.join(', ')}
          WHERE character_id = $${paramIndex++} AND campaign_id = $${paramIndex}
-         RETURNING current_hp, exhaustion_level, conditions, buffs`,
+         RETURNING current_hp, exhaustion_level, conditions, condition_durations, buffs`,
         values
       );
     }
@@ -129,6 +141,7 @@ export async function PUT(
       currentHp: row.current_hp,
       exhaustionLevel: row.exhaustion_level,
       conditions: row.conditions,
+      conditionDurations: row.condition_durations,
       buffs: row.buffs
     });
   } catch (error) {

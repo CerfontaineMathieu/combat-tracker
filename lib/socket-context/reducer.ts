@@ -94,12 +94,14 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
               return incomingChar;
             }
 
-            // Preserve local combat state (HP, conditions, exhaustion)
+            // Preserve local combat state (HP, conditions, conditionDurations, exhaustion, buffs)
             return {
               ...incomingChar,
               currentHp: existingChar.currentHp,
               conditions: existingChar.conditions,
+              conditionDurations: existingChar.conditionDurations,
               exhaustionLevel: existingChar.exhaustionLevel,
+              buffs: existingChar.buffs,
             };
           }),
         };
@@ -251,7 +253,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       if (data.type === 'state-sync') {
         const participants = (data.participants as CombatParticipant[]) ?? state.combatState.participants;
 
-        // Update connectedPlayers from restored participants (sync conditions, HP, exhaustion)
+        // Update connectedPlayers from restored participants (sync conditions, HP, exhaustion, conditionDurations, buffs)
         const updatedConnectedPlayers = state.connectedPlayers.map(cp => ({
           ...cp,
           characters: cp.characters.map(char => {
@@ -262,8 +264,10 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
               return {
                 ...char,
                 conditions: participant.conditions,
+                conditionDurations: participant.conditionDurations ?? char.conditionDurations,
                 currentHp: participant.currentHp,
                 exhaustionLevel: participant.exhaustionLevel ?? char.exhaustionLevel,
+                buffs: participant.buffs ?? char.buffs,
               };
             }
             return char;
@@ -371,7 +375,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
 
       if (participantType === 'player') {
         players = state.players.map((p) =>
-          p.id === participantId ? { ...p, conditions } : p
+          p.id === participantId ? { ...p, conditions, conditionDurations: conditionDurations ?? p.conditionDurations } : p
         );
 
         // Also update in connectedPlayers (for MJ view "Groupe" panel)
@@ -379,13 +383,13 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
           ...cp,
           characters: cp.characters.map((char) =>
             String(char.odNumber) === participantId
-              ? { ...char, conditions }
+              ? { ...char, conditions, conditionDurations: conditionDurations ?? char.conditionDurations }
               : char
           ),
         }));
       } else {
         monsters = state.monsters.map((m) =>
-          m.id === participantId ? { ...m, conditions } : m
+          m.id === participantId ? { ...m, conditions, conditionDurations: conditionDurations ?? m.conditionDurations } : m
         );
       }
 
