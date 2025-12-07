@@ -24,6 +24,7 @@ import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import { XpSummaryModal } from "@/components/xp-summary-modal"
 import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
+import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
 import {
   Dialog,
   DialogContent,
@@ -143,6 +144,16 @@ function CombatTrackerContent() {
   const [orphanPetDialog, setOrphanPetDialog] = useState<{
     owner: CombatParticipant
     pets: CombatParticipant[]
+  } | null>(null)
+
+  // State for concentration check dialog (when concentrated participant takes damage)
+  const [concentrationCheck, setConcentrationCheck] = useState<{
+    participantId: string
+    participantName: string
+    participantType: 'player' | 'monster'
+    damage: number
+    dc: number
+    pendingChange: number // The HP change to apply after check
   } | null>(null)
 
   // Persist combat state to sessionStorage
@@ -1072,10 +1083,28 @@ function CombatTrackerContent() {
     }
   }
 
-  const updatePlayerHp = async (id: string, change: number) => {
+  const updatePlayerHp = async (id: string, change: number, skipConcentrationCheck = false) => {
     // Look in displayPlayers which has the merged data from socket and campaign
     const player = displayPlayers.find(p => p.id === id)
     if (!player) return
+
+    // Check for concentration when taking damage (DM only, during combat)
+    if (mode === 'mj' && combatActive && change < 0 && !skipConcentrationCheck) {
+      const isConcentrated = player.conditions?.includes("concentre")
+      if (isConcentrated) {
+        const damage = Math.abs(change)
+        const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)))
+        setConcentrationCheck({
+          participantId: id,
+          participantName: player.name,
+          participantType: 'player',
+          damage,
+          dc,
+          pendingChange: change,
+        })
+        return // Wait for concentration check result
+      }
+    }
 
     const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + change))
     const wasAtZeroHp = player.currentHp === 0
@@ -1135,7 +1164,7 @@ function CombatTrackerContent() {
     }
   }
 
-  const updateMonsterHp = async (id: string, change: number) => {
+  const updateMonsterHp = async (id: string, change: number, skipConcentrationCheck = false) => {
     // Try to find in monsters array first, then fall back to combat participants
     const monster = monsters.find(m => m.id === id)
     const participant = combatParticipants.find(p => p.id === id && p.type === 'monster')
@@ -1146,6 +1175,26 @@ function CombatTrackerContent() {
     const currentHp = monster?.hp ?? participant?.currentHp ?? 0
     const maxHp = monster?.maxHp ?? participant?.maxHp ?? currentHp
     const name = monster?.name ?? participant?.name ?? 'Monster'
+    const conditions = monster?.conditions ?? participant?.conditions ?? []
+
+    // Check for concentration when taking damage (DM only, during combat)
+    if (mode === 'mj' && combatActive && change < 0 && !skipConcentrationCheck) {
+      const isConcentrated = conditions.includes("concentre")
+      if (isConcentrated) {
+        const damage = Math.abs(change)
+        const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)))
+        setConcentrationCheck({
+          participantId: id,
+          participantName: name,
+          participantType: 'monster',
+          damage,
+          dc,
+          pendingChange: change,
+        })
+        return // Wait for concentration check result
+      }
+    }
+
     const newHp = Math.max(0, Math.min(maxHp, currentHp + change))
 
     // Add history entry for damage/heal
@@ -1359,6 +1408,71 @@ function CombatTrackerContent() {
       console.error('Failed to update monster conditions:', error)
       toast.error("Erreur de sauvegarde")
     }
+  }
+
+  // Handle concentration check result (passed or failed)
+  const handleConcentrationResult = async (passed: boolean) => {
+    if (!concentrationCheck) return
+
+    const { participantId, participantName, participantType, pendingChange, dc } = concentrationCheck
+
+    // Apply the pending damage with skipConcentrationCheck flag
+    if (participantType === 'player') {
+      await updatePlayerHp(participantId, pendingChange, true)
+    } else {
+      await updateMonsterHp(participantId, pendingChange, true)
+    }
+
+    // If concentration check failed, remove the "concentre" condition
+    if (!passed) {
+      if (participantType === 'player') {
+        const player = displayPlayers.find(p => p.id === participantId)
+        if (player) {
+          const newConditions = (player.conditions || []).filter(c => c !== 'concentre')
+          await updatePlayerConditions(participantId, newConditions)
+        }
+      } else {
+        const monster = monsters.find(m => m.id === participantId)
+        const participant = combatParticipants.find(p => p.id === participantId)
+        const currentConditions = monster?.conditions ?? participant?.conditions ?? []
+        const newConditions = currentConditions.filter(c => c !== 'concentre')
+        await updateMonsterConditions(participantId, newConditions)
+      }
+
+      // Add history entry for broken concentration
+      addHistoryEntry({
+        type: "condition_remove",
+        target: participantName,
+        condition: "Concentration brisée (DD " + dc + ")",
+      })
+
+      // Broadcast the concentration broken effect to all players
+      emitAmbientEffect({ effect: 'concentration-broken' })
+
+      toast.error(`${participantName} perd sa concentration !`)
+    } else {
+      toast.success(`${participantName} maintient sa concentration !`)
+    }
+
+    // Clear the concentration check state
+    setConcentrationCheck(null)
+  }
+
+  // Handle concentration check cancel (apply damage but skip the check)
+  const handleConcentrationCancel = async () => {
+    if (!concentrationCheck) return
+
+    const { participantId, participantType, pendingChange } = concentrationCheck
+
+    // Apply the pending damage with skipConcentrationCheck flag
+    if (participantType === 'player') {
+      await updatePlayerHp(participantId, pendingChange, true)
+    } else {
+      await updateMonsterHp(participantId, pendingChange, true)
+    }
+
+    // Clear the concentration check state
+    setConcentrationCheck(null)
   }
 
   const updateMonsterExhaustion = async (id: string, exhaustionLevel: number) => {
@@ -2017,6 +2131,16 @@ function CombatTrackerContent() {
           onCancel={() => setOrphanPetDialog(null)}
         />
       )}
+
+      {/* Concentration Check Dialog */}
+      <ConcentrationCheckDialog
+        open={!!concentrationCheck}
+        participantName={concentrationCheck?.participantName || ""}
+        damage={concentrationCheck?.damage || 0}
+        dc={concentrationCheck?.dc || 10}
+        onResult={handleConcentrationResult}
+        onCancel={handleConcentrationCancel}
+      />
 
       <Header
         mode={mode}

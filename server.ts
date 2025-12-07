@@ -158,7 +158,7 @@ interface InventoryUpdateData {
 }
 
 interface AmbientEffectData {
-  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm';
+  effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success' | 'concentration-broken';
 }
 
 interface PlayerPositionData {

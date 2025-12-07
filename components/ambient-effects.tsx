@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { playSound } from "@/lib/sounds"
 
-export type AmbientEffect = "none" | "rain" | "fog" | "fire" | "snow" | "sandstorm" | "crit-fail" | "crit-success"
+export type AmbientEffect = "none" | "rain" | "fog" | "fire" | "snow" | "sandstorm" | "crit-fail" | "crit-success" | "concentration-broken"
 
 interface AmbientEffectsProps {
   effect: AmbientEffect
@@ -38,7 +38,7 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
-  // Auto-dismiss critical effects after animation
+  // Auto-dismiss critical/concentration effects after animation
   useEffect(() => {
     if (effect === "crit-fail" || effect === "crit-success") {
       setShowCritical(true)
@@ -50,6 +50,19 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
         setShowCritical(false)
         onEffectEnd?.()
       }, 3500) // 3.5 seconds total animation
+      return () => clearTimeout(timer)
+    }
+
+    if (effect === "concentration-broken") {
+      setShowCritical(true)
+
+      // Play the crit fail sound for concentration break
+      playSound("critFail")
+
+      const timer = setTimeout(() => {
+        setShowCritical(false)
+        onEffectEnd?.()
+      }, 2500) // 2.5 seconds for concentration break
       return () => clearTimeout(timer)
     }
   }, [effect, onEffectEnd])
@@ -550,6 +563,101 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
         </div>
       )}
 
+      {/* Concentration Broken Animation */}
+      {effect === "concentration-broken" && showCritical && (
+        <div
+          className="absolute inset-0 cursor-pointer pointer-events-auto"
+          onClick={() => {
+            setShowCritical(false)
+            onEffectEnd?.()
+          }}
+        >
+          {/* Dark overlay with purple tint */}
+          <div className="absolute inset-0 bg-black/70 animate-crit-overlay" />
+          <div className="absolute inset-0 bg-purple-900/30 animate-concentration-flash" />
+
+          {/* Centered broken shield icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="relative animate-concentration-shatter">
+              {/* Broken shield SVG */}
+              <svg
+                className="w-48 h-48 md:w-64 md:h-64"
+                viewBox="0 0 200 200"
+                style={{ filter: "drop-shadow(0 0 30px rgba(168, 85, 247, 0.8))" }}
+              >
+                {/* Left half of broken shield */}
+                <path
+                  d="M100 20 L40 50 L40 110 C40 140 60 170 100 190 L100 105 L60 85 L60 60 L100 40 Z"
+                  fill="rgba(88, 28, 135, 0.8)"
+                  stroke="rgba(168, 85, 247, 0.9)"
+                  strokeWidth="2"
+                  className="animate-shield-left"
+                />
+                {/* Right half of broken shield */}
+                <path
+                  d="M100 20 L160 50 L160 110 C160 140 140 170 100 190 L100 105 L140 85 L140 60 L100 40 Z"
+                  fill="rgba(88, 28, 135, 0.8)"
+                  stroke="rgba(168, 85, 247, 0.9)"
+                  strokeWidth="2"
+                  className="animate-shield-right"
+                />
+                {/* Crack line */}
+                <path
+                  d="M100 30 L95 60 L105 90 L98 120 L102 150 L100 180"
+                  fill="none"
+                  stroke="rgba(239, 68, 68, 0.9)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  className="animate-crack"
+                />
+                {/* Focus icon in center (broken) */}
+                <circle
+                  cx="100"
+                  cy="90"
+                  r="25"
+                  fill="none"
+                  stroke="rgba(168, 85, 247, 0.6)"
+                  strokeWidth="2"
+                  strokeDasharray="8 4"
+                  className="animate-focus-break"
+                />
+              </svg>
+
+              {/* Shatter particles */}
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute left-1/2 top-1/2 w-4 h-4 bg-purple-500/80 animate-shatter-particle"
+                  style={{
+                    animationDelay: `${0.3 + i * 0.05}s`,
+                    clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Text overlay */}
+          <div className="absolute inset-x-0 bottom-1/3 flex justify-center animate-concentration-text">
+            <span
+              className="text-3xl md:text-4xl font-bold text-purple-300 tracking-wider"
+              style={{
+                textShadow: "0 0 20px rgba(168, 85, 247, 1), 0 0 40px rgba(168, 85, 247, 0.6)",
+              }}
+            >
+              CONCENTRATION BRISÉE
+            </span>
+          </div>
+
+          {/* Ripple effect */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-32 h-32 rounded-full border-4 border-purple-500/60 animate-concentration-ripple" />
+            <div className="absolute w-32 h-32 rounded-full border-4 border-purple-500/40 animate-concentration-ripple" style={{ animationDelay: "0.2s" }} />
+            <div className="absolute w-32 h-32 rounded-full border-4 border-purple-500/20 animate-concentration-ripple" style={{ animationDelay: "0.4s" }} />
+          </div>
+        </div>
+      )}
+
       {/* CSS Animations */}
       <style jsx>{`
         @keyframes rain-fall {
@@ -980,6 +1088,142 @@ export function AmbientEffects({ effect, onEffectEnd }: AmbientEffectsProps) {
         .animate-crit-rune-float:nth-child(10) { --fx: -100px; --fy: -160px; }
         .animate-crit-rune-float:nth-child(11) { --fx: 100px; --fy: 160px; }
         .animate-crit-rune-float:nth-child(12) { --fx: -100px; --fy: 160px; }
+
+        /* Concentration Broken Animations */
+        .animate-concentration-flash {
+          animation: concentration-flash 2.5s ease-out forwards;
+        }
+
+        @keyframes concentration-flash {
+          0% { opacity: 0; }
+          10% { opacity: 0.6; }
+          20% { opacity: 0.3; }
+          100% { opacity: 0.3; }
+        }
+
+        .animate-concentration-shatter {
+          animation: concentration-shatter 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+        }
+
+        @keyframes concentration-shatter {
+          0% {
+            transform: scale(0.5);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 1;
+          }
+          70% {
+            transform: scale(0.95);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        .animate-shield-left {
+          animation: shield-left 0.8s ease-out 0.4s forwards;
+          transform-origin: center;
+        }
+
+        @keyframes shield-left {
+          0% { transform: translateX(0) rotate(0); }
+          100% { transform: translateX(-15px) rotate(-8deg); }
+        }
+
+        .animate-shield-right {
+          animation: shield-right 0.8s ease-out 0.4s forwards;
+          transform-origin: center;
+        }
+
+        @keyframes shield-right {
+          0% { transform: translateX(0) rotate(0); }
+          100% { transform: translateX(15px) rotate(8deg); }
+        }
+
+        .animate-crack {
+          stroke-dasharray: 200;
+          stroke-dashoffset: 200;
+          animation: crack-draw 0.4s ease-out 0.2s forwards;
+        }
+
+        @keyframes crack-draw {
+          0% { stroke-dashoffset: 200; }
+          100% { stroke-dashoffset: 0; }
+        }
+
+        .animate-focus-break {
+          animation: focus-break 0.5s ease-out 0.5s forwards;
+        }
+
+        @keyframes focus-break {
+          0% { opacity: 0.6; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.2); }
+          100% { opacity: 0; transform: scale(1.5); }
+        }
+
+        .animate-shatter-particle {
+          animation: shatter-particle 0.8s ease-out forwards;
+          opacity: 0;
+        }
+
+        @keyframes shatter-particle {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(calc(-50% + var(--px, 100px)), calc(-50% + var(--py, -100px))) scale(0);
+            opacity: 0;
+          }
+        }
+
+        .animate-shatter-particle:nth-child(1) { --px: 80px; --py: -60px; }
+        .animate-shatter-particle:nth-child(2) { --px: 60px; --py: -80px; }
+        .animate-shatter-particle:nth-child(3) { --px: -60px; --py: -80px; }
+        .animate-shatter-particle:nth-child(4) { --px: -80px; --py: -60px; }
+        .animate-shatter-particle:nth-child(5) { --px: -80px; --py: 60px; }
+        .animate-shatter-particle:nth-child(6) { --px: -60px; --py: 80px; }
+        .animate-shatter-particle:nth-child(7) { --px: 60px; --py: 80px; }
+        .animate-shatter-particle:nth-child(8) { --px: 80px; --py: 60px; }
+
+        .animate-concentration-text {
+          animation: concentration-text 2s ease-out forwards;
+        }
+
+        @keyframes concentration-text {
+          0% {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          20% {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          80% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+          }
+        }
+
+        .animate-concentration-ripple {
+          animation: concentration-ripple 1s ease-out forwards;
+        }
+
+        @keyframes concentration-ripple {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(4);
+            opacity: 0;
+          }
+        }
       `}</style>
     </div>
   )
