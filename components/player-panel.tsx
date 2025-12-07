@@ -485,7 +485,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       <div className="mt-2">
                         <ConditionList
                           conditions={player.conditions}
-                          conditionDurations={combatParticipants?.find(p => p.id === player.id)?.conditionDurations}
+                          conditionDurations={player.conditionDurations ?? combatParticipants?.find(p => p.id === player.id)?.conditionDurations}
                           exhaustionLevel={player.exhaustionLevel}
                           size="sm"
                         />

@@ -63,6 +63,7 @@ export interface Character {
   maxHp: number
   ac: number
   conditions: string[]
+  conditionDurations?: Record<string, number>
   exhaustionLevel: number
   buffs?: ActiveBuff[]
   initiative: number

@@ -475,7 +475,7 @@ export function CombatPanel({
                                   if (existingIndex >= 0) {
                                     newBuffs = currentBuffs.filter(b => b.buffId !== buffId)
                                   } else {
-                                    newBuffs = [...currentBuffs, { buffId, remainingTurns: duration }]
+                                    newBuffs = [...currentBuffs, { buffId, remainingTurns: duration ?? null }]
                                   }
                                   onUpdateBuffs(participant.id, newBuffs, participant.type)
                                 }}

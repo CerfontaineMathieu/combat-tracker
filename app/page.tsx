@@ -285,11 +285,12 @@ function CombatTrackerContent() {
     }
   }
 
-  // Load status (HP, exhaustion, conditions, buffs) from database for a character
+  // Load status (HP, exhaustion, conditions, conditionDurations, buffs) from database for a character
   interface CharacterStatus {
     currentHp: number | null
     exhaustionLevel: number | null
     conditions: string[] | null
+    conditionDurations: Record<string, number> | null
     buffs: ActiveBuff[] | null
   }
   const loadCharacterStatus = async (characterId: string): Promise<CharacterStatus> => {
@@ -302,13 +303,14 @@ function CombatTrackerContent() {
           currentHp: data.currentHp ?? null,
           exhaustionLevel: data.exhaustionLevel ?? null,
           conditions: data.conditions ?? null,
+          conditionDurations: data.conditionDurations ?? null,
           buffs: data.buffs ?? null
         }
       }
     } catch (error) {
       console.error('Failed to load status for character:', characterId, error)
     }
-    return { currentHp: null, exhaustionLevel: null, conditions: null, buffs: null }
+    return { currentHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null }
   }
 
   // Load inventory from database for a character
@@ -355,6 +357,7 @@ function CombatTrackerContent() {
             ac: char.ac,
             initiative: char.initiative,
             conditions: persistedStatus.conditions ?? char.conditions ?? [],
+            conditionDurations: persistedStatus.conditionDurations ?? {},
             exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
             buffs: persistedStatus.buffs ?? [],
             inventory,
@@ -427,6 +430,7 @@ function CombatTrackerContent() {
                 ac: c.ac,
                 initiative: c.initiative,
                 conditions: persistedStatus.conditions ?? c.conditions ?? [],
+                conditionDurations: persistedStatus.conditionDurations ?? {},
                 exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
                 buffs: persistedStatus.buffs ?? [],
                 isConnected: false,
@@ -518,10 +522,19 @@ function CombatTrackerContent() {
         if (socketP && (
           socketP.currentHp !== p.currentHp ||
           socketP.exhaustionLevel !== p.exhaustionLevel ||
-          JSON.stringify(socketP.conditions) !== JSON.stringify(p.conditions)
+          JSON.stringify(socketP.conditions) !== JSON.stringify(p.conditions) ||
+          JSON.stringify(socketP.conditionDurations) !== JSON.stringify(p.conditionDurations) ||
+          JSON.stringify(socketP.buffs) !== JSON.stringify(p.buffs)
         )) {
           hasChanges = true
-          return { ...p, currentHp: socketP.currentHp, exhaustionLevel: socketP.exhaustionLevel, conditions: socketP.conditions }
+          return {
+            ...p,
+            currentHp: socketP.currentHp,
+            exhaustionLevel: socketP.exhaustionLevel,
+            conditions: socketP.conditions,
+            conditionDurations: socketP.conditionDurations ?? p.conditionDurations,
+            buffs: socketP.buffs ?? p.buffs
+          }
         }
         return p
       })
@@ -684,6 +697,8 @@ function CombatTrackerContent() {
           initiative: playerInitiatives[id] ?? char.initiative,
           // Conditions: combat participant during combat, otherwise from connectedPlayers socket state
           conditions: combatParticipant?.conditions ?? char.conditions ?? [],
+          // Condition durations: combat participant during combat, otherwise from socket connected player data
+          conditionDurations: combatParticipant?.conditionDurations ?? char.conditionDurations ?? {},
           // Exhaustion: combat participant during combat, otherwise from connectedPlayers socket state
           exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
           // Buffs: combat participant during combat, otherwise from socket connected player data
@@ -718,6 +733,8 @@ function CombatTrackerContent() {
           currentHp: connectedChar.currentHp,
           // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
           inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
+          // Socket state (connectedChar) is source of truth for conditions - it's updated via condition-change events
+          conditionDurations: connectedChar.conditionDurations ?? localPlayer?.conditionDurations ?? char.conditionDurations ?? {},
           // Socket state (connectedChar) is source of truth for buffs - it's updated via buff-change events
           // localPlayer.buffs is only updated on DM side, not player side
           buffs: connectedChar.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
@@ -739,6 +756,7 @@ function CombatTrackerContent() {
         // Combat participant is source of truth during combat
         currentHp: combatParticipant?.currentHp ?? localPlayer?.currentHp ?? char.currentHp,
         conditions: combatParticipant?.conditions ?? char.conditions ?? [],
+        conditionDurations: combatParticipant?.conditionDurations ?? localPlayer?.conditionDurations ?? char.conditionDurations ?? {},
         exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
         buffs: combatParticipant?.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
         inventory: localPlayer?.inventory || char.inventory,
@@ -803,6 +821,8 @@ function CombatTrackerContent() {
         ...displayPlayers.map((p) => ({
           ...p,
           type: "player" as const,
+          conditions: p.conditions || [],
+          conditionDurations: p.conditionDurations || {},
           exhaustionLevel: p.exhaustionLevel || 0,
           buffs: p.buffs || [],
         })),
@@ -814,6 +834,7 @@ function CombatTrackerContent() {
           maxHp: m.maxHp,
           ac: m.ac,
           conditions: m.conditions || [],
+          conditionDurations: m.conditionDurations || {},
           exhaustionLevel: m.exhaustionLevel || 0,
           buffs: m.buffs || [],
           type: "monster" as const,
@@ -982,6 +1003,15 @@ function CombatTrackerContent() {
           conditionDurations: updatedDurations,
         })
 
+        // Persist to database for players
+        if (nextParticipant.type === 'player') {
+          fetch(`/api/characters/${nextParticipant.id}/hp`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conditions: newConditions, conditionDurations: updatedDurations }),
+          }).catch(err => console.error('Failed to persist condition durations:', err))
+        }
+
         // Notify about expired conditions
         if (expiredConditions.length > 0) {
           toast(`${nextParticipant.name}: condition expirée`, { duration: 2000 })
@@ -999,6 +1029,15 @@ function CombatTrackerContent() {
           conditions: nextParticipant.conditions,
           conditionDurations: newDurations,
         })
+
+        // Persist to database for players
+        if (nextParticipant.type === 'player') {
+          fetch(`/api/characters/${nextParticipant.id}/hp`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conditionDurations: newDurations }),
+          }).catch(err => console.error('Failed to persist condition durations:', err))
+        }
       }
     }
 
@@ -1253,6 +1292,7 @@ function CombatTrackerContent() {
   }
 
   const updatePlayerConditions = async (id: string, conditions: string[], conditionDurations?: Record<string, number>) => {
+    console.log('[updatePlayerConditions] id:', id, 'conditions:', conditions, 'conditionDurations:', conditionDurations)
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, conditions } : p)))
     if (combatActive) {
       setCombatParticipants((prev) =>
@@ -1268,14 +1308,14 @@ function CombatTrackerContent() {
       })
     }
 
-    // Persist conditions to database
+    // Persist conditions and conditionDurations to database
     try {
       await fetch(`/api/characters/${id}/hp`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conditions }),
+        body: JSON.stringify({ conditions, conditionDurations }),
       })
-      console.log('[Conditions] Persisted to database:', id, conditions)
+      console.log('[Conditions] Persisted to database:', id, conditions, conditionDurations)
     } catch (error) {
       console.error('Failed to persist conditions:', error)
     }
@@ -1669,6 +1709,7 @@ function CombatTrackerContent() {
       currentHp: player.currentHp,
       maxHp: player.maxHp,
       conditions: player.conditions || [],  // Keep current conditions
+      conditionDurations: player.conditionDurations || {},  // Keep current condition durations
       exhaustionLevel: player.exhaustionLevel || 0,  // Keep current exhaustion
       buffs: player.buffs || [],  // Keep current buffs
       type: "player",
@@ -1701,6 +1742,7 @@ function CombatTrackerContent() {
       maxHp: monster.maxHp,
       ac: monster.ac,
       conditions: monster.conditions || [],
+      conditionDurations: monster.conditionDurations || {},
       exhaustionLevel: monster.exhaustionLevel || 0,
       buffs: monster.buffs || [],
       type: "monster",

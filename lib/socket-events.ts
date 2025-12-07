@@ -15,6 +15,7 @@ export interface JoinCampaignData {
     ac: number;
     initiative: number;
     conditions: string[];
+    conditionDurations?: Record<string, number>; // conditionId -> remaining turns
     exhaustionLevel?: number;
     buffs?: ActiveBuff[]; // Character buffs/debuffs
     inventory?: CharacterInventory; // Character inventory for sync
@@ -35,6 +36,7 @@ export interface ConnectedPlayer {
     ac: number;
     initiative: number;
     conditions: string[];
+    conditionDurations?: Record<string, number>; // conditionId -> remaining turns
     exhaustionLevel?: number;
     buffs?: ActiveBuff[]; // Character buffs/debuffs
     inventory?: CharacterInventory; // Character inventory for sync
@@ -105,6 +107,9 @@ export interface CombatParticipantData {
   maxHp: number;
   ac: number;
   conditions: string[];
+  conditionDurations?: Record<string, number>;
+  exhaustionLevel?: number;
+  buffs?: ActiveBuff[];
   type: 'player' | 'monster';
 }
 

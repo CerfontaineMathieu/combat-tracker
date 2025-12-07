@@ -305,15 +305,17 @@ app.prepare().then(() => {
             // Use persisted values if available, otherwise use client values
             const currentHp = persistedStatus.currentHp !== null ? persistedStatus.currentHp : char.currentHp;
             const conditions = persistedStatus.conditions !== null ? persistedStatus.conditions : (char.conditions || []);
+            const conditionDurations = persistedStatus.conditionDurations !== null ? persistedStatus.conditionDurations : {};
             const exhaustionLevel = persistedStatus.exhaustionLevel !== null ? persistedStatus.exhaustionLevel : (char.exhaustionLevel || 0);
             const buffs = persistedStatus.buffs !== null ? persistedStatus.buffs : [];
 
-            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, conditions=${JSON.stringify(conditions)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}`);
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, conditions=${JSON.stringify(conditions)}, conditionDurations=${JSON.stringify(conditionDurations)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}`);
             return {
               ...char,
               inventory,
               currentHp,
               conditions,
+              conditionDurations,
               exhaustionLevel,
               buffs,
             };
@@ -404,6 +406,7 @@ app.prepare().then(() => {
                 name: string;
                 currentHp: number;
                 conditions?: string[];
+                conditionDurations?: Record<string, number>;
                 exhaustionLevel?: number;
                 buffs?: unknown[];
               }) => {
@@ -412,6 +415,7 @@ app.prepare().then(() => {
                   ...char,
                   currentHp: status.currentHp ?? char.currentHp,
                   conditions: status.conditions ?? char.conditions ?? [],
+                  conditionDurations: status.conditionDurations ?? char.conditionDurations ?? {},
                   exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
                   buffs: status.buffs ?? char.buffs ?? [],
                 };
