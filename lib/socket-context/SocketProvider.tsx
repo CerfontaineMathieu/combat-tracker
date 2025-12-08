@@ -164,6 +164,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
         participantId: data.participantId,
         participantType: data.participantType,
         newHp: data.newHp,
+        tempHp: data.tempHp,
       });
     });
 

@@ -304,16 +304,18 @@ app.prepare().then(() => {
 
             // Use persisted values if available, otherwise use client values
             const currentHp = persistedStatus.currentHp !== null ? persistedStatus.currentHp : char.currentHp;
+            const tempHp = persistedStatus.tempHp !== null ? persistedStatus.tempHp : undefined;
             const conditions = persistedStatus.conditions !== null ? persistedStatus.conditions : (char.conditions || []);
             const conditionDurations = persistedStatus.conditionDurations !== null ? persistedStatus.conditionDurations : {};
             const exhaustionLevel = persistedStatus.exhaustionLevel !== null ? persistedStatus.exhaustionLevel : (char.exhaustionLevel || 0);
             const buffs = persistedStatus.buffs !== null ? persistedStatus.buffs : [];
 
-            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, conditions=${JSON.stringify(conditions)}, conditionDurations=${JSON.stringify(conditionDurations)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}`);
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, tempHp=${tempHp}, conditions=${JSON.stringify(conditions)}, conditionDurations=${JSON.stringify(conditionDurations)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}`);
             return {
               ...char,
               inventory,
               currentHp,
+              tempHp,
               conditions,
               conditionDurations,
               exhaustionLevel,
@@ -569,21 +571,23 @@ app.prepare().then(() => {
 
         // Persist player HP changes to Redis for session persistence
         if (data.participantType === 'player') {
-          await updateCharacterHp(campaignId, data.participantId, data.newHp);
-          console.log(`[Socket.io] Persisted HP for character ${data.participantId}: ${data.newHp}`);
+          await updateCharacterHp(campaignId, data.participantId, data.newHp, data.tempHp);
+          console.log(`[Socket.io] Persisted HP for character ${data.participantId}: ${data.newHp}, tempHp: ${data.tempHp}`);
         }
 
         // Also update combat state participants HP so it persists across refreshes
         const combatState = await getCombatState(campaignId);
         if (combatState && combatState.participants) {
           const updatedParticipants = combatState.participants.map(p =>
-            p.id === data.participantId ? { ...p, currentHp: data.newHp } : p
+            p.id === data.participantId
+              ? { ...p, currentHp: data.newHp, tempHp: data.tempHp }
+              : p
           );
           await setCombatState(campaignId, {
             ...combatState,
             participants: updatedParticipants,
           });
-          console.log(`[Socket.io] Updated combat state HP for ${data.participantId}: ${data.newHp}`);
+          console.log(`[Socket.io] Updated combat state HP for ${data.participantId}: ${data.newHp}, tempHp: ${data.tempHp}`);
         }
 
         // Broadcast to all clients in room
