@@ -285,9 +285,10 @@ function CombatTrackerContent() {
     }
   }
 
-  // Load status (HP, exhaustion, conditions, conditionDurations, buffs) from database for a character
+  // Load status (HP, tempHp, exhaustion, conditions, conditionDurations, buffs) from database for a character
   interface CharacterStatus {
     currentHp: number | null
+    tempHp: number | null
     exhaustionLevel: number | null
     conditions: string[] | null
     conditionDurations: Record<string, number> | null
@@ -301,6 +302,7 @@ function CombatTrackerContent() {
         console.log('[Status] Loaded from database:', characterId, data)
         return {
           currentHp: data.currentHp ?? null,
+          tempHp: data.tempHp ?? null,
           exhaustionLevel: data.exhaustionLevel ?? null,
           conditions: data.conditions ?? null,
           conditionDurations: data.conditionDurations ?? null,
@@ -310,7 +312,7 @@ function CombatTrackerContent() {
     } catch (error) {
       console.error('Failed to load status for character:', characterId, error)
     }
-    return { currentHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null }
+    return { currentHp: null, tempHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null }
   }
 
   // Load inventory from database for a character
@@ -353,6 +355,7 @@ function CombatTrackerContent() {
             class: char.class,
             level: char.level,
             currentHp: persistedStatus.currentHp ?? char.current_hp,
+            tempHp: persistedStatus.tempHp ?? undefined,
             maxHp: char.max_hp,
             ac: char.ac,
             initiative: char.initiative,
@@ -426,6 +429,7 @@ function CombatTrackerContent() {
                 level: c.level,
                 // Use persisted values if available, otherwise use Notion values
                 currentHp: persistedStatus.currentHp ?? c.current_hp,
+                tempHp: persistedStatus.tempHp ?? undefined,
                 maxHp: c.max_hp,
                 ac: c.ac,
                 initiative: c.initiative,
@@ -692,6 +696,8 @@ function CombatTrackerContent() {
           // HP: combat participant during combat, otherwise from connectedPlayers socket state
           currentHp: combatParticipant?.currentHp ?? char.currentHp,
           maxHp: char.maxHp,
+          // Temp HP: combat participant during combat, otherwise from connectedPlayers socket state
+          tempHp: combatParticipant?.tempHp ?? char.tempHp,
           ac: char.ac,
           // Use initiative override if set, otherwise use character's initiative
           initiative: playerInitiatives[id] ?? char.initiative,
@@ -731,6 +737,8 @@ function CombatTrackerContent() {
           ...connectedChar,
           // HP from socket is source of truth for connected players (synced via hp-change events)
           currentHp: connectedChar.currentHp,
+          // Temp HP from socket is source of truth for connected players
+          tempHp: connectedChar.tempHp ?? localPlayer?.tempHp,
           // CRITICAL: Use local inventory if player is in local state (it has the latest changes)
           inventory: localPlayer ? localPlayer.inventory : connectedChar.inventory,
           // Socket state (connectedChar) is source of truth for conditions - it's updated via condition-change events
@@ -755,6 +763,8 @@ function CombatTrackerContent() {
         initiative: playerInitiatives[char.id] ?? char.initiative,
         // Combat participant is source of truth during combat
         currentHp: combatParticipant?.currentHp ?? localPlayer?.currentHp ?? char.currentHp,
+        // Temp HP from combat participant during combat, otherwise from local state
+        tempHp: combatParticipant?.tempHp ?? localPlayer?.tempHp ?? char.tempHp,
         conditions: combatParticipant?.conditions ?? char.conditions ?? [],
         conditionDurations: combatParticipant?.conditionDurations ?? localPlayer?.conditionDurations ?? char.conditionDurations ?? {},
         exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
@@ -1145,7 +1155,29 @@ function CombatTrackerContent() {
       }
     }
 
-    const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + change))
+    // Handle temp HP absorption for damage (D&D 5e rules)
+    let actualHpChange = change
+    let newTempHp = player.tempHp ?? 0
+
+    if (change < 0 && newTempHp > 0) {
+      // Damage is dealt and player has temp HP
+      const damage = Math.abs(change)
+      if (damage <= newTempHp) {
+        // Temp HP absorbs all damage
+        newTempHp -= damage
+        actualHpChange = 0 // No damage to regular HP
+      } else {
+        // Temp HP absorbs part of damage, rest goes to regular HP
+        actualHpChange = -(damage - newTempHp) // Remaining damage as negative
+        newTempHp = 0 // Temp HP depleted
+      }
+    }
+
+    // Remove temp HP completely when it reaches 0
+    // Use 0 instead of undefined so it serializes over socket and clears temp HP
+    const finalTempHp = newTempHp > 0 ? newTempHp : 0
+
+    const newHp = Math.max(0, Math.min(player.maxHp, player.currentHp + actualHpChange))
     const wasAtZeroHp = player.currentHp === 0
 
     // Add history entry for damage/heal
@@ -1161,13 +1193,15 @@ function CombatTrackerContent() {
     }
 
     // Update locally first for immediate feedback
+    // For local state, use undefined when tempHp is 0 (cleaner display)
+    const localTempHp = finalTempHp > 0 ? finalTempHp : undefined
     setPlayers((prev) => {
       const exists = prev.some(p => p.id === id)
       if (exists) {
-        return prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p))
+        return prev.map((p) => (p.id === id ? { ...p, currentHp: newHp, tempHp: localTempHp } : p))
       } else {
         // Add player to state with updated HP (player was not in local state yet)
-        return [...prev, { ...player, currentHp: newHp }]
+        return [...prev, { ...player, currentHp: newHp, tempHp: localTempHp }]
       }
     })
 
@@ -1176,13 +1210,14 @@ function CombatTrackerContent() {
       participantId: id,
       participantType: 'player',
       newHp,
+      tempHp: finalTempHp,
       change,
       source: mode === 'mj' ? 'dm' : 'player',
     })
 
     if (combatActive) {
       setCombatParticipants((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p)),
+        prev.map((p) => (p.id === id ? { ...p, currentHp: newHp, tempHp: localTempHp } : p)),
       )
 
       // Reset death saves when healed from 0 HP
@@ -1191,15 +1226,61 @@ function CombatTrackerContent() {
       }
     }
 
-    // Persist HP to database for session persistence
+    // Persist HP and temp HP to database for session persistence
     try {
       await fetch(`/api/characters/${id}/hp`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentHp: newHp }),
+        body: JSON.stringify({ currentHp: newHp, tempHp: finalTempHp ?? 0 }),
       })
     } catch (error) {
       console.error('Failed to persist HP:', error)
+    }
+  }
+
+  // Set temp HP for a player (D&D 5e: replaces existing temp HP, cannot stack)
+  const updatePlayerTempHp = async (id: string, newTempHp: number) => {
+    const player = displayPlayers.find(p => p.id === id)
+    if (!player) return
+
+    // Temp HP cannot be negative
+    const finalTempHp = Math.max(0, newTempHp) || undefined
+
+    // Update locally
+    setPlayers((prev) => {
+      const exists = prev.some(p => p.id === id)
+      if (exists) {
+        return prev.map((p) => (p.id === id ? { ...p, tempHp: finalTempHp } : p))
+      } else {
+        return [...prev, { ...player, tempHp: finalTempHp }]
+      }
+    })
+
+    // Emit to sync with other clients
+    emitHpChange({
+      participantId: id,
+      participantType: 'player',
+      newHp: player.currentHp,
+      tempHp: finalTempHp,
+      change: 0,
+      source: 'dm',
+    })
+
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, tempHp: finalTempHp } : p)),
+      )
+    }
+
+    // Persist to database
+    try {
+      await fetch(`/api/characters/${id}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempHp: finalTempHp ?? 0 }),
+      })
+    } catch (error) {
+      console.error('Failed to persist temp HP:', error)
     }
   }
 
@@ -1708,6 +1789,7 @@ function CombatTrackerContent() {
       // Use current HP (persisted in session) instead of resetting to max
       currentHp: player.currentHp,
       maxHp: player.maxHp,
+      tempHp: player.tempHp,  // Keep current temp HP
       conditions: player.conditions || [],  // Keep current conditions
       conditionDurations: player.conditionDurations || {},  // Keep current condition durations
       exhaustionLevel: player.exhaustionLevel || 0,  // Keep current exhaustion
@@ -2258,6 +2340,10 @@ function CombatTrackerContent() {
                     if (type === "player") updatePlayerHp(id, change)
                     else updateMonsterHp(id, change)
                   } : undefined}
+                  onUpdateTempHp={mode === "mj" ? (id, tempHp, type) => {
+                    if (type === "player") updatePlayerTempHp(id, tempHp)
+                    // Note: monsters don't have temp HP in this implementation
+                  } : undefined}
                   onUpdateConditions={mode === "mj" ? (id, conditions, type, conditionDurations) => {
                     if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)
                     else updateMonsterConditions(id, conditions, conditionDurations)
@@ -2365,6 +2451,10 @@ function CombatTrackerContent() {
                     onUpdateHp={mode === "mj" ? (id, change, type) => {
                       if (type === "player") updatePlayerHp(id, change)
                       else updateMonsterHp(id, change)
+                    } : undefined}
+                    onUpdateTempHp={mode === "mj" ? (id, tempHp, type) => {
+                      if (type === "player") updatePlayerTempHp(id, tempHp)
+                      // Note: monsters don't have temp HP in this implementation
                     } : undefined}
                     onUpdateConditions={mode === "mj" ? (id, conditions, type, conditionDurations) => {
                       if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)

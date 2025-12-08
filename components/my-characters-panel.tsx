@@ -129,8 +129,14 @@ export function MyCharactersPanel({ characters, onUpdateHp, onUpdateInventory, c
                       )}>
                         {character.currentHp}
                       </span>
-                      <span className="text-lg text-muted-foreground">/ {character.maxHp}</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-lg text-muted-foreground">/ {character.maxHp}</span>
+                        {character.tempHp && character.tempHp > 0 && (
+                          <span className="text-lg font-semibold text-blue-400">(+{character.tempHp})</span>
+                        )}
+                      </div>
                     </div>
+                    {/* Regular HP Bar */}
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
                       <div
                         className={cn(
@@ -140,6 +146,15 @@ export function MyCharactersPanel({ characters, onUpdateHp, onUpdateInventory, c
                         style={{ width: `${Math.max(0, (character.currentHp / character.maxHp) * 100)}%` }}
                       />
                     </div>
+                    {/* Temp HP Bar (blue) */}
+                    {character.tempHp && character.tempHp > 0 && (
+                      <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
+                        <div
+                          className="h-full bg-blue-500 transition-all duration-500 ease-out"
+                          style={{ width: `${Math.min(100, (character.tempHp / character.maxHp) * 100)}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* HP Controls */}

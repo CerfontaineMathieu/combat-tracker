@@ -41,6 +41,7 @@ interface CombatPanelProps {
   onNextTurn?: () => void
   onClearCombat?: () => void
   onUpdateHp?: (id: string, change: number, type: "player" | "monster") => void
+  onUpdateTempHp?: (id: string, tempHp: number, type: "player" | "monster") => void
   onUpdateConditions?: (id: string, conditions: string[], type: "player" | "monster", conditionDurations?: Record<string, number>) => void
   onUpdateExhaustion?: (id: string, level: number, type: "player" | "monster") => void
   onUpdateBuffs?: (id: string, buffs: ActiveBuff[], type: "player" | "monster") => void
@@ -62,6 +63,7 @@ export function CombatPanel({
   onNextTurn,
   onClearCombat,
   onUpdateHp,
+  onUpdateTempHp,
   onUpdateConditions,
   onUpdateExhaustion,
   onUpdateBuffs,
@@ -75,6 +77,7 @@ export function CombatPanel({
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
   const [petDialogOwner, setPetDialogOwner] = useState<CombatParticipant | null>(null)
   const [hpAmount, setHpAmount] = useState("")
+  const [tempHpAmount, setTempHpAmount] = useState("")
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [editingNameValue, setEditingNameValue] = useState("")
   const [selectedMonsterDetail, setSelectedMonsterDetail] = useState<DbMonster | null>(null)
@@ -390,8 +393,23 @@ export function CombatPanel({
                               )}
                             >
                               {participant.currentHp} / {participant.maxHp}
+                              {participant.tempHp && participant.tempHp > 0 && (
+                                <span className="text-blue-400 ml-1">(+{participant.tempHp})</span>
+                              )}
                             </span>
                           </div>
+                          {/* Temp HP Bar (blue) - shown above regular HP bar */}
+                          {participant.tempHp && participant.tempHp > 0 && (
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-0.5">
+                              <div
+                                className="h-full bg-blue-500 transition-all duration-500 ease-out"
+                                style={{
+                                  width: `${Math.min(100, (participant.tempHp / participant.maxHp) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                          )}
+                          {/* Regular HP Bar */}
                           <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div
                               className={cn(
@@ -522,7 +540,7 @@ export function CombatPanel({
                                   PV
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="bg-card border-border max-w-[calc(100vw-2rem)]">
+                              <DialogContent className="bg-card border-border max-w-[calc(100vw-2rem)] max-h-[85vh] overflow-y-auto">
                                 <DialogHeader>
                                   <DialogTitle className="text-gold">{participant.name}</DialogTitle>
                                 </DialogHeader>
@@ -599,6 +617,57 @@ export function CombatPanel({
                                       </Button>
                                     </div>
                                   </div>
+                                  {/* Temp HP Section - Players only */}
+                                  {participant.type === "player" && onUpdateTempHp && (
+                                    <div className="border-t border-border pt-4">
+                                      <label className="text-sm text-blue-400 mb-2 block font-medium">
+                                        <Shield className="w-4 h-4 inline mr-1" />
+                                        PV Temporaires
+                                        {participant.tempHp && participant.tempHp > 0 && (
+                                          <span className="text-muted-foreground ml-2">
+                                            (actuel: {participant.tempHp})
+                                          </span>
+                                        )}
+                                      </label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="number"
+                                          value={tempHpAmount}
+                                          onChange={(e) => setTempHpAmount(e.target.value)}
+                                          placeholder="Montant..."
+                                          className="bg-background min-h-[44px]"
+                                          min="0"
+                                        />
+                                        <Button
+                                          onClick={() => {
+                                            const amount = parseInt(tempHpAmount, 10)
+                                            if (!isNaN(amount) && amount >= 0) {
+                                              onUpdateTempHp(participant.id, amount, participant.type)
+                                              setTempHpAmount("")
+                                            }
+                                          }}
+                                          disabled={!tempHpAmount || parseInt(tempHpAmount, 10) < 0}
+                                          className="shrink-0 min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white active:scale-95 disabled:opacity-50"
+                                        >
+                                          Appliquer
+                                        </Button>
+                                        {participant.tempHp && participant.tempHp > 0 && (
+                                          <Button
+                                            onClick={() => {
+                                              onUpdateTempHp(participant.id, 0, participant.type)
+                                            }}
+                                            variant="outline"
+                                            className="shrink-0 min-h-[44px] border-blue-500/30 text-blue-400 hover:bg-blue-500/10 active:scale-95"
+                                          >
+                                            Retirer
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mt-2">
+                                        Les PV temporaires absorbent les dégâts en premier et ne se cumulent pas.
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </DialogContent>
                             </Dialog>
@@ -793,8 +862,23 @@ export function CombatPanel({
                               )}
                             >
                               {participant.currentHp} / {participant.maxHp}
+                              {participant.tempHp && participant.tempHp > 0 && (
+                                <span className="text-blue-400 ml-1">(+{participant.tempHp})</span>
+                              )}
                             </span>
                           </div>
+                          {/* Temp HP Bar (blue) - shown above regular HP bar */}
+                          {participant.tempHp && participant.tempHp > 0 && (
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-0.5">
+                              <div
+                                className="h-full bg-blue-500 transition-all duration-500 ease-out"
+                                style={{
+                                  width: `${Math.min(100, (participant.tempHp / participant.maxHp) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                          )}
+                          {/* Regular HP Bar */}
                           <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className={cn(
@@ -1027,7 +1111,7 @@ export function CombatPanel({
                               PV
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="bg-card border-border max-w-[calc(100vw-2rem)]">
+                          <DialogContent className="bg-card border-border max-w-[calc(100vw-2rem)] max-h-[85vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle className="text-gold">{participant.name}</DialogTitle>
                             </DialogHeader>
@@ -1104,6 +1188,57 @@ export function CombatPanel({
                                   </Button>
                                 </div>
                               </div>
+                              {/* Temp HP Section - Players only (Desktop view) */}
+                              {participant.type === "player" && onUpdateTempHp && (
+                                <div className="border-t border-border pt-4">
+                                  <label className="text-sm text-blue-400 mb-2 block font-medium">
+                                    <Shield className="w-4 h-4 inline mr-1" />
+                                    PV Temporaires
+                                    {participant.tempHp && participant.tempHp > 0 && (
+                                      <span className="text-muted-foreground ml-2">
+                                        (actuel: {participant.tempHp})
+                                      </span>
+                                    )}
+                                  </label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      type="number"
+                                      value={tempHpAmount}
+                                      onChange={(e) => setTempHpAmount(e.target.value)}
+                                      placeholder="Montant..."
+                                      className="bg-background min-h-[44px]"
+                                      min="0"
+                                    />
+                                    <Button
+                                      onClick={() => {
+                                        const amount = parseInt(tempHpAmount, 10)
+                                        if (!isNaN(amount) && amount >= 0) {
+                                          onUpdateTempHp(participant.id, amount, participant.type)
+                                          setTempHpAmount("")
+                                        }
+                                      }}
+                                      disabled={!tempHpAmount || parseInt(tempHpAmount, 10) < 0}
+                                      className="shrink-0 min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white active:scale-95 disabled:opacity-50"
+                                    >
+                                      Appliquer
+                                    </Button>
+                                    {participant.tempHp && participant.tempHp > 0 && (
+                                      <Button
+                                        onClick={() => {
+                                          onUpdateTempHp(participant.id, 0, participant.type)
+                                        }}
+                                        variant="outline"
+                                        className="shrink-0 min-h-[44px] border-blue-500/30 text-blue-400 hover:bg-blue-500/10 active:scale-95"
+                                      >
+                                        Retirer
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    Les PV temporaires absorbent les dégâts en premier et ne se cumulent pas.
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </DialogContent>
                         </Dialog>

@@ -12,6 +12,7 @@ export interface JoinCampaignData {
     level: number;
     currentHp: number;
     maxHp: number;
+    tempHp?: number; // Temporary hit points (D&D 5e)
     ac: number;
     initiative: number;
     conditions: string[];
@@ -33,6 +34,7 @@ export interface ConnectedPlayer {
     level: number;
     currentHp: number;
     maxHp: number;
+    tempHp?: number; // Temporary hit points (D&D 5e)
     ac: number;
     initiative: number;
     conditions: string[];
@@ -74,6 +76,7 @@ export interface HpChangeData {
   participantId: string;
   participantType: 'player' | 'monster';
   newHp: number;
+  tempHp?: number; // Temporary hit points (D&D 5e)
   change: number;
   source: 'dm' | 'player';
 }

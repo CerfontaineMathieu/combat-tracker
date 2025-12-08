@@ -114,7 +114,7 @@ export type SocketAction =
 
   // Combat State
   | { type: 'COMBAT_UPDATE'; data: CombatUpdateData }
-  | { type: 'HP_CHANGE'; participantId: string; participantType: 'player' | 'monster'; newHp: number }
+  | { type: 'HP_CHANGE'; participantId: string; participantType: 'player' | 'monster'; newHp: number; tempHp?: number }
   | { type: 'CONDITION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; conditions: string[]; conditionDurations?: Record<string, number> }
   | { type: 'EXHAUSTION_CHANGE'; participantId: string; participantType: 'player' | 'monster'; exhaustionLevel: number }
   | { type: 'BUFF_CHANGE'; participantId: string; participantType: 'player' | 'monster'; buffs: import('../types').ActiveBuff[] }

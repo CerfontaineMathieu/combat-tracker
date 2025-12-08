@@ -311,7 +311,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
 
     case 'HP_CHANGE': {
-      const { participantId, participantType, newHp } = action;
+      const { participantId, participantType, newHp, tempHp } = action;
 
       // Update in players/monsters arrays
       let players = state.players;
@@ -319,9 +319,17 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       let connectedPlayers = state.connectedPlayers;
 
       if (participantType === 'player') {
+        // tempHp: 0 means clear temp HP, undefined means don't change
+        const newTempHp = tempHp !== undefined ? (tempHp > 0 ? tempHp : undefined) : undefined;
+        const shouldUpdateTempHp = tempHp !== undefined;
+
         players = state.players.map((p) =>
           p.id === participantId
-            ? { ...p, currentHp: Math.max(0, Math.min(p.maxHp, newHp)) }
+            ? {
+                ...p,
+                currentHp: Math.max(0, Math.min(p.maxHp, newHp)),
+                tempHp: shouldUpdateTempHp ? newTempHp : p.tempHp
+              }
             : p
         );
 
@@ -330,7 +338,11 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
           ...cp,
           characters: cp.characters.map((char) =>
             String(char.odNumber) === participantId
-              ? { ...char, currentHp: Math.max(0, Math.min(char.maxHp, newHp)) }
+              ? {
+                  ...char,
+                  currentHp: Math.max(0, Math.min(char.maxHp, newHp)),
+                  tempHp: shouldUpdateTempHp ? newTempHp : char.tempHp
+                }
               : char
           ),
         }));
@@ -347,9 +359,17 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       }
 
       // Update in combat participants
+      // tempHp: 0 means clear temp HP, undefined means don't change
+      const participantNewTempHp = tempHp !== undefined ? (tempHp > 0 ? tempHp : undefined) : undefined;
+      const shouldUpdateParticipantTempHp = tempHp !== undefined;
+
       const participants = state.combatState.participants.map((p) =>
         p.id === participantId && p.type === participantType
-          ? { ...p, currentHp: Math.max(0, Math.min(p.maxHp, newHp)) }
+          ? {
+              ...p,
+              currentHp: Math.max(0, Math.min(p.maxHp, newHp)),
+              tempHp: shouldUpdateParticipantTempHp ? participantNewTempHp : p.tempHp
+            }
           : p
       );
 

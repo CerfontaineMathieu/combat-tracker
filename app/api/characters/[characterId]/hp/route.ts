@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
 // GET /api/characters/[characterId]/hp
-// Returns HP, exhaustion, conditions, conditionDurations, and buffs (full status)
+// Returns HP, tempHp, exhaustion, conditions, conditionDurations, and buffs (full status)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ characterId: string }> }
@@ -11,7 +11,7 @@ export async function GET(
     const { characterId } = await params;
 
     const result = await pool.query(
-      'SELECT current_hp, exhaustion_level, conditions, condition_durations, buffs FROM character_hp WHERE character_id = $1',
+      'SELECT current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs FROM character_hp WHERE character_id = $1',
       [characterId]
     );
 
@@ -19,6 +19,7 @@ export async function GET(
       // No status found, return nulls (use defaults from Notion)
       return NextResponse.json({
         currentHp: null,
+        tempHp: null,
         exhaustionLevel: null,
         conditions: null,
         conditionDurations: null,
@@ -29,6 +30,7 @@ export async function GET(
     const row = result.rows[0];
     return NextResponse.json({
       currentHp: row.current_hp,
+      tempHp: row.temp_hp ?? null,
       exhaustionLevel: row.exhaustion_level ?? null,
       conditions: row.conditions ?? null,
       conditionDurations: row.condition_durations ?? null,
@@ -44,16 +46,16 @@ export async function GET(
 }
 
 // PUT /api/characters/[characterId]/hp
-// Saves HP, and optionally exhaustion, conditions, conditionDurations, and buffs
+// Saves HP, tempHp, and optionally exhaustion, conditions, conditionDurations, and buffs
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ characterId: string }> }
 ) {
   try {
     const { characterId } = await params;
-    const { currentHp, exhaustionLevel, conditions, conditionDurations, buffs, campaignId = 1 } = await request.json();
+    const { currentHp, tempHp, exhaustionLevel, conditions, conditionDurations, buffs, campaignId = 1 } = await request.json();
 
-    console.log('[HP API] PUT request for', characterId, '- conditionDurations:', conditionDurations);
+    console.log('[HP API] PUT request for', characterId, '- tempHp:', tempHp, '- conditionDurations:', conditionDurations);
 
     // Check if row exists
     const existing = await pool.query(
@@ -68,12 +70,13 @@ export async function PUT(
         // Cannot create without HP, but save exhaustion/conditions/buffs anyway
         // by first creating with a placeholder HP of 0
         result = await pool.query(
-          `INSERT INTO character_hp (character_id, campaign_id, current_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
-           VALUES ($1, $2, 0, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-           RETURNING current_hp, exhaustion_level, conditions, condition_durations, buffs`,
+          `INSERT INTO character_hp (character_id, campaign_id, current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
+           VALUES ($1, $2, 0, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+           RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs`,
           [
             characterId,
             campaignId,
+            tempHp ?? 0,
             exhaustionLevel ?? 0,
             conditions ? JSON.stringify(conditions) : '[]',
             conditionDurations ? JSON.stringify(conditionDurations) : '{}',
@@ -82,13 +85,14 @@ export async function PUT(
         );
       } else {
         result = await pool.query(
-          `INSERT INTO character_hp (character_id, campaign_id, current_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
-           RETURNING current_hp, exhaustion_level, conditions, condition_durations, buffs`,
+          `INSERT INTO character_hp (character_id, campaign_id, current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+           RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs`,
           [
             characterId,
             campaignId,
             currentHp,
+            tempHp ?? 0,
             exhaustionLevel ?? 0,
             conditions ? JSON.stringify(conditions) : '[]',
             conditionDurations ? JSON.stringify(conditionDurations) : '{}',
@@ -105,6 +109,10 @@ export async function PUT(
       if (currentHp !== undefined && currentHp !== null) {
         updates.push(`current_hp = $${paramIndex++}`);
         values.push(currentHp);
+      }
+      if (tempHp !== undefined) {
+        updates.push(`temp_hp = $${paramIndex++}`);
+        values.push(tempHp ?? 0);
       }
       if (exhaustionLevel !== undefined && exhaustionLevel !== null) {
         updates.push(`exhaustion_level = $${paramIndex++}`);
@@ -131,7 +139,7 @@ export async function PUT(
       result = await pool.query(
         `UPDATE character_hp SET ${updates.join(', ')}
          WHERE character_id = $${paramIndex++} AND campaign_id = $${paramIndex}
-         RETURNING current_hp, exhaustion_level, conditions, condition_durations, buffs`,
+         RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs`,
         values
       );
     }
@@ -139,6 +147,7 @@ export async function PUT(
     const row = result.rows[0];
     return NextResponse.json({
       currentHp: row.current_hp,
+      tempHp: row.temp_hp,
       exhaustionLevel: row.exhaustion_level,
       conditions: row.conditions,
       conditionDurations: row.condition_durations,

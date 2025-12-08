@@ -49,6 +49,7 @@ export interface ConnectedPlayer {
     level: number;
     currentHp: number;
     maxHp: number;
+    tempHp?: number; // Temporary hit points (D&D 5e)
     ac: number;
     initiative: number;
     conditions: string[];
@@ -153,7 +154,7 @@ export async function clearConnectedPlayers(campaignId: number): Promise<void> {
 }
 
 // Update a specific character's HP across all connected players
-export async function updateCharacterHp(campaignId: number, characterId: string, newHp: number): Promise<void> {
+export async function updateCharacterHp(campaignId: number, characterId: string, newHp: number, tempHp?: number): Promise<void> {
   const client = await getRedis();
   const players = await getConnectedPlayers(campaignId);
 
@@ -162,6 +163,10 @@ export async function updateCharacterHp(campaignId: number, characterId: string,
     for (const char of player.characters) {
       if (String(char.odNumber) === characterId) {
         char.currentHp = newHp;
+        // Update tempHp if provided (undefined means don't change, 0 means remove)
+        if (tempHp !== undefined) {
+          char.tempHp = tempHp > 0 ? tempHp : undefined;
+        }
         updated = true;
         break;
       }

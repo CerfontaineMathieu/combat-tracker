@@ -61,6 +61,7 @@ export interface Character {
   level: number
   currentHp: number
   maxHp: number
+  tempHp?: number // Temporary hit points (D&D 5e)
   ac: number
   conditions: string[]
   conditionDurations?: Record<string, number>
@@ -104,6 +105,7 @@ export interface CombatParticipant {
   initiative: number
   currentHp: number
   maxHp: number
+  tempHp?: number // Temporary hit points (D&D 5e)
   ac?: number // AC for monsters (and optionally players)
   conditions: string[]
   conditionDurations?: Record<string, number> // conditionId -> remaining turns (only during combat)
