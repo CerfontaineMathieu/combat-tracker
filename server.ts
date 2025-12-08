@@ -157,6 +157,13 @@ interface InventoryUpdateData {
   source: 'dm' | 'player';
 }
 
+interface SpellSlotChangeData {
+  participantId: string;
+  participantType: 'player';
+  spellSlots: Record<number, number>;
+  source: 'dm' | 'player';
+}
+
 interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success' | 'concentration-broken';
 }
@@ -295,6 +302,9 @@ app.prepare().then(() => {
             initiative: number;
             conditions: string[];
             exhaustionLevel?: number;
+            spellSlots?: Record<number, number>;
+            maxSpellSlots?: Record<number, number>;
+            isWarlock?: boolean;
           }) => {
             const characterId = String(char.odNumber);
             const [inventory, persistedStatus] = await Promise.all([
@@ -310,7 +320,10 @@ app.prepare().then(() => {
             const exhaustionLevel = persistedStatus.exhaustionLevel !== null ? persistedStatus.exhaustionLevel : (char.exhaustionLevel || 0);
             const buffs = persistedStatus.buffs !== null ? persistedStatus.buffs : [];
 
-            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, tempHp=${tempHp}, conditions=${JSON.stringify(conditions)}, conditionDurations=${JSON.stringify(conditionDurations)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}`);
+            // Get spell slots from persisted status or use client-provided values
+            const spellSlots = persistedStatus.spellSlots !== null ? persistedStatus.spellSlots : (char.spellSlots || char.maxSpellSlots || {});
+
+            console.log(`[Socket.io] Loaded for ${char.name} (${char.odNumber}): HP=${currentHp}, tempHp=${tempHp}, conditions=${JSON.stringify(conditions)}, conditionDurations=${JSON.stringify(conditionDurations)}, exhaustion=${exhaustionLevel}, buffs=${JSON.stringify(buffs)}, spellSlots=${JSON.stringify(spellSlots)}, maxSpellSlots=${JSON.stringify(char.maxSpellSlots)}, isWarlock=${char.isWarlock}`);
             return {
               ...char,
               inventory,
@@ -320,6 +333,9 @@ app.prepare().then(() => {
               conditionDurations,
               exhaustionLevel,
               buffs,
+              spellSlots,
+              maxSpellSlots: char.maxSpellSlots,
+              isWarlock: char.isWarlock,
             };
           })
         );
@@ -736,6 +752,16 @@ app.prepare().then(() => {
         // Broadcast to room (all clients in the campaign)
         io.to(room).emit('inventory-update', data);
         console.log(`[Socket.io] Inventory update in ${room}:`, data.participantId, 'by', data.source);
+      }
+    });
+
+    // Spell slot changes
+    socket.on('spell-slot-change', (data: SpellSlotChangeData) => {
+      if (socket.data.campaignId) {
+        const room = `campaign-${socket.data.campaignId}`;
+        // Broadcast to all clients in room
+        io.to(room).emit('spell-slot-change', data);
+        console.log(`[Socket.io] Spell slot change in ${room}:`, data.participantId, 'by', data.source);
       }
     });
 

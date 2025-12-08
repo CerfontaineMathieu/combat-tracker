@@ -1178,7 +1178,7 @@ export async function getCharacterHp(
   return result.rows[0].current_hp;
 }
 
-// Get full persisted status for a character (HP, tempHp, exhaustion, conditions, conditionDurations, buffs)
+// Get full persisted status for a character (HP, tempHp, exhaustion, conditions, conditionDurations, buffs, spellSlots)
 export interface CharacterStatus {
   currentHp: number | null;
   tempHp: number | null;
@@ -1186,6 +1186,7 @@ export interface CharacterStatus {
   conditions: string[] | null;
   conditionDurations: Record<string, number> | null;
   buffs: import('@/lib/types').ActiveBuff[] | null;
+  spellSlots: Record<number, number> | null;
 }
 
 export async function getCharacterStatus(
@@ -1193,12 +1194,12 @@ export async function getCharacterStatus(
   campaignId: number = 1
 ): Promise<CharacterStatus> {
   const result = await pool.query(
-    'SELECT current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs FROM character_hp WHERE character_id = $1 AND campaign_id = $2',
+    'SELECT current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots FROM character_hp WHERE character_id = $1 AND campaign_id = $2',
     [characterId, campaignId]
   );
 
   if (result.rows.length === 0) {
-    return { currentHp: null, tempHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null };
+    return { currentHp: null, tempHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null, spellSlots: null };
   }
 
   const row = result.rows[0];
@@ -1209,6 +1210,7 @@ export async function getCharacterStatus(
     conditions: row.conditions ?? null,
     conditionDurations: row.condition_durations ?? null,
     buffs: row.buffs ?? null,
+    spellSlots: row.spell_slots ?? null,
   };
 }
 

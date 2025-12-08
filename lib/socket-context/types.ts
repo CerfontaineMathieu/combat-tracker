@@ -12,6 +12,7 @@ import type {
   DeathSaveChangeData,
   InventoryUpdateData,
   BuffChangeData,
+  SpellSlotChangeData,
 } from '../socket-events';
 import type { Character, Monster, CombatParticipant, CharacterInventory } from '../types';
 
@@ -28,6 +29,7 @@ export type {
   DeathSaveChangeData,
   InventoryUpdateData,
   BuffChangeData,
+  SpellSlotChangeData,
 };
 
 // Typed socket
@@ -122,6 +124,9 @@ export type SocketAction =
 
   // Inventory
   | { type: 'INVENTORY_UPDATE'; participantId: string; inventory: CharacterInventory }
+
+  // Spell Slots
+  | { type: 'SPELL_SLOT_CHANGE'; participantId: string; spellSlots: Record<number, number> }
 
   // Effects
   | { type: 'SET_AMBIENT_EFFECT'; effect: AmbientEffectData['effect'] }
@@ -219,6 +224,9 @@ export interface SocketContextType {
 
   // Inventory actions
   emitInventoryUpdate: (data: InventoryUpdateData) => void;
+
+  // Spell slot actions
+  emitSpellSlotChange: (data: SpellSlotChangeData) => void;
 
   // Ambient effect
   emitAmbientEffect: (data: AmbientEffectData) => void;

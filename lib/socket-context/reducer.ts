@@ -94,7 +94,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
               return incomingChar;
             }
 
-            // Preserve local combat state (HP, conditions, conditionDurations, exhaustion, buffs)
+            // Preserve local combat state (HP, conditions, conditionDurations, exhaustion, buffs, spellSlots)
             return {
               ...incomingChar,
               currentHp: existingChar.currentHp,
@@ -102,6 +102,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
               conditionDurations: existingChar.conditionDurations,
               exhaustionLevel: existingChar.exhaustionLevel,
               buffs: existingChar.buffs,
+              spellSlots: existingChar.spellSlots ?? incomingChar.spellSlots,
             };
           }),
         };
@@ -120,6 +121,16 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       );
       if (existsBySocket) return state;
 
+      // Find existing character data to preserve spell slots
+      const existingCharData = new Map<string, { spellSlots?: Record<number, number> }>();
+      state.connectedPlayers.forEach((p) => {
+        p.characters.forEach((c) => {
+          if (c.spellSlots) {
+            existingCharData.set(String(c.odNumber), { spellSlots: c.spellSlots });
+          }
+        });
+      });
+
       // Remove any existing entries with same character IDs (stale reconnections)
       const newCharacterIds = new Set(
         action.player.characters.map((c) => String(c.odNumber))
@@ -131,9 +142,21 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         return !hasMatchingChar;
       });
 
+      // Merge new player data with existing spell slots
+      const playerWithPreservedData = {
+        ...action.player,
+        characters: action.player.characters.map((char) => {
+          const existing = existingCharData.get(String(char.odNumber));
+          if (existing?.spellSlots && !char.spellSlots) {
+            return { ...char, spellSlots: existing.spellSlots };
+          }
+          return char;
+        }),
+      };
+
       return {
         ...state,
-        connectedPlayers: [...filteredPlayers, action.player],
+        connectedPlayers: [...filteredPlayers, playerWithPreservedData],
       };
     }
 
@@ -602,6 +625,41 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       const participants = state.combatState.participants.map((p) =>
         p.id === participantId && p.type === 'player'
           ? { ...p, inventory }
+          : p
+      )
+
+      return {
+        ...state,
+        players,
+        connectedPlayers,
+        combatState: {
+          ...state.combatState,
+          participants,
+        },
+      }
+    }
+
+    // ============ SPELL SLOTS ============
+    case 'SPELL_SLOT_CHANGE': {
+      const { participantId, spellSlots } = action
+
+      // Update in players array
+      const players = state.players.map((p) =>
+        p.id === participantId ? { ...p, spellSlots } : p
+      )
+
+      // Update in connectedPlayers
+      const connectedPlayers = state.connectedPlayers.map((cp) => ({
+        ...cp,
+        characters: cp.characters.map((char) =>
+          String(char.odNumber) === participantId ? { ...char, spellSlots } : char
+        ),
+      }))
+
+      // Update in combat participants
+      const participants = state.combatState.participants.map((p) =>
+        p.id === participantId && p.type === 'player'
+          ? { ...p, spellSlots }
           : p
       )
 

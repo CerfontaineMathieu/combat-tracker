@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
 // GET /api/characters/[characterId]/hp
-// Returns HP, tempHp, exhaustion, conditions, conditionDurations, and buffs (full status)
+// Returns HP, tempHp, exhaustion, conditions, conditionDurations, buffs, and spellSlots (full status)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ characterId: string }> }
@@ -11,7 +11,7 @@ export async function GET(
     const { characterId } = await params;
 
     const result = await pool.query(
-      'SELECT current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs FROM character_hp WHERE character_id = $1',
+      'SELECT current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots FROM character_hp WHERE character_id = $1',
       [characterId]
     );
 
@@ -23,7 +23,8 @@ export async function GET(
         exhaustionLevel: null,
         conditions: null,
         conditionDurations: null,
-        buffs: null
+        buffs: null,
+        spellSlots: null
       });
     }
 
@@ -34,7 +35,8 @@ export async function GET(
       exhaustionLevel: row.exhaustion_level ?? null,
       conditions: row.conditions ?? null,
       conditionDurations: row.condition_durations ?? null,
-      buffs: row.buffs ?? null
+      buffs: row.buffs ?? null,
+      spellSlots: row.spell_slots ?? null
     });
   } catch (error) {
     console.error('Error fetching character status:', error);
@@ -46,16 +48,16 @@ export async function GET(
 }
 
 // PUT /api/characters/[characterId]/hp
-// Saves HP, tempHp, and optionally exhaustion, conditions, conditionDurations, and buffs
+// Saves HP, tempHp, and optionally exhaustion, conditions, conditionDurations, buffs, and spellSlots
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ characterId: string }> }
 ) {
   try {
     const { characterId } = await params;
-    const { currentHp, tempHp, exhaustionLevel, conditions, conditionDurations, buffs, campaignId = 1 } = await request.json();
+    const { currentHp, tempHp, exhaustionLevel, conditions, conditionDurations, buffs, spellSlots, campaignId = 1 } = await request.json();
 
-    console.log('[HP API] PUT request for', characterId, '- tempHp:', tempHp, '- conditionDurations:', conditionDurations);
+    console.log('[HP API] PUT request for', characterId, '- tempHp:', tempHp, '- conditionDurations:', conditionDurations, '- spellSlots:', spellSlots);
 
     // Check if row exists
     const existing = await pool.query(
@@ -70,9 +72,9 @@ export async function PUT(
         // Cannot create without HP, but save exhaustion/conditions/buffs anyway
         // by first creating with a placeholder HP of 0
         result = await pool.query(
-          `INSERT INTO character_hp (character_id, campaign_id, current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
-           VALUES ($1, $2, 0, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
-           RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs`,
+          `INSERT INTO character_hp (character_id, campaign_id, current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots, updated_at)
+           VALUES ($1, $2, 0, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+           RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots`,
           [
             characterId,
             campaignId,
@@ -80,14 +82,15 @@ export async function PUT(
             exhaustionLevel ?? 0,
             conditions ? JSON.stringify(conditions) : '[]',
             conditionDurations ? JSON.stringify(conditionDurations) : '{}',
-            buffs ? JSON.stringify(buffs) : '[]'
+            buffs ? JSON.stringify(buffs) : '[]',
+            spellSlots ? JSON.stringify(spellSlots) : '{}'
           ]
         );
       } else {
         result = await pool.query(
-          `INSERT INTO character_hp (character_id, campaign_id, current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
-           RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs`,
+          `INSERT INTO character_hp (character_id, campaign_id, current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+           RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots`,
           [
             characterId,
             campaignId,
@@ -96,7 +99,8 @@ export async function PUT(
             exhaustionLevel ?? 0,
             conditions ? JSON.stringify(conditions) : '[]',
             conditionDurations ? JSON.stringify(conditionDurations) : '{}',
-            buffs ? JSON.stringify(buffs) : '[]'
+            buffs ? JSON.stringify(buffs) : '[]',
+            spellSlots ? JSON.stringify(spellSlots) : '{}'
           ]
         );
       }
@@ -132,6 +136,10 @@ export async function PUT(
         updates.push(`buffs = $${paramIndex++}`);
         values.push(JSON.stringify(buffs));
       }
+      if (spellSlots !== undefined) {
+        updates.push(`spell_slots = $${paramIndex++}`);
+        values.push(JSON.stringify(spellSlots));
+      }
 
       values.push(characterId);
       values.push(campaignId);
@@ -139,7 +147,7 @@ export async function PUT(
       result = await pool.query(
         `UPDATE character_hp SET ${updates.join(', ')}
          WHERE character_id = $${paramIndex++} AND campaign_id = $${paramIndex}
-         RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs`,
+         RETURNING current_hp, temp_hp, exhaustion_level, conditions, condition_durations, buffs, spell_slots`,
         values
       );
     }
@@ -151,7 +159,8 @@ export async function PUT(
       exhaustionLevel: row.exhaustion_level,
       conditions: row.conditions,
       conditionDurations: row.condition_durations,
-      buffs: row.buffs
+      buffs: row.buffs,
+      spellSlots: row.spell_slots
     });
   } catch (error) {
     console.error('Error saving character status:', error);

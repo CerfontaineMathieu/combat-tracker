@@ -1,9 +1,9 @@
 "use client"
 
-import { Users, Swords, Settings2, Database } from "lucide-react"
+import { Users, Swords, Settings2, Database, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type MobileTab = "players" | "combat" | "setup" | "bestiary"
+export type MobileTab = "players" | "combat" | "setup" | "bestiary" | "spellbook"
 
 interface MobileNavProps {
   activeTab?: MobileTab
@@ -28,6 +28,7 @@ export function MobileNav({ activeTab, onTabChange, mode, combatActive = false }
 
   const playerTabs = [
     { id: "players" as const, label: "Perso", icon: Users },
+    { id: "spellbook" as const, label: "Sorts", icon: BookOpen },
     { id: "combat" as const, label: "Combat", icon: Swords },
   ]
 
