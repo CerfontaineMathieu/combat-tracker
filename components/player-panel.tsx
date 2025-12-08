@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Backpack, Eye } from "lucide-react"
+import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Backpack, Eye, BookOpen } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
 import { BuffList } from "@/components/buff-badge"
 import { InventoryManager } from "@/components/inventory-manager"
+import { SpellSlotManager } from "@/components/spell-slot-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
@@ -38,6 +39,9 @@ interface PlayerPanelProps {
   onUpdateConditions?: (id: string, conditions: string[]) => void
   onUpdateExhaustion?: (id: string, level: number) => void
   onUpdateInventory?: (id: string, inventory: CharacterInventory) => void
+  onSpellSlotChange?: (id: string, level: number, delta: number) => void
+  onShortRest?: (id: string) => void
+  onLongRest?: (id: string) => void
   mode: "mj" | "joueur"
   combatActive?: boolean
   combatParticipants?: CombatParticipant[]
@@ -45,7 +49,7 @@ interface PlayerPanelProps {
   onAddToCombat?: (player: Character) => void // For mobile tap-to-add
 }
 
-export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onUpdateInventory, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
+export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onUpdateInventory, onSpellSlotChange, onShortRest, onLongRest, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
   const [playerToAdd, setPlayerToAdd] = useState<Character | null>(null)
@@ -171,6 +175,26 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                     {player.passivePerception && ` • PP ${player.passivePerception}`}
                                   </p>
                                   <div className="flex items-center gap-1.5 shrink-0">
+                                    {onSpellSlotChange && onShortRest && onLongRest && player.maxSpellSlots && Object.keys(player.maxSpellSlots).length > 0 && (
+                                      <SpellSlotManager
+                                        characterName={player.name}
+                                        spellSlots={player.spellSlots || {}}
+                                        maxSpellSlots={player.maxSpellSlots || {}}
+                                        isWarlock={player.isWarlock}
+                                        onSpellSlotChange={(level, delta) => onSpellSlotChange(player.id, level, delta)}
+                                        onShortRest={() => onShortRest(player.id)}
+                                        onLongRest={() => onLongRest(player.id)}
+                                        trigger={
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-purple-500 hover:bg-purple-500/10"
+                                          >
+                                            <BookOpen className="w-5 h-5" />
+                                          </Button>
+                                        }
+                                      />
+                                    )}
                                     {onUpdateInventory && (
                                       <InventoryManager
                                         characterName={player.name}
@@ -466,13 +490,13 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             )}
                           >
                             {player.currentHp} / {player.maxHp}
-                            {player.tempHp && player.tempHp > 0 && (
+                            {player.tempHp != null && player.tempHp > 0 && (
                               <span className="text-blue-400 ml-1">(+{player.tempHp})</span>
                             )}
                           </span>
                         </div>
                         {/* Temp HP Bar (blue) - shown above regular HP bar */}
-                        {player.tempHp && player.tempHp > 0 && (
+                        {player.tempHp != null && player.tempHp > 0 && (
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue-500 transition-all duration-500 ease-out"
@@ -600,6 +624,31 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                         </div>
                       )}
 
+                      {/* Spell Slot Manager */}
+                      {onSpellSlotChange && onShortRest && onLongRest && player.maxSpellSlots && Object.keys(player.maxSpellSlots).length > 0 && (
+                        <div className="mb-3">
+                          <SpellSlotManager
+                            characterName={player.name}
+                            spellSlots={player.spellSlots || {}}
+                            maxSpellSlots={player.maxSpellSlots || {}}
+                            isWarlock={player.isWarlock}
+                            onSpellSlotChange={(level, delta) => onSpellSlotChange(player.id, level, delta)}
+                            onShortRest={() => onShortRest(player.id)}
+                            onLongRest={() => onLongRest(player.id)}
+                            trigger={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full min-h-[40px] border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/10 text-purple-500"
+                              >
+                                <BookOpen className="w-4 h-4 mr-2" />
+                                Gérer les emplacements
+                              </Button>
+                            }
+                          />
+                        </div>
+                      )}
+
                       {/* Initiative */}
                       <div className="mb-3">
                         <label className="text-xs text-muted-foreground mb-1 block">Initiative</label>
@@ -693,6 +742,31 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                   {/* Expanded Actions - Player Mode (Damage Reporting) - Only for own characters */}
                   {expandedPlayer === player.id && mode === "joueur" && ownCharacterIds.includes(player.id) && (
                     <div className="px-3 pb-3 pt-2 border-t border-border/50 bg-secondary/20 animate-slide-down">
+                      {/* Spell Slot Manager for players */}
+                      {onSpellSlotChange && onShortRest && onLongRest && player.maxSpellSlots && Object.keys(player.maxSpellSlots).length > 0 && (
+                        <div className="mb-3">
+                          <SpellSlotManager
+                            characterName={player.name}
+                            spellSlots={player.spellSlots || {}}
+                            maxSpellSlots={player.maxSpellSlots || {}}
+                            isWarlock={player.isWarlock}
+                            onSpellSlotChange={(level, delta) => onSpellSlotChange(player.id, level, delta)}
+                            onShortRest={() => onShortRest(player.id)}
+                            onLongRest={() => onLongRest(player.id)}
+                            trigger={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full min-h-[44px] border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/10 text-purple-500"
+                              >
+                                <BookOpen className="w-4 h-4 mr-2" />
+                                Gérer les emplacements
+                              </Button>
+                            }
+                          />
+                        </div>
+                      )}
+
                       <p className="text-xs text-muted-foreground mb-2">Signaler des dégâts ou soins</p>
                       <div className="flex gap-2 mb-2">
                         <Input

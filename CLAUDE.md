@@ -34,6 +34,7 @@ Both environments can run in parallel thanks to different ports.
 - **SSH User**: mathieu
 - **SSH Key**: Available locally
 - **Docker path**: Uses `docker-compose.synology.yml`
+- **Docker process path** : Uses path /usr/local/bin/docker
 
 To connect:
 ```bash

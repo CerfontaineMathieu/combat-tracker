@@ -19,6 +19,7 @@ import type {
   PlayerPositionData,
   NotificationData,
   InventoryUpdateData,
+  SpellSlotChangeData,
 } from './types';
 import { initialSocketState } from './types';
 
@@ -265,6 +266,15 @@ export function SocketProvider({ children }: SocketProviderProps) {
       });
     });
 
+    // ============ SPELL SLOT EVENTS ============
+    socket.on('spell-slot-change', (data) => {
+      dispatch({
+        type: 'SPELL_SLOT_CHANGE',
+        participantId: data.participantId,
+        spellSlots: data.spellSlots,
+      });
+    });
+
     // Connect the socket
     socket.connect();
 
@@ -291,6 +301,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('dm-disconnected');
       socket.off('dm-reconnected');
       socket.off('inventory-update');
+      socket.off('spell-slot-change');
 
       socket.disconnect();
       socketRef.current = null;
@@ -497,6 +508,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
     });
   }, []);
 
+  const emitSpellSlotChange = useCallback((data: SpellSlotChangeData) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    socket.emit('spell-slot-change', data);
+    // Also update local state immediately
+    dispatch({
+      type: 'SPELL_SLOT_CHANGE',
+      participantId: data.participantId,
+      spellSlots: data.spellSlots,
+    });
+  }, []);
+
   // Context value - memoized to ensure proper React re-renders when state changes
   const value: SocketContextType = useMemo(() => ({
     state,
@@ -510,6 +534,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
+    emitSpellSlotChange,
     emitAmbientEffect,
     emitPlayerPositions,
     requestPlayerPositions,
@@ -527,6 +552,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
+    emitSpellSlotChange,
     emitAmbientEffect,
     emitPlayerPositions,
     requestPlayerPositions,

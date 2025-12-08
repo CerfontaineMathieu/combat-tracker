@@ -547,6 +547,9 @@ export interface NotionCharacter {
   intelligence: number | null;
   wisdom: number | null;
   charisma: number | null;
+  // Spell slots
+  max_spell_slots: Record<number, number> | null;
+  is_warlock: boolean;
 }
 
 /**
@@ -653,6 +656,22 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
     // Try both "CHAR" and "CHA" for charisma
     const charisma = extractNumber(props.CHAR?.number) ?? extractNumber(props.CHA?.number);
 
+    // Extract max spell slots from "Sorts Niv. X" columns (1-9)
+    const maxSpellSlots: Record<number, number> = {};
+    for (let level = 1; level <= 9; level++) {
+      const slotCount = extractNumber(props[`Sorts Niv. ${level}`]?.number);
+      if (slotCount !== null && slotCount > 0) {
+        maxSpellSlots[level] = slotCount;
+      }
+    }
+    const hasSpellSlots = Object.keys(maxSpellSlots).length > 0;
+
+    // Check if character is a warlock (recovers slots on short rest)
+    const classLower = characterClass.toLowerCase();
+    const isWarlock = classLower.includes('warlock') ||
+                      classLower.includes('sorcier') ||
+                      classLower.includes('occultiste');
+
     return {
       id: page.id,
       name,
@@ -670,6 +689,8 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
       intelligence,
       wisdom,
       charisma,
+      max_spell_slots: hasSpellSlots ? maxSpellSlots : null,
+      is_warlock: isWarlock,
     };
   } catch (error) {
     console.error('Error mapping Notion character:', error);

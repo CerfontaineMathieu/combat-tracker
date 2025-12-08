@@ -83,6 +83,10 @@ export interface Character {
   intelligence?: number | null
   wisdom?: number | null
   charisma?: number | null
+  // Spell slots (synced from Notion)
+  spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
+  maxSpellSlots?: Record<number, number>  // Max slots from Notion
+  isWarlock?: boolean                      // Warlocks recover slots on short rest
 }
 
 export interface Monster {
@@ -127,6 +131,10 @@ export interface CombatParticipant {
   isPet?: boolean              // true if this participant is a pet/summon/familiar
   ownerId?: string             // ID of the owner participant (player or monster)
   ownerType?: "player" | "monster"  // Type of owner (for visual styling)
+  // Spell slots (players only)
+  spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
+  maxSpellSlots?: Record<number, number>  // Max slots from Notion
+  isWarlock?: boolean                      // Warlocks recover slots on short rest
 }
 
 export interface Note {

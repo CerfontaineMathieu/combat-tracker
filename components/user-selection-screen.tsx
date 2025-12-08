@@ -26,6 +26,8 @@ interface CharacterInfo {
   ac: number
   initiative: number
   conditions: string[]
+  max_spell_slots?: Record<number, number> | null
+  is_warlock?: boolean
 }
 
 interface UserSelectionScreenProps {

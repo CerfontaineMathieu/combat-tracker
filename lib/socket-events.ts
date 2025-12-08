@@ -20,6 +20,9 @@ export interface JoinCampaignData {
     exhaustionLevel?: number;
     buffs?: ActiveBuff[]; // Character buffs/debuffs
     inventory?: CharacterInventory; // Character inventory for sync
+    spellSlots?: Record<number, number>; // Current spell slots per level
+    maxSpellSlots?: Record<number, number>; // Max spell slots from Notion
+    isWarlock?: boolean; // Warlocks recover slots on short rest
   }>; // Characters array when joining as player
 }
 
@@ -42,6 +45,9 @@ export interface ConnectedPlayer {
     exhaustionLevel?: number;
     buffs?: ActiveBuff[]; // Character buffs/debuffs
     inventory?: CharacterInventory; // Character inventory for sync
+    spellSlots?: Record<number, number>; // Current spell slots per level
+    maxSpellSlots?: Record<number, number>; // Max spell slots from Notion
+    isWarlock?: boolean; // Warlocks recover slots on short rest
   }>;
 }
 
@@ -200,6 +206,14 @@ export interface InventoryUpdateData {
   source: 'dm' | 'player';
 }
 
+// Spell slot change event
+export interface SpellSlotChangeData {
+  participantId: string;
+  participantType: 'player';
+  spellSlots: Record<number, number>;
+  source: 'dm' | 'player';
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -233,6 +247,8 @@ export interface ServerToClientEvents {
   'dm-reconnected': () => void;
   // Inventory events
   'inventory-update': (data: InventoryUpdateData) => void;
+  // Spell slot events
+  'spell-slot-change': (data: SpellSlotChangeData) => void;
 }
 
 // Client to server events
@@ -259,4 +275,6 @@ export interface ClientToServerEvents {
   'request-player-positions': () => void;
   // Inventory events
   'inventory-update': (data: InventoryUpdateData) => void;
+  // Spell slot events
+  'spell-slot-change': (data: SpellSlotChangeData) => void;
 }

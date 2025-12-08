@@ -393,13 +393,13 @@ export function CombatPanel({
                               )}
                             >
                               {participant.currentHp} / {participant.maxHp}
-                              {participant.tempHp && participant.tempHp > 0 && (
+                              {participant.tempHp != null && participant.tempHp > 0 && (
                                 <span className="text-blue-400 ml-1">(+{participant.tempHp})</span>
                               )}
                             </span>
                           </div>
                           {/* Temp HP Bar (blue) - shown above regular HP bar */}
-                          {participant.tempHp && participant.tempHp > 0 && (
+                          {participant.tempHp != null && participant.tempHp > 0 && (
                             <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-0.5">
                               <div
                                 className="h-full bg-blue-500 transition-all duration-500 ease-out"
@@ -623,7 +623,7 @@ export function CombatPanel({
                                       <label className="text-sm text-blue-400 mb-2 block font-medium">
                                         <Shield className="w-4 h-4 inline mr-1" />
                                         PV Temporaires
-                                        {participant.tempHp && participant.tempHp > 0 && (
+                                        {participant.tempHp != null && participant.tempHp > 0 && (
                                           <span className="text-muted-foreground ml-2">
                                             (actuel: {participant.tempHp})
                                           </span>
@@ -651,7 +651,7 @@ export function CombatPanel({
                                         >
                                           Appliquer
                                         </Button>
-                                        {participant.tempHp && participant.tempHp > 0 && (
+                                        {participant.tempHp != null && participant.tempHp > 0 && (
                                           <Button
                                             onClick={() => {
                                               onUpdateTempHp(participant.id, 0, participant.type)
@@ -862,13 +862,13 @@ export function CombatPanel({
                               )}
                             >
                               {participant.currentHp} / {participant.maxHp}
-                              {participant.tempHp && participant.tempHp > 0 && (
+                              {participant.tempHp != null && participant.tempHp > 0 && (
                                 <span className="text-blue-400 ml-1">(+{participant.tempHp})</span>
                               )}
                             </span>
                           </div>
                           {/* Temp HP Bar (blue) - shown above regular HP bar */}
-                          {participant.tempHp && participant.tempHp > 0 && (
+                          {participant.tempHp != null && participant.tempHp > 0 && (
                             <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-0.5">
                               <div
                                 className="h-full bg-blue-500 transition-all duration-500 ease-out"
@@ -1194,7 +1194,7 @@ export function CombatPanel({
                                   <label className="text-sm text-blue-400 mb-2 block font-medium">
                                     <Shield className="w-4 h-4 inline mr-1" />
                                     PV Temporaires
-                                    {participant.tempHp && participant.tempHp > 0 && (
+                                    {participant.tempHp != null && participant.tempHp > 0 && (
                                       <span className="text-muted-foreground ml-2">
                                         (actuel: {participant.tempHp})
                                       </span>
@@ -1222,7 +1222,7 @@ export function CombatPanel({
                                     >
                                       Appliquer
                                     </Button>
-                                    {participant.tempHp && participant.tempHp > 0 && (
+                                    {participant.tempHp != null && participant.tempHp > 0 && (
                                       <Button
                                         onClick={() => {
                                           onUpdateTempHp(participant.id, 0, participant.type)

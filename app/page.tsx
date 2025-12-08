@@ -25,6 +25,7 @@ import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import { XpSummaryModal } from "@/components/xp-summary-modal"
 import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
 import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
+import { SpellbookPanel } from "@/components/spellbook-panel"
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,7 @@ const DEFAULT_CAMPAIGN_ID = 1
 
 // Character info from selection screen
 interface SelectedCharacter {
-  id: number
+  id: string | number
   name: string
   class: string
   level: number
@@ -49,6 +50,8 @@ interface SelectedCharacter {
   ac: number
   initiative: number
   conditions: string[]
+  max_spell_slots?: Record<number, number> | null
+  is_warlock?: boolean
 }
 
 // Type alias for easier reading
@@ -76,6 +79,7 @@ function CombatTrackerContent() {
     emitBuffChange,
     emitDeathSaveChange,
     emitInventoryUpdate,
+    emitSpellSlotChange,
     emitAmbientEffect,
   } = useSocketContext()
 
@@ -176,6 +180,17 @@ function CombatTrackerContent() {
   useEffect(() => {
     sessionStorage.setItem('dnd-ambientEffect', ambientEffect)
   }, [ambientEffect])
+
+  // Set default tab based on mode when mode changes (login)
+  // Players should start on "players" tab (Mes Personnages), DM on "setup"
+  useEffect(() => {
+    if (mode === "joueur") {
+      // Only redirect from tabs that don't exist for players
+      if (activeTab === "setup" || activeTab === "bestiary") {
+        setActiveTab("players")
+      }
+    }
+  }, [mode]) // Only run when mode changes, not on every activeTab change
 
   // Switch mobile tab when combat starts/stops (DM only)
   useEffect(() => {
@@ -293,6 +308,7 @@ function CombatTrackerContent() {
     conditions: string[] | null
     conditionDurations: Record<string, number> | null
     buffs: ActiveBuff[] | null
+    spellSlots: Record<number, number> | null
   }
   const loadCharacterStatus = async (characterId: string): Promise<CharacterStatus> => {
     try {
@@ -306,13 +322,14 @@ function CombatTrackerContent() {
           exhaustionLevel: data.exhaustionLevel ?? null,
           conditions: data.conditions ?? null,
           conditionDurations: data.conditionDurations ?? null,
-          buffs: data.buffs ?? null
+          buffs: data.buffs ?? null,
+          spellSlots: data.spellSlots ?? null
         }
       }
     } catch (error) {
       console.error('Failed to load status for character:', characterId, error)
     }
-    return { currentHp: null, tempHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null }
+    return { currentHp: null, tempHp: null, exhaustionLevel: null, conditions: null, conditionDurations: null, buffs: null, spellSlots: null }
   }
 
   // Load inventory from database for a character
@@ -345,9 +362,10 @@ function CombatTrackerContent() {
       // Load inventories and status from database for each character
       const charactersWithData = await Promise.all(
         characters.map(async (char) => {
+          const charIdStr = String(char.id)
           const [inventory, persistedStatus] = await Promise.all([
-            loadCharacterInventory(char.id),
-            loadCharacterStatus(char.id),
+            loadCharacterInventory(charIdStr),
+            loadCharacterStatus(charIdStr),
           ])
           return {
             odNumber: char.id,
@@ -364,6 +382,10 @@ function CombatTrackerContent() {
             exhaustionLevel: persistedStatus.exhaustionLevel ?? 0,
             buffs: persistedStatus.buffs ?? [],
             inventory,
+            // Spell slots: use persisted if available, otherwise default to max from Notion
+            maxSpellSlots: char.max_spell_slots ?? undefined,
+            spellSlots: persistedStatus.spellSlots ?? char.max_spell_slots ?? undefined,
+            isWarlock: char.is_warlock ?? false,
           }
         })
       )
@@ -416,6 +438,8 @@ function CombatTrackerContent() {
               intelligence: number | null
               wisdom: number | null
               charisma: number | null
+              max_spell_slots: Record<number, number> | null
+              is_warlock: boolean
             }) => {
               // Load persisted data from database in parallel
               const [inventory, persistedStatus] = await Promise.all([
@@ -446,6 +470,10 @@ function CombatTrackerContent() {
                 intelligence: c.intelligence,
                 wisdom: c.wisdom,
                 charisma: c.charisma,
+                // Spell slots: use persisted if available, otherwise default to max from Notion
+                maxSpellSlots: c.max_spell_slots ?? undefined,
+                spellSlots: persistedStatus.spellSlots ?? c.max_spell_slots ?? undefined,
+                isWarlock: c.is_warlock,
               }
             })
           )
@@ -722,6 +750,10 @@ function CombatTrackerContent() {
           intelligence: campaignChar?.intelligence,
           wisdom: campaignChar?.wisdom,
           charisma: campaignChar?.charisma,
+          // Spell slots from campaign characters (Notion) and socket state
+          maxSpellSlots: campaignChar?.maxSpellSlots,
+          spellSlots: char.spellSlots ?? campaignChar?.spellSlots ?? campaignChar?.maxSpellSlots,
+          isWarlock: campaignChar?.isWarlock,
         })
       })
     })
@@ -746,6 +778,8 @@ function CombatTrackerContent() {
           // Socket state (connectedChar) is source of truth for buffs - it's updated via buff-change events
           // localPlayer.buffs is only updated on DM side, not player side
           buffs: connectedChar.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
+          // Spell slots: socket state (connectedChar) is source of truth - it's updated via spell-slot-change events
+          spellSlots: connectedChar.spellSlots ?? localPlayer?.spellSlots ?? char.spellSlots ?? char.maxSpellSlots,
         }
       }
       // Otherwise, use static data with isConnected: false
@@ -770,6 +804,10 @@ function CombatTrackerContent() {
         exhaustionLevel: combatParticipant?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
         buffs: combatParticipant?.buffs ?? localPlayer?.buffs ?? char.buffs ?? [],
         inventory: localPlayer?.inventory || char.inventory,
+        // Spell slots from local player state or campaign character (Notion)
+        maxSpellSlots: char.maxSpellSlots,
+        spellSlots: localPlayer?.spellSlots ?? char.spellSlots ?? char.maxSpellSlots,
+        isWarlock: char.isWarlock,
       }
     })
 
@@ -1499,6 +1537,134 @@ function CombatTrackerContent() {
       }
     } catch (error) {
       console.error('Failed to persist inventory to database:', error)
+    }
+  }
+
+  // Spell slot handlers
+  const updatePlayerSpellSlot = async (characterId: string, level: number, delta: number) => {
+    // Find player and get current slots
+    const player = displayPlayers.find(p => p.id === characterId)
+    if (!player) return
+
+    const currentSlots = player.spellSlots || {}
+    const maxSlots = player.maxSpellSlots || {}
+    const current = currentSlots[level] || 0
+    const max = maxSlots[level] || 0
+
+    // Calculate new value (bounded by 0 and max)
+    const newValue = Math.max(0, Math.min(max, current + delta))
+    const newSlots = { ...currentSlots, [level]: newValue }
+
+    // Update local state
+    setPlayers((prev) => prev.map((p) =>
+      p.id === characterId ? { ...p, spellSlots: newSlots } : p
+    ))
+
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === characterId ? { ...p, spellSlots: newSlots } : p))
+      )
+    }
+
+    // Emit socket event
+    emitSpellSlotChange({
+      participantId: characterId,
+      participantType: 'player',
+      spellSlots: newSlots,
+      source: mode === 'mj' ? 'dm' : 'player',
+    })
+
+    // Persist to database
+    try {
+      await fetch(`/api/characters/${characterId}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spellSlots: newSlots }),
+      })
+      console.log('[SpellSlots] Persisted to database:', characterId, newSlots)
+    } catch (error) {
+      console.error('Failed to persist spell slots:', error)
+    }
+  }
+
+  const handleShortRest = async (characterId: string) => {
+    // Only warlocks recover on short rest
+    const player = displayPlayers.find(p => p.id === characterId)
+    if (!player?.isWarlock) return
+
+    const maxSlots = player.maxSpellSlots || {}
+    const newSlots = { ...maxSlots }
+
+    // Update local state
+    setPlayers((prev) => prev.map((p) =>
+      p.id === characterId ? { ...p, spellSlots: newSlots } : p
+    ))
+
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === characterId ? { ...p, spellSlots: newSlots } : p))
+      )
+    }
+
+    // Emit socket event
+    emitSpellSlotChange({
+      participantId: characterId,
+      participantType: 'player',
+      spellSlots: newSlots,
+      source: mode === 'mj' ? 'dm' : 'player',
+    })
+
+    // Persist to database
+    try {
+      await fetch(`/api/characters/${characterId}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spellSlots: newSlots }),
+      })
+      console.log('[SpellSlots] Short rest - restored all slots for warlock:', characterId)
+      toast.success(`${player.name} récupère ses emplacements (repos court)`)
+    } catch (error) {
+      console.error('Failed to persist spell slots:', error)
+    }
+  }
+
+  const handleLongRest = async (characterId: string) => {
+    const player = displayPlayers.find(p => p.id === characterId)
+    if (!player) return
+
+    const maxSlots = player.maxSpellSlots || {}
+    const newSlots = { ...maxSlots }
+
+    // Update local state
+    setPlayers((prev) => prev.map((p) =>
+      p.id === characterId ? { ...p, spellSlots: newSlots } : p
+    ))
+
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === characterId ? { ...p, spellSlots: newSlots } : p))
+      )
+    }
+
+    // Emit socket event
+    emitSpellSlotChange({
+      participantId: characterId,
+      participantType: 'player',
+      spellSlots: newSlots,
+      source: mode === 'mj' ? 'dm' : 'player',
+    })
+
+    // Persist to database
+    try {
+      await fetch(`/api/characters/${characterId}/hp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spellSlots: newSlots }),
+      })
+      console.log('[SpellSlots] Long rest - restored all slots:', characterId)
+      toast.success(`${player.name} récupère ses emplacements (repos long)`)
+    } catch (error) {
+      console.error('Failed to persist spell slots:', error)
     }
   }
 
@@ -2311,6 +2477,9 @@ function CombatTrackerContent() {
                   onUpdateConditions={updatePlayerConditions}
                   onUpdateExhaustion={updatePlayerExhaustion}
                   onUpdateInventory={updatePlayerInventory}
+                  onSpellSlotChange={updatePlayerSpellSlot}
+                  onShortRest={handleShortRest}
+                  onLongRest={handleLongRest}
                   mode={mode}
                   combatActive={combatActive}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
@@ -2324,6 +2493,14 @@ function CombatTrackerContent() {
                   onUpdateHp={updatePlayerHp}
                   onUpdateInventory={updatePlayerInventory}
                   combatActive={combatActive}
+                />
+              )}
+              {activeTab === "spellbook" && mode === "joueur" && (
+                <SpellbookPanel
+                  characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
+                  onSpellSlotChange={updatePlayerSpellSlot}
+                  onShortRest={handleShortRest}
+                  onLongRest={handleLongRest}
                 />
               )}
               {activeTab === "combat" && (
@@ -2416,6 +2593,9 @@ function CombatTrackerContent() {
                       onUpdateConditions={updatePlayerConditions}
                       onUpdateExhaustion={updatePlayerExhaustion}
                       onUpdateInventory={updatePlayerInventory}
+                      onSpellSlotChange={updatePlayerSpellSlot}
+                      onShortRest={handleShortRest}
+                      onLongRest={handleLongRest}
                       mode={mode}
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
@@ -2499,7 +2679,15 @@ function CombatTrackerContent() {
                   combatActive={false}
                 />
               </div>
-              <div className="col-span-8 flex items-center justify-center">
+              <div className="col-span-4 overflow-auto">
+                <SpellbookPanel
+                  characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
+                  onSpellSlotChange={updatePlayerSpellSlot}
+                  onShortRest={handleShortRest}
+                  onLongRest={handleLongRest}
+                />
+              </div>
+              <div className="col-span-4 flex items-center justify-center">
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-gold/10 flex items-center justify-center">
                     <svg className="w-8 h-8 text-gold animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2540,6 +2728,9 @@ function CombatTrackerContent() {
                       onUpdateConditions={updatePlayerConditions}
                       onUpdateExhaustion={updatePlayerExhaustion}
                       onUpdateInventory={updatePlayerInventory}
+                      onSpellSlotChange={updatePlayerSpellSlot}
+                      onShortRest={handleShortRest}
+                      onLongRest={handleLongRest}
                       mode={mode}
                       combatActive={combatActive}
                       combatParticipants={combatParticipants}
