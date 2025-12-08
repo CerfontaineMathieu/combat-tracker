@@ -490,13 +490,13 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             )}
                           >
                             {player.currentHp} / {player.maxHp}
-                            {player.tempHp && player.tempHp > 0 && (
+                            {player.tempHp != null && player.tempHp > 0 && (
                               <span className="text-blue-400 ml-1">(+{player.tempHp})</span>
                             )}
                           </span>
                         </div>
                         {/* Temp HP Bar (blue) - shown above regular HP bar */}
-                        {player.tempHp && player.tempHp > 0 && (
+                        {player.tempHp != null && player.tempHp > 0 && (
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue-500 transition-all duration-500 ease-out"

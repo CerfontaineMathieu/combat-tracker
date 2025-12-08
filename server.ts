@@ -423,6 +423,7 @@ app.prepare().then(() => {
                 odNumber: string | number;
                 name: string;
                 currentHp: number;
+                tempHp?: number;
                 conditions?: string[];
                 conditionDurations?: Record<string, number>;
                 exhaustionLevel?: number;
@@ -432,6 +433,7 @@ app.prepare().then(() => {
                 return {
                   ...char,
                   currentHp: status.currentHp ?? char.currentHp,
+                  tempHp: status.tempHp ?? char.tempHp,
                   conditions: status.conditions ?? char.conditions ?? [],
                   conditionDurations: status.conditionDurations ?? char.conditionDurations ?? {},
                   exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
@@ -516,7 +518,9 @@ app.prepare().then(() => {
                 odNumber: string | number;
                 name: string;
                 currentHp: number;
+                tempHp?: number;
                 conditions?: string[];
+                conditionDurations?: Record<string, number>;
                 exhaustionLevel?: number;
                 buffs?: unknown[];
               }) => {
@@ -524,7 +528,9 @@ app.prepare().then(() => {
                 return {
                   ...char,
                   currentHp: status.currentHp ?? char.currentHp,
+                  tempHp: status.tempHp ?? char.tempHp,
                   conditions: status.conditions ?? char.conditions ?? [],
+                  conditionDurations: status.conditionDurations ?? char.conditionDurations ?? {},
                   exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
                   buffs: status.buffs ?? char.buffs ?? [],
                 };

@@ -131,7 +131,7 @@ export function MyCharactersPanel({ characters, onUpdateHp, onUpdateInventory, c
                       </span>
                       <div className="flex items-baseline gap-1">
                         <span className="text-lg text-muted-foreground">/ {character.maxHp}</span>
-                        {character.tempHp && character.tempHp > 0 && (
+                        {character.tempHp != null && character.tempHp > 0 && (
                           <span className="text-lg font-semibold text-blue-400">(+{character.tempHp})</span>
                         )}
                       </div>
@@ -147,7 +147,7 @@ export function MyCharactersPanel({ characters, onUpdateHp, onUpdateInventory, c
                       />
                     </div>
                     {/* Temp HP Bar (blue) */}
-                    {character.tempHp && character.tempHp > 0 && (
+                    {character.tempHp != null && character.tempHp > 0 && (
                       <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
                         <div
                           className="h-full bg-blue-500 transition-all duration-500 ease-out"

@@ -94,10 +94,11 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
               return incomingChar;
             }
 
-            // Preserve local combat state (HP, conditions, conditionDurations, exhaustion, buffs, spellSlots)
+            // Preserve local combat state (HP, tempHp, conditions, conditionDurations, exhaustion, buffs, spellSlots)
             return {
               ...incomingChar,
               currentHp: existingChar.currentHp,
+              tempHp: existingChar.tempHp,
               conditions: existingChar.conditions,
               conditionDurations: existingChar.conditionDurations,
               exhaustionLevel: existingChar.exhaustionLevel,
@@ -121,12 +122,12 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       );
       if (existsBySocket) return state;
 
-      // Find existing character data to preserve spell slots
-      const existingCharData = new Map<string, { spellSlots?: Record<number, number> }>();
+      // Find existing character data to preserve spell slots and temp HP
+      const existingCharData = new Map<string, { spellSlots?: Record<number, number>; tempHp?: number }>();
       state.connectedPlayers.forEach((p) => {
         p.characters.forEach((c) => {
-          if (c.spellSlots) {
-            existingCharData.set(String(c.odNumber), { spellSlots: c.spellSlots });
+          if (c.spellSlots || c.tempHp !== undefined) {
+            existingCharData.set(String(c.odNumber), { spellSlots: c.spellSlots, tempHp: c.tempHp });
           }
         });
       });
@@ -142,13 +143,17 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         return !hasMatchingChar;
       });
 
-      // Merge new player data with existing spell slots
+      // Merge new player data with existing spell slots and temp HP
       const playerWithPreservedData = {
         ...action.player,
         characters: action.player.characters.map((char) => {
           const existing = existingCharData.get(String(char.odNumber));
-          if (existing?.spellSlots && !char.spellSlots) {
-            return { ...char, spellSlots: existing.spellSlots };
+          if (existing) {
+            return {
+              ...char,
+              spellSlots: char.spellSlots ?? existing.spellSlots,
+              tempHp: existing.tempHp !== undefined ? existing.tempHp : char.tempHp,
+            };
           }
           return char;
         }),
@@ -276,7 +281,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       if (data.type === 'state-sync') {
         const participants = (data.participants as CombatParticipant[]) ?? state.combatState.participants;
 
-        // Update connectedPlayers from restored participants (sync conditions, HP, exhaustion, conditionDurations, buffs)
+        // Update connectedPlayers from restored participants (sync conditions, HP, tempHp, exhaustion, conditionDurations, buffs)
         const updatedConnectedPlayers = state.connectedPlayers.map(cp => ({
           ...cp,
           characters: cp.characters.map(char => {
@@ -289,6 +294,7 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
                 conditions: participant.conditions,
                 conditionDurations: participant.conditionDurations ?? char.conditionDurations,
                 currentHp: participant.currentHp,
+                tempHp: participant.tempHp,
                 exhaustionLevel: participant.exhaustionLevel ?? char.exhaustionLevel,
                 buffs: participant.buffs ?? char.buffs,
               };
