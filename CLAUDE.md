@@ -33,8 +33,9 @@ Both environments can run in parallel thanks to different ports.
 - **IP**: 192.168.1.2
 - **SSH User**: mathieu
 - **SSH Key**: Available locally
-- **Docker path**: Uses `docker-compose.synology.yml`
-- **Docker process path** : Uses path /usr/local/bin/docker
+- **Project path**: `/volume1/docker/combat-tracker`
+- **Docker compose file**: `docker-compose.synology.yml`
+- **Docker process path**: `/usr/local/bin/docker`
 
 To connect:
 ```bash

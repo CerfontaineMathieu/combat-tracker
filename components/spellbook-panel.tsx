@@ -528,21 +528,29 @@ export function SpellbookPanel({
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="text-purple-400">
               {selectedSpellForDetail?.name}
             </DialogTitle>
           </DialogHeader>
           {selectedSpellForDetail && detailCharacter && (
-            <SpellDetail
-              spell={selectedSpellForDetail}
-              showCastButton
-              availableSlots={detailCharacter.spellSlots || {}}
-              onCast={(spell, slotLevel) =>
-                handleCastSpell(detailCharacter.id, spell, slotLevel)
-              }
-            />
+            <div
+              className="overflow-y-scroll pr-2 touch-pan-y flex-1"
+              style={{
+                WebkitOverflowScrolling: 'touch',
+                maxHeight: '60vh',
+              }}
+            >
+              <SpellDetail
+                spell={selectedSpellForDetail}
+                showCastButton
+                availableSlots={detailCharacter.spellSlots || {}}
+                onCast={(spell, slotLevel) =>
+                  handleCastSpell(detailCharacter.id, spell, slotLevel)
+                }
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
