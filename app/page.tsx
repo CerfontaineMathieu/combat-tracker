@@ -194,7 +194,11 @@ function CombatTrackerContent() {
         setActiveTab("players")
       }
     }
-  }, [mode]) // Only run when mode changes, not on every activeTab change
+    // Fetch session notes when DM logs in
+    if (mode === "mj" && userSelected) {
+      fetchSessionNotes()
+    }
+  }, [mode, userSelected]) // Run when mode changes or user is selected
 
   // Switch mobile tab when combat starts/stops (DM only)
   useEffect(() => {
@@ -1766,23 +1770,82 @@ function CombatTrackerContent() {
     setConcentrationCheck(null)
   }
 
-  // Session notes handlers
-  const handleAddNote = (note: Omit<Note, "id">) => {
-    const newNote: Note = {
-      ...note,
-      id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+  // Session notes handlers - using Redis API
+  const fetchSessionNotes = async () => {
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}/session-notes`)
+      if (response.ok) {
+        const data = await response.json()
+        setSessionNotes(data.notes || [])
+      }
+    } catch (error) {
+      console.error('Error fetching session notes:', error)
     }
-    setSessionNotes((prev) => [newNote, ...prev])
   }
 
-  const handleUpdateNote = (id: string, updates: Partial<Note>) => {
-    setSessionNotes((prev) =>
-      prev.map((note) => (note.id === id ? { ...note, ...updates } : note))
-    )
+  const handleAddNote = async (note: Omit<Note, "id" | "time">) => {
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}/session-notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: note.title, content: note.content }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setSessionNotes(data.notes)
+        toast.success("Note créée")
+      }
+    } catch (error) {
+      console.error('Error adding note:', error)
+      toast.error("Erreur lors de la création de la note")
+    }
   }
 
-  const handleDeleteNote = (id: string) => {
-    setSessionNotes((prev) => prev.filter((note) => note.id !== id))
+  const handleUpdateNote = async (id: string, updates: Partial<Note>) => {
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}/session-notes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId: id, ...updates }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setSessionNotes(data.notes)
+      }
+    } catch (error) {
+      console.error('Error updating note:', error)
+      toast.error("Erreur lors de la mise à jour")
+    }
+  }
+
+  const handleDeleteNote = async (id: string) => {
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}/session-notes?noteId=${id}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setSessionNotes(data.notes)
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error)
+      toast.error("Erreur lors de la suppression")
+    }
+  }
+
+  const handleClearNotes = async () => {
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}/session-notes?clearAll=true`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        setSessionNotes([])
+        toast.success("Notes effacées")
+      }
+    } catch (error) {
+      console.error('Error clearing notes:', error)
+      toast.error("Erreur lors de la suppression des notes")
+    }
   }
 
   const handleSyncNotesToNotion = async () => {
@@ -1793,26 +1856,22 @@ function CombatTrackerContent() {
 
     setIsSyncingNotes(true)
     try {
-      // Map local notes to Notion journal format
-      const journalEntries = sessionNotes.map((note) => ({
-        session: note.title,
-        date: note.date,
-        resumeCourt: note.content.substring(0, 200),
-        resumeLong: note.content,
-      }))
-
       const response = await fetch('/api/notion/journal/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: journalEntries }),
+        body: JSON.stringify({
+          notes: sessionNotes,
+          date: new Date().toISOString().split('T')[0],
+        }),
       })
 
       const result = await response.json()
 
       if (result.success) {
-        toast.success(`${result.synced} note(s) synchronisée(s) vers Notion`)
-        if (result.errors && result.errors.length > 0) {
-          toast.warning(`${result.errors.length} erreur(s) lors de la synchronisation`)
+        if (result.updated) {
+          toast.success(`Notes synchronisées`)
+        } else {
+          toast.success(`Nouvelle entrée créée dans le journal`)
         }
       } else {
         throw new Error(result.error || 'Sync failed')
@@ -2871,6 +2930,7 @@ function CombatTrackerContent() {
           onUpdateNote={handleUpdateNote}
           onDeleteNote={handleDeleteNote}
           onSyncToNotion={handleSyncNotesToNotion}
+          onClearNotes={handleClearNotes}
           isSyncing={isSyncingNotes}
         />
       )}

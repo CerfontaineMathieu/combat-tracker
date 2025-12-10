@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, ChevronDown, ChevronRight, Save, CloudUpload, Loader2 } from "lucide-react"
+import { Plus, Trash2, ChevronDown, ChevronRight, Save, CloudUpload, Loader2, Eraser } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
@@ -17,10 +17,11 @@ interface NotesPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   notes: Note[]
-  onAddNote: (note: Omit<Note, "id">) => void
+  onAddNote: (note: Omit<Note, "id" | "time">) => void
   onUpdateNote: (id: string, updates: Partial<Note>) => void
   onDeleteNote: (id: string) => void
   onSyncToNotion?: () => Promise<void>
+  onClearNotes?: () => Promise<void>
   isSyncing?: boolean
 }
 
@@ -30,19 +31,22 @@ function NotesContent({
   onUpdateNote,
   onDeleteNote,
   onSyncToNotion,
+  onClearNotes,
   isSyncing,
 }: {
   notes: Note[]
-  onAddNote: (note: Omit<Note, "id">) => void
+  onAddNote: (note: Omit<Note, "id" | "time">) => void
   onUpdateNote: (id: string, updates: Partial<Note>) => void
   onDeleteNote: (id: string) => void
   onSyncToNotion?: () => Promise<void>
+  onClearNotes?: () => Promise<void>
   isSyncing?: boolean
 }) {
   const [expandedNote, setExpandedNote] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [newNote, setNewNote] = useState({ title: "", content: "" })
   const [editingContent, setEditingContent] = useState<Record<string, string>>({})
+  const [isClearing, setIsClearing] = useState(false)
 
   const handleCreateNote = () => {
     if (newNote.title) {
@@ -67,6 +71,16 @@ function NotesContent({
   const handleDeleteNote = (id: string) => {
     onDeleteNote(id)
     toast("Note supprimée")
+  }
+
+  const handleClearNotes = async () => {
+    if (!onClearNotes) return
+    setIsClearing(true)
+    try {
+      await onClearNotes()
+    } finally {
+      setIsClearing(false)
+    }
   }
 
   return (
@@ -96,6 +110,21 @@ function NotesContent({
               <CloudUpload className="w-4 h-4 mr-2" />
             )}
             Sync Notion
+          </Button>
+        )}
+        {onClearNotes && notes.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleClearNotes}
+            disabled={isClearing}
+            className="border-crimson/50 text-crimson hover:bg-crimson/20 min-h-[44px] disabled:opacity-50"
+          >
+            {isClearing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Eraser className="w-4 h-4" />
+            )}
           </Button>
         )}
       </div>
@@ -172,7 +201,11 @@ function NotesContent({
                     )}
                     <div>
                       <h4 className="font-medium">{note.title}</h4>
-                      <p className="text-xs text-muted-foreground">{note.date}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {note.time && <span className="font-mono">{note.time}</span>}
+                        {note.time && note.date && " - "}
+                        {note.date}
+                      </p>
                     </div>
                   </div>
                   <Button
@@ -228,6 +261,7 @@ export function NotesPanel({
   onUpdateNote,
   onDeleteNote,
   onSyncToNotion,
+  onClearNotes,
   isSyncing,
 }: NotesPanelProps) {
   const isMobile = useIsMobile()
@@ -237,7 +271,7 @@ export function NotesPanel({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader>
-            <DrawerTitle className="text-gold">Notes de campagne</DrawerTitle>
+            <DrawerTitle className="text-gold">Notes de session</DrawerTitle>
           </DrawerHeader>
           <NotesContent
             notes={notes}
@@ -245,6 +279,7 @@ export function NotesPanel({
             onUpdateNote={onUpdateNote}
             onDeleteNote={onDeleteNote}
             onSyncToNotion={onSyncToNotion}
+            onClearNotes={onClearNotes}
             isSyncing={isSyncing}
           />
         </DrawerContent>
@@ -256,7 +291,7 @@ export function NotesPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full max-w-md p-0">
         <SheetHeader className="p-4 pb-2">
-          <SheetTitle className="text-gold">Notes de campagne</SheetTitle>
+          <SheetTitle className="text-gold">Notes de session</SheetTitle>
         </SheetHeader>
         <NotesContent
           notes={notes}
@@ -264,6 +299,7 @@ export function NotesPanel({
           onUpdateNote={onUpdateNote}
           onDeleteNote={onDeleteNote}
           onSyncToNotion={onSyncToNotion}
+          onClearNotes={onClearNotes}
           isSyncing={isSyncing}
         />
       </SheetContent>

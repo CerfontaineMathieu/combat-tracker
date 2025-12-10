@@ -182,18 +182,22 @@ export function Header({
                     </Button>
                   </Link>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onSettingsClick}
-                  className="h-9 w-9 lg:h-10 lg:w-10 hover:bg-primary/20 hover:text-gold transition-smooth"
-                  title="Paramètres"
-                >
-                  <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
-                </Button>
+                {/* Settings - MJ only */}
+                {mode === "mj" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onSettingsClick}
+                    className="h-9 w-9 lg:h-10 lg:w-10 hover:bg-primary/20 hover:text-gold transition-smooth"
+                    title="Paramètres"
+                  >
+                    <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
+                  </Button>
+                )}
               </div>
 
-              {/* Mobile Menu Popover */}
+              {/* Mobile Menu Popover - MJ only (players have no menu items) */}
+              {mode === "mj" && (
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -211,27 +215,23 @@ export function Header({
                   sideOffset={8}
                 >
                   <div className="flex flex-col gap-1">
-                    {mode === "mj" && (
-                      <>
-                        <Link href="/monsters" className="w-full">
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-crimson"
-                          >
-                            <Skull className="w-4 h-4" />
-                            <span className="text-sm">Bestiaire</span>
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setShowQrDialog(true)}
-                          className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-gold"
-                        >
-                          <QrCode className="w-4 h-4" />
-                          <span className="text-sm">Code QR</span>
-                        </Button>
-                      </>
-                    )}
+                    <Link href="/monsters" className="w-full">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-crimson"
+                      >
+                        <Skull className="w-4 h-4" />
+                        <span className="text-sm">Bestiaire</span>
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowQrDialog(true)}
+                      className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-gold"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      <span className="text-sm">Code QR</span>
+                    </Button>
                     <Button
                       variant="ghost"
                       onClick={onSettingsClick}
@@ -243,6 +243,7 @@ export function Header({
                   </div>
                 </PopoverContent>
               </Popover>
+              )}
             </>
           )}
 
