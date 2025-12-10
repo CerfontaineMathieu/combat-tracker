@@ -2,7 +2,10 @@ import { Pool } from 'pg';
 import type {
   CatalogItem,
   CatalogItemInput,
+  CatalogSpell,
+  CatalogSpellInput,
   ItemCategory,
+  PreparedSpell,
 } from './types';
 
 const pool = new Pool({
@@ -1212,5 +1215,262 @@ export async function getCharacterStatus(
     buffs: row.buffs ?? null,
     spellSlots: row.spell_slots ?? null,
   };
+}
+
+// ============================================
+// Spell Catalog Functions (for Notion sync)
+// ============================================
+
+export async function getSpellCatalog(): Promise<CatalogSpell[]> {
+  const result = await pool.query(
+    'SELECT * FROM spell_catalog ORDER BY level, name'
+  );
+  return result.rows;
+}
+
+export async function getSpellById(id: number): Promise<CatalogSpell | null> {
+  const result = await pool.query(
+    'SELECT * FROM spell_catalog WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getSpellByNotionId(notionId: string): Promise<CatalogSpell | null> {
+  const result = await pool.query(
+    'SELECT * FROM spell_catalog WHERE notion_id = $1',
+    [notionId]
+  );
+  return result.rows[0] || null;
+}
+
+// Map common class names to French spell database names
+const CLASS_NAME_MAP: Record<string, string> = {
+  'Mage': 'Magicien',
+  'Wizard': 'Magicien',
+  'Sorcerer': 'Ensorceleur',
+  'Warlock': 'Occultiste',
+  'Cleric': 'Clerc',
+  'Druid': 'Druide',
+  'Bard': 'Barde',
+  'Ranger': 'Rôdeur',
+  'Rodeur': 'Rôdeur',
+};
+
+export async function searchSpells(
+  query: string,
+  level?: number,
+  classFilter?: string
+): Promise<CatalogSpell[]> {
+  let sql = 'SELECT * FROM spell_catalog WHERE 1=1';
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  if (query) {
+    sql += ` AND (name ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
+    params.push(`%${query}%`);
+    paramIndex++;
+  }
+
+  if (level !== undefined && level >= 0) {
+    sql += ` AND level = $${paramIndex}`;
+    params.push(level);
+    paramIndex++;
+  }
+
+  if (classFilter) {
+    // Map class name to French equivalent if needed
+    const mappedClass = CLASS_NAME_MAP[classFilter] || classFilter;
+    sql += ` AND $${paramIndex} = ANY(classes)`;
+    params.push(mappedClass);
+    paramIndex++;
+  }
+
+  sql += ' ORDER BY level, name LIMIT 100';
+
+  const result = await pool.query(sql, params);
+  return result.rows;
+}
+
+export async function getSpellsByLevel(level: number): Promise<CatalogSpell[]> {
+  const result = await pool.query(
+    'SELECT * FROM spell_catalog WHERE level = $1 ORDER BY name',
+    [level]
+  );
+  return result.rows;
+}
+
+export async function upsertSpell(spell: CatalogSpellInput): Promise<CatalogSpell> {
+  const result = await pool.query(
+    `INSERT INTO spell_catalog (
+      notion_id, name, level, classes, casting_time, range, duration,
+      components, concentration, description, higher_levels
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    ON CONFLICT (notion_id)
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      level = EXCLUDED.level,
+      classes = EXCLUDED.classes,
+      casting_time = EXCLUDED.casting_time,
+      range = EXCLUDED.range,
+      duration = EXCLUDED.duration,
+      components = EXCLUDED.components,
+      concentration = EXCLUDED.concentration,
+      description = EXCLUDED.description,
+      higher_levels = EXCLUDED.higher_levels,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *`,
+    [
+      spell.notion_id,
+      spell.name,
+      spell.level,
+      spell.classes,
+      spell.casting_time,
+      spell.range,
+      spell.duration,
+      spell.components,
+      spell.concentration,
+      spell.description,
+      spell.higher_levels,
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function deleteSpellsById(ids: number[]): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  for (const id of ids) {
+    try {
+      const result = await pool.query('DELETE FROM spell_catalog WHERE id = $1', [id]);
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    } catch (error) {
+      errors.push(`Erreur suppression sort ID ${id}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  return { deleted, errors };
+}
+
+export async function deleteSpellsByNotionId(notionIds: string[]): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  for (const notionId of notionIds) {
+    try {
+      const result = await pool.query('DELETE FROM spell_catalog WHERE notion_id = $1', [notionId]);
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    } catch (error) {
+      errors.push(`Erreur suppression sort Notion ${notionId}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  return { deleted, errors };
+}
+
+// ============================================
+// Prepared Spells Functions
+// ============================================
+
+export async function getPreparedSpells(
+  characterId: string,
+  campaignId: number = 1
+): Promise<PreparedSpell[]> {
+  const result = await pool.query(
+    `SELECT
+      ps.id,
+      ps.character_id,
+      ps.campaign_id,
+      ps.spell_id,
+      ps.is_always_prepared,
+      ps.created_at,
+      sc.id as "spell.id",
+      sc.notion_id as "spell.notion_id",
+      sc.name as "spell.name",
+      sc.level as "spell.level",
+      sc.classes as "spell.classes",
+      sc.casting_time as "spell.casting_time",
+      sc.range as "spell.range",
+      sc.duration as "spell.duration",
+      sc.components as "spell.components",
+      sc.concentration as "spell.concentration",
+      sc.description as "spell.description",
+      sc.higher_levels as "spell.higher_levels",
+      sc.created_at as "spell.created_at",
+      sc.updated_at as "spell.updated_at"
+     FROM character_prepared_spells ps
+     JOIN spell_catalog sc ON ps.spell_id = sc.id
+     WHERE ps.character_id = $1 AND ps.campaign_id = $2
+     ORDER BY sc.level, sc.name`,
+    [characterId, campaignId]
+  );
+
+  // Transform flat result to nested structure
+  return result.rows.map(row => ({
+    id: row.id,
+    character_id: row.character_id,
+    campaign_id: row.campaign_id,
+    spell_id: row.spell_id,
+    is_always_prepared: row.is_always_prepared,
+    spell: {
+      id: row['spell.id'],
+      notion_id: row['spell.notion_id'],
+      name: row['spell.name'],
+      level: row['spell.level'],
+      classes: row['spell.classes'],
+      casting_time: row['spell.casting_time'],
+      range: row['spell.range'],
+      duration: row['spell.duration'],
+      components: row['spell.components'],
+      concentration: row['spell.concentration'],
+      description: row['spell.description'],
+      higher_levels: row['spell.higher_levels'],
+      created_at: row['spell.created_at'],
+      updated_at: row['spell.updated_at'],
+    }
+  }));
+}
+
+export async function addPreparedSpell(
+  characterId: string,
+  spellId: number,
+  campaignId: number = 1,
+  isAlwaysPrepared: boolean = false
+): Promise<PreparedSpell> {
+  const result = await pool.query(
+    `INSERT INTO character_prepared_spells (character_id, campaign_id, spell_id, is_always_prepared)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (character_id, campaign_id, spell_id) DO UPDATE SET
+       is_always_prepared = EXCLUDED.is_always_prepared
+     RETURNING *`,
+    [characterId, campaignId, spellId, isAlwaysPrepared]
+  );
+  return result.rows[0];
+}
+
+export async function removePreparedSpell(
+  characterId: string,
+  spellId: number,
+  campaignId: number = 1
+): Promise<boolean> {
+  const result = await pool.query(
+    `DELETE FROM character_prepared_spells
+     WHERE character_id = $1 AND campaign_id = $2 AND spell_id = $3`,
+    [characterId, campaignId, spellId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function clearPreparedSpells(
+  characterId: string,
+  campaignId: number = 1
+): Promise<number> {
+  const result = await pool.query(
+    `DELETE FROM character_prepared_spells
+     WHERE character_id = $1 AND campaign_id = $2`,
+    [characterId, campaignId]
+  );
+  return result.rowCount ?? 0;
 }
 

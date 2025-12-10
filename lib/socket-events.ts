@@ -1,6 +1,6 @@
 // Socket.io event type definitions
 
-import type { CharacterInventory, ActiveBuff } from './types';
+import type { CharacterInventory, ActiveBuff, PreparedSpell } from './types';
 
 export interface JoinCampaignData {
   campaignId: number;
@@ -214,6 +214,14 @@ export interface SpellSlotChangeData {
   source: 'dm' | 'player';
 }
 
+// Prepared spells change event
+export interface PreparedSpellsChangeData {
+  participantId: string;
+  participantType: 'player';
+  preparedSpells: PreparedSpell[];
+  source: 'dm' | 'player';
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -249,6 +257,8 @@ export interface ServerToClientEvents {
   'inventory-update': (data: InventoryUpdateData) => void;
   // Spell slot events
   'spell-slot-change': (data: SpellSlotChangeData) => void;
+  // Prepared spells events
+  'prepared-spells-change': (data: PreparedSpellsChangeData) => void;
 }
 
 // Client to server events
@@ -277,4 +287,6 @@ export interface ClientToServerEvents {
   'inventory-update': (data: InventoryUpdateData) => void;
   // Spell slot events
   'spell-slot-change': (data: SpellSlotChangeData) => void;
+  // Prepared spells events
+  'prepared-spells-change': (data: PreparedSpellsChangeData) => void;
 }

@@ -672,3 +672,52 @@ export interface ItemSyncResult {
   deleted: number;
   errors: string[];
 }
+
+// ============================================
+// Spell Catalog Types (for Notion sync)
+// ============================================
+
+export interface CatalogSpell {
+  id: number;
+  notion_id: string;
+  name: string;
+  level: number;                    // 0 = cantrip, 1-9 = spell levels
+  classes: string[];                // ['Magicien', 'Sorcier', 'Barde']
+  casting_time: string | null;      // Temps d'incantation
+  range: string | null;             // Portée
+  duration: string | null;          // Durée
+  components: string | null;        // V, S, M
+  concentration: boolean;
+  description: string | null;
+  higher_levels: string | null;     // At higher levels
+  created_at: string;
+  updated_at: string;
+}
+
+// For creating/updating spells (without id and timestamps)
+export type CatalogSpellInput = Omit<CatalogSpell, 'id' | 'created_at' | 'updated_at'>;
+
+export interface SpellSyncPreview {
+  toAdd: CatalogSpellInput[];
+  toUpdate: { existing: CatalogSpell; updated: CatalogSpellInput; changes: string[] }[];
+  toDelete: CatalogSpell[];
+  unchanged: number;
+}
+
+export interface SpellSyncResult {
+  success: boolean;
+  added: number;
+  updated: number;
+  deleted: number;
+  errors: string[];
+}
+
+// Prepared spell on a character
+export interface PreparedSpell {
+  id: number;
+  character_id: string;
+  campaign_id: number;
+  spell_id: number;
+  is_always_prepared: boolean;
+  spell?: CatalogSpell;             // Joined spell data
+}
