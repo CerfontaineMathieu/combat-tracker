@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { searchSpells, getSpellCatalog, getSpellsByLevel } from '@/lib/db';
+import { searchSpells, getSpellCatalog } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
     const levelParam = searchParams.get('level');
-    const classFilter = searchParams.get('class');
 
     // Parse level parameter
     let level: number | undefined;
@@ -17,14 +16,11 @@ export async function GET(request: Request) {
       }
     }
 
-    // Parse class filter
-    const classFilterValue = classFilter && classFilter !== 'all' ? classFilter : undefined;
-
     let spells;
 
     // If we have any filter, use the search function
-    if (query || level !== undefined || classFilterValue) {
-      spells = await searchSpells(query, level, classFilterValue);
+    if (query || level !== undefined) {
+      spells = await searchSpells(query, level);
     } else {
       // Otherwise return all spells
       spells = await getSpellCatalog();
