@@ -39,11 +39,6 @@ export function SpellDetail({
     return `Sort de niveau ${level}`
   }
 
-  // Parse components to show icons
-  const hasVerbal = spell.components?.toUpperCase().includes("V")
-  const hasSomatic = spell.components?.toUpperCase().includes("S")
-  const hasMaterial = spell.components?.toUpperCase().includes("M")
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -81,25 +76,6 @@ export function SpellDetail({
             <Sparkles className="w-4 h-4 text-muted-foreground" />
             <span>{spell.components}</span>
           </div>
-        )}
-      </div>
-
-      {/* Component badges */}
-      <div className="flex gap-1">
-        {hasVerbal && (
-          <Badge variant="outline" className="text-xs">
-            V
-          </Badge>
-        )}
-        {hasSomatic && (
-          <Badge variant="outline" className="text-xs">
-            S
-          </Badge>
-        )}
-        {hasMaterial && (
-          <Badge variant="outline" className="text-xs">
-            M
-          </Badge>
         )}
       </div>
 

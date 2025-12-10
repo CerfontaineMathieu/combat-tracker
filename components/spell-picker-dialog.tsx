@@ -185,9 +185,16 @@ export function SpellPickerDialog({
               >
                 ← Retour a la liste
               </Button>
-              <ScrollArea className="flex-1 h-[300px]">
+              <div
+                className="overflow-y-scroll pr-2 touch-pan-y"
+                style={{
+                  WebkitOverflowScrolling: 'touch',
+                  height: '40vh',
+                  minHeight: '200px',
+                }}
+              >
                 <SpellDetail spell={selectedSpell} />
-              </ScrollArea>
+              </div>
               <Button
                 type="button"
                 className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
