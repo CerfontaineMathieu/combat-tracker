@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { Save, Key, Loader2, RefreshCw } from "lucide-react"
 import { NotionSyncButton } from "@/components/notion-sync-button"
 import { ItemSyncDialog } from "@/components/item-sync-dialog"
+import { SpellSyncDialog } from "@/components/spell-sync-dialog"
 
 interface SettingsPanelProps {
   open: boolean
@@ -221,11 +222,12 @@ export function SettingsPanel({
               Synchronisation Notion
             </h4>
             <p className="text-xs text-muted-foreground">
-              Synchronisez vos données depuis Notion (monstres et items).
+              Synchronisez vos données depuis Notion (monstres, items et sorts).
             </p>
             <div className="flex flex-col gap-2">
               <NotionSyncButton onSyncComplete={onMonsterSyncComplete} />
               <ItemSyncDialog />
+              <SpellSyncDialog />
             </div>
           </div>
 

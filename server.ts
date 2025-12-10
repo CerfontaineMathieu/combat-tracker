@@ -164,6 +164,13 @@ interface SpellSlotChangeData {
   source: 'dm' | 'player';
 }
 
+interface PreparedSpellsChangeData {
+  participantId: string;
+  participantType: 'player';
+  preparedSpells: any[]; // Use any to avoid importing full type definition
+  source: 'dm' | 'player';
+}
+
 interface AmbientEffectData {
   effect: 'none' | 'rain' | 'fog' | 'fire' | 'snow' | 'sandstorm' | 'crit-fail' | 'crit-success' | 'concentration-broken';
 }
@@ -768,6 +775,16 @@ app.prepare().then(() => {
         // Broadcast to all clients in room
         io.to(room).emit('spell-slot-change', data);
         console.log(`[Socket.io] Spell slot change in ${room}:`, data.participantId, 'by', data.source);
+      }
+    });
+
+    // Prepared spells changes
+    socket.on('prepared-spells-change', (data: PreparedSpellsChangeData) => {
+      if (socket.data.campaignId) {
+        const room = `campaign-${socket.data.campaignId}`;
+        // Broadcast to all clients in room
+        io.to(room).emit('prepared-spells-change', data);
+        console.log(`[Socket.io] Prepared spells change in ${room}:`, data.participantId, 'by', data.source);
       }
     });
 
