@@ -1770,7 +1770,7 @@ function CombatTrackerContent() {
   const handleAddNote = (note: Omit<Note, "id">) => {
     const newNote: Note = {
       ...note,
-      id: crypto.randomUUID(),
+      id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     }
     setSessionNotes((prev) => [newNote, ...prev])
   }
