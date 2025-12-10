@@ -1244,23 +1244,9 @@ export async function getSpellByNotionId(notionId: string): Promise<CatalogSpell
   return result.rows[0] || null;
 }
 
-// Map common class names to French spell database names
-const CLASS_NAME_MAP: Record<string, string> = {
-  'Mage': 'Magicien',
-  'Wizard': 'Magicien',
-  'Sorcerer': 'Ensorceleur',
-  'Warlock': 'Occultiste',
-  'Cleric': 'Clerc',
-  'Druid': 'Druide',
-  'Bard': 'Barde',
-  'Ranger': 'Rôdeur',
-  'Rodeur': 'Rôdeur',
-};
-
 export async function searchSpells(
   query: string,
-  level?: number,
-  classFilter?: string
+  level?: number
 ): Promise<CatalogSpell[]> {
   let sql = 'SELECT * FROM spell_catalog WHERE 1=1';
   const params: any[] = [];
@@ -1278,15 +1264,7 @@ export async function searchSpells(
     paramIndex++;
   }
 
-  if (classFilter) {
-    // Map class name to French equivalent if needed
-    const mappedClass = CLASS_NAME_MAP[classFilter] || classFilter;
-    sql += ` AND $${paramIndex} = ANY(classes)`;
-    params.push(mappedClass);
-    paramIndex++;
-  }
-
-  sql += ' ORDER BY level, name LIMIT 100';
+  sql += ' ORDER BY level, name LIMIT 200';
 
   const result = await pool.query(sql, params);
   return result.rows;

@@ -348,7 +348,6 @@ export function SpellbookPanel({
               </Button>
             }
             onSelect={(spell) => handleAddPreparedSpell(character.id, spell)}
-            filterClass={character.class}
             excludeSpellIds={excludeIds}
           />
         </div>

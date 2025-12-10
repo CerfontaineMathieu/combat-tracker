@@ -26,7 +26,6 @@ import type { CatalogSpell } from "@/lib/types"
 interface SpellPickerDialogProps {
   trigger?: React.ReactNode
   onSelect: (spell: CatalogSpell) => void
-  filterClass?: string // Filter by character class
   excludeSpellIds?: number[] // Already prepared spells
 }
 
@@ -44,27 +43,14 @@ const SPELL_LEVELS = [
   { value: "9", label: "Niveau 9" },
 ]
 
-const DND_CLASSES = [
-  "Barde",
-  "Clerc",
-  "Druide",
-  "Ensorceleur",
-  "Magicien",
-  "Occultiste",
-  "Paladin",
-  "Rodeur",
-]
-
 export function SpellPickerDialog({
   trigger,
   onSelect,
-  filterClass,
   excludeSpellIds = [],
 }: SpellPickerDialogProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [level, setLevel] = useState<string>("all")
-  const [classFilter, setClassFilter] = useState<string>(filterClass || "all")
   const [allSpells, setAllSpells] = useState<CatalogSpell[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedSpell, setSelectedSpell] = useState<CatalogSpell | null>(null)
@@ -81,15 +67,13 @@ export function SpellPickerDialog({
   // Fetch spells from API
   const fetchSpells = useCallback(async (
     searchQuery: string,
-    levelFilter: string,
-    classFilterVal: string
+    levelFilter: string
   ) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.set("q", searchQuery)
       if (levelFilter !== "all") params.set("level", levelFilter)
-      if (classFilterVal !== "all") params.set("class", classFilterVal)
 
       const response = await fetch(`/api/spells/search?${params}`)
       const data = await response.json()
@@ -110,23 +94,22 @@ export function SpellPickerDialog({
       // Reset state
       setSearch("")
       setLevel("all")
-      setClassFilter(filterClass || "all")
       setSelectedSpell(null)
       // Fetch with initial values
-      fetchSpells("", "all", filterClass || "all")
+      fetchSpells("", "all")
     }
-  }, [open, filterClass, fetchSpells])
+  }, [open, fetchSpells])
 
   // Debounced fetch when filters change
   useEffect(() => {
     if (!open) return
 
     const timer = setTimeout(() => {
-      fetchSpells(search, level, classFilter)
+      fetchSpells(search, level)
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [open, search, level, classFilter, fetchSpells])
+  }, [open, search, level, fetchSpells])
 
   const handleSelect = (spell: CatalogSpell) => {
     onSelect(spell)
@@ -202,9 +185,16 @@ export function SpellPickerDialog({
               >
                 ← Retour a la liste
               </Button>
-              <ScrollArea className="flex-1 h-[300px]">
+              <div
+                className="overflow-y-scroll pr-2 touch-pan-y"
+                style={{
+                  WebkitOverflowScrolling: 'touch',
+                  height: '40vh',
+                  minHeight: '200px',
+                }}
+              >
                 <SpellDetail spell={selectedSpell} />
-              </ScrollArea>
+              </div>
               <Button
                 type="button"
                 className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
