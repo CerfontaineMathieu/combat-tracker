@@ -140,6 +140,7 @@ export interface CombatParticipant {
 export interface Note {
   id: string
   date: string
+  time: string  // "HH:mm" format
   title: string
   content: string
 }

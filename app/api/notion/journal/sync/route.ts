@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { syncMultipleNotesToNotion, type JournalEntry } from '@/lib/notion-journal';
+import { syncSessionNotes } from '@/lib/notion-journal';
+import type { Note } from '@/lib/types';
 
 interface SyncRequest {
-  notes: JournalEntry[];
+  notes: Note[];
+  date: string;
 }
 
 export async function POST(request: Request) {
@@ -16,18 +18,33 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`[Notion Journal API] Syncing ${body.notes.length} note(s) to Notion...`);
+    if (!body.date) {
+      return NextResponse.json(
+        { success: false, error: 'Date requise' },
+        { status: 400 }
+      );
+    }
 
-    const results = await syncMultipleNotesToNotion(body.notes);
+    console.log(`[Notion Journal API] Syncing ${body.notes.length} note(s) to Notion for date ${body.date}...`);
 
-    console.log(`[Notion Journal API] Sync complete: ${results.success} success, ${results.errors.length} errors`);
+    const result = await syncSessionNotes(body.notes, body.date);
 
-    return NextResponse.json({
-      success: true,
-      synced: results.success,
-      notionIds: results.notionIds,
-      errors: results.errors
-    });
+    if (result.success) {
+      console.log(`[Notion Journal API] Sync complete: ${result.updated ? 'updated' : 'created'} entry ${result.notionId}`);
+      return NextResponse.json({
+        success: true,
+        updated: result.updated,
+        notionId: result.notionId
+      });
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: result.error || 'Erreur inconnue'
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('[Notion Journal API] Error syncing to Notion:', error);
     return NextResponse.json(

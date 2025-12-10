@@ -1,5 +1,5 @@
 import { createClient, RedisClientType } from 'redis';
-import type { CharacterInventory } from './types';
+import type { CharacterInventory, Note } from './types';
 
 // Redis client singleton
 let redis: RedisClientType | null = null;
@@ -75,6 +75,7 @@ const KEYS = {
   dmSession: (campaignId: number) => `dm:session:${campaignId}`,
   players: (campaignId: number) => `players:${campaignId}`,
   combatState: (campaignId: number) => `combat:state:${campaignId}`,
+  sessionNotes: (campaignId: number, date: string) => `campaign:${campaignId}:notes:${date}`,
 };
 
 // TTL values (in seconds)
@@ -82,6 +83,7 @@ const TTL = {
   dmSession: 60 * 60 * 24, // 24 hours
   players: 60 * 60 * 24, // 24 hours
   combatState: 60 * 60 * 24, // 24 hours
+  sessionNotes: 60 * 60 * 24 * 7, // 7 days (keep notes for a week)
 };
 
 // ============================================
@@ -256,9 +258,29 @@ export async function getCampaignData(campaignId: number): Promise<{
 // Clear all campaign data
 export async function clearCampaignData(campaignId: number): Promise<void> {
   const client = await getRedis();
-  await client.del(
+  await client.del([
     KEYS.dmSession(campaignId),
     KEYS.players(campaignId),
     KEYS.combatState(campaignId)
-  );
+  ]);
+}
+
+// ============================================
+// Session Notes Operations
+// ============================================
+
+export async function getSessionNotes(campaignId: number, date: string): Promise<Note[]> {
+  const client = await getRedis();
+  const data = await client.get(KEYS.sessionNotes(campaignId, date));
+  return data ? JSON.parse(data) : [];
+}
+
+export async function saveSessionNotes(campaignId: number, date: string, notes: Note[]): Promise<void> {
+  const client = await getRedis();
+  await client.setEx(KEYS.sessionNotes(campaignId, date), TTL.sessionNotes, JSON.stringify(notes));
+}
+
+export async function clearSessionNotes(campaignId: number, date: string): Promise<void> {
+  const client = await getRedis();
+  await client.del(KEYS.sessionNotes(campaignId, date));
 }
