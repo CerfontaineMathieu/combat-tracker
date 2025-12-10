@@ -9,9 +9,11 @@ A real-time Dungeons & Dragons combat tracking application built with Next.js 16
 - **Framework:** Next.js 16 with App Router
 - **Frontend:** React 19, TypeScript
 - **Styling:** Tailwind CSS v4, shadcn/ui (new-york style)
-- **Database:** PostgreSQL
-- **Real-time:** Socket.IO
+- **Database:** PostgreSQL 18
+- **Cache & Sessions:** Redis 7
+- **Real-time:** Socket.IO 4.8
 - **Drag & Drop:** dnd-kit
+- **External Sync:** Notion API (monsters, items, session notes)
 
 ## Getting Started
 
@@ -60,11 +62,12 @@ Both environments can run in parallel.
 
 ### Monster & Bestiary
 
-- **Monster Database:** Browse and search monsters with detailed stat blocks
+- **Monster Database:** 60+ D&D 5e monsters with full stat blocks
 - **Quick Add:** Drag-and-drop monsters from the database into combat
 - **Custom Monsters:** Create monsters on-the-fly
-- **Monster Details:** View armor class, hit points, abilities, actions, legendary actions, traits, and more
+- **Monster Details:** View armor class, hit points, abilities, actions, bonus actions, reactions, legendary actions, traits, and more
 - **AI-generated Images:** Monsters include generated artwork
+- **Notion Sync:** Sync monsters from a Notion database with preview/apply workflow
 
 ### Conditions & Status Effects
 
@@ -94,6 +97,13 @@ Both environments can run in parallel.
 - 6-level exhaustion tracking (D&D 5e standard)
 - Color-coded severity indicators
 
+**Buffs & Debuffs:**
+- 21 pre-defined buffs (Bénédiction, Hâte, Héroïsme, etc.)
+- 10 pre-defined debuffs (Fléau, Lenteur, Malédiction, etc.)
+- Custom buffs supported
+- Duration tracking with concentration mechanic
+- Real-time sync across all clients
+
 ### Combat History
 
 - Complete action log with timestamps
@@ -112,22 +122,53 @@ Visual atmosphere effects for immersion:
 
 Effects are broadcasted in real-time to all players.
 
+### Inventory System
+
+- **Equipment:** Weapons, armor, and equipped items
+- **Consumables:** Potions, scrolls, ammunition tracking
+- **Currency:** Gold, silver, copper management
+- **Misc Items:** General inventory with quantity tracking
+- **Item Catalog:** Notion-synced item database with search
+
+### Spell Management
+
+- **Spell Slots:** Track and manage spell slot usage per level
+- **Spellbook:** Character spell lists
+- **Concentration Tracking:** Auto-prompt for concentration checks on damage
+
+### Session Notes
+
+- **Daily Notes:** Per-session note-taking for DMs
+- **Redis Storage:** Notes persist for 7 days
+- **Notion Journal Sync:** Export session notes to Notion database
+
+### Pets & Familiars
+
+- **Pet Management:** Add pets/familiars linked to player characters
+- **Combat Integration:** Pets appear in initiative order near their owner
+- **Orphan Handling:** Reassign pets when characters are removed
+
 ### Real-time Multiplayer
 
 - WebSocket-based synchronization via Socket.IO
 - Campaign room system for session management
 - Live player roster with join/disconnect notifications
 - Synchronized state for:
-  - HP changes
+  - HP changes (including temp HP)
   - Condition updates
+  - Buff/debuff changes
   - Combat state
   - Initiative changes
   - Ambient effects
+  - Inventory updates
+  - Spell slot usage
+- DM disconnect grace period (30s) for page refreshes
+- QR code generation for easy player joining
 
 ### Responsive Design
 
-- **Mobile:** Tab-based navigation (Players, Combat, Bestiary)
-- **Desktop:** 3-column grid layout
+- **Mobile:** Tab-based navigation (Setup, Combat, Bestiary, Players, Notes)
+- **Desktop:** 3-column grid layout with resizable panels
 - Dark theme with D&D-inspired color palette (gold, crimson, emerald)
 
 ## Project Structure
@@ -135,29 +176,115 @@ Effects are broadcasted in real-time to all players.
 ```
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
+│   │   ├── campaigns/     # Campaign & character management
+│   │   ├── monsters/      # Monster database queries
+│   │   ├── items/         # Item catalog search
+│   │   ├── notion/        # Notion sync (monsters, items, journal)
+│   │   ├── join/          # Campaign join by code
+│   │   └── settings/      # DM password management
+│   ├── join/              # Join campaign landing page
+│   ├── monsters/          # Monster database page
 │   └── page.tsx           # Main single-page application
-├── components/            # React components
-│   ├── ui/               # shadcn/ui base components
-│   └── *.tsx             # Feature components
+├── components/            # React components (70+)
+│   ├── ui/               # shadcn/ui base components (59+)
+│   ├── combat-panel.tsx  # Main combat display & controls
+│   ├── player-panel.tsx  # Player character display
+│   ├── bestiary-panel.tsx # Monster database browser
+│   ├── inventory-manager.tsx # Character inventory UI
+│   ├── condition-manager.tsx # Condition management
+│   ├── buff-manager.tsx  # Buff/debuff management
+│   └── ...               # Feature components
 ├── hooks/                 # Custom React hooks
-├── lib/                   # Utilities and types
+│   ├── use-mobile.ts     # Mobile detection
+│   ├── useNotionSync.ts  # Notion monster sync
+│   └── useItemSync.ts    # Notion item sync
+├── lib/                   # Core business logic
 │   ├── types.ts          # TypeScript definitions
+│   ├── db.ts             # PostgreSQL database layer
+│   ├── redis.ts          # Redis session & state layer
+│   ├── socket-context/   # Socket.IO React context & reducer
+│   ├── socket-events.ts  # Socket event type definitions
+│   ├── notion.ts         # Notion API integration
+│   ├── notion-items.ts   # Item catalog sync
+│   ├── notion-journal.ts # Session notes sync
 │   └── utils.ts          # Helper functions
-└── server/               # Socket.IO server
+├── migrations/            # PostgreSQL migrations (18 files)
+├── server.ts             # Custom Next.js server with Socket.IO
+├── Dockerfile            # Production Docker image
+├── Dockerfile.dev        # Development Docker image
+├── docker-compose.yml    # Production setup (port 3000)
+├── docker-compose.dev.yml # Development setup (port 3001)
+└── docker-compose.synology.yml # Synology NAS deployment
 ```
 
 ## API Endpoints
+
+### Campaigns & Characters
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET/POST /api/campaigns` | Campaign management |
 | `GET/PATCH /api/campaigns/[id]` | Campaign details |
-| `GET/PATCH/DELETE /api/campaigns/[id]/characters` | Character CRUD |
-| `GET/POST/PATCH/DELETE /api/campaigns/[id]/combat-monsters` | Combat monsters |
-| `GET/POST /api/campaigns/[id]/fight-presets` | Fight presets |
+| `GET/POST/PATCH/DELETE /api/campaigns/[id]/characters` | Character CRUD |
+| `GET/POST /api/campaigns/[id]/combat-monsters` | Combat monsters |
+| `GET/POST/PATCH/DELETE /api/campaigns/[id]/fight-presets` | Fight presets |
 | `GET /api/campaigns/[id]/room-code` | Room code generation |
+| `GET/POST /api/campaigns/[id]/session-notes` | Session notes (Redis) |
+
+### Characters
+
+| Endpoint | Description |
+|----------|-------------|
+| `PATCH /api/characters/[id]/hp` | Update character HP |
+| `PATCH /api/characters/[id]/status` | Update conditions/buffs |
+| `GET/PATCH /api/characters/[id]/inventory` | Character inventory |
+
+### Monsters & Items
+
+| Endpoint | Description |
+|----------|-------------|
 | `GET /api/monsters` | Monster database |
 | `GET /api/monsters/[id]` | Monster details |
+| `GET /api/items/search` | Item catalog search |
+
+### Notion Integration
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/notion/sync/preview` | Preview monster sync changes |
+| `POST /api/notion/sync/apply` | Apply monster sync |
+| `GET /api/notion/items/sync/preview` | Preview item sync changes |
+| `POST /api/notion/items/sync/apply` | Apply item sync |
+| `POST /api/notion/journal/sync` | Sync session notes to Notion |
+
+### Other
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/join/[code]` | Get campaign by join code |
+| `POST /api/settings/dm-password` | Verify DM password |
+
+## Environment Variables
+
+```env
+DATABASE_URL=postgresql://user:pass@localhost:5432/combat_tracker
+REDIS_URL=redis://localhost:6379
+NOTION_API_KEY=secret_xxx
+NOTION_DATABASE_ID=xxx           # Monsters database
+NOTION_ITEMS_DATABASE_ID=xxx     # Items database
+NOTION_JOURNAL_DATABASE_ID=xxx   # Session notes database
+DM_PASSWORD=your_dm_password
+```
+
+## Database Migrations
+
+Migrations run automatically on container startup. To create a new migration:
+
+```bash
+pnpm migrate:create <migration-name>
+```
+
+See `CLAUDE.md` for detailed migration guidelines.
 
 ## License
 
