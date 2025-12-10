@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, ChevronDown, ChevronRight, Save } from "lucide-react"
+import { Plus, Trash2, ChevronDown, ChevronRight, Save, CloudUpload, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
@@ -20,6 +20,8 @@ interface NotesPanelProps {
   onAddNote: (note: Omit<Note, "id">) => void
   onUpdateNote: (id: string, updates: Partial<Note>) => void
   onDeleteNote: (id: string) => void
+  onSyncToNotion?: () => Promise<void>
+  isSyncing?: boolean
 }
 
 function NotesContent({
@@ -27,11 +29,15 @@ function NotesContent({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
+  onSyncToNotion,
+  isSyncing,
 }: {
   notes: Note[]
   onAddNote: (note: Omit<Note, "id">) => void
   onUpdateNote: (id: string, updates: Partial<Note>) => void
   onDeleteNote: (id: string) => void
+  onSyncToNotion?: () => Promise<void>
+  isSyncing?: boolean
 }) {
   const [expandedNote, setExpandedNote] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -66,16 +72,32 @@ function NotesContent({
   return (
     <div className="flex flex-col h-full">
       {/* Action Bar */}
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 flex gap-2">
         <Button
           size="sm"
           variant="outline"
           onClick={() => setIsCreating(true)}
-          className="w-full border-gold/50 text-gold hover:bg-gold/20 min-h-[44px]"
+          className="flex-1 border-gold/50 text-gold hover:bg-gold/20 min-h-[44px]"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nouvelle note
         </Button>
+        {onSyncToNotion && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onSyncToNotion}
+            disabled={isSyncing || notes.length === 0}
+            className="border-blue-500/50 text-blue-500 hover:bg-blue-500/20 min-h-[44px] disabled:opacity-50"
+          >
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <CloudUpload className="w-4 h-4 mr-2" />
+            )}
+            Sync Notion
+          </Button>
+        )}
       </div>
 
       <ScrollArea className="flex-1 px-4">
@@ -205,6 +227,8 @@ export function NotesPanel({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
+  onSyncToNotion,
+  isSyncing,
 }: NotesPanelProps) {
   const isMobile = useIsMobile()
 
@@ -220,6 +244,8 @@ export function NotesPanel({
             onAddNote={onAddNote}
             onUpdateNote={onUpdateNote}
             onDeleteNote={onDeleteNote}
+            onSyncToNotion={onSyncToNotion}
+            isSyncing={isSyncing}
           />
         </DrawerContent>
       </Drawer>
@@ -237,6 +263,8 @@ export function NotesPanel({
           onAddNote={onAddNote}
           onUpdateNote={onUpdateNote}
           onDeleteNote={onDeleteNote}
+          onSyncToNotion={onSyncToNotion}
+          isSyncing={isSyncing}
         />
       </SheetContent>
     </Sheet>

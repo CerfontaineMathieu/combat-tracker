@@ -18,7 +18,7 @@ import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
-import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff } from "@/lib/types"
+import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
 import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
@@ -26,6 +26,7 @@ import { XpSummaryModal } from "@/components/xp-summary-modal"
 import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
 import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
 import { SpellbookPanel } from "@/components/spellbook-panel"
+import { NotesPanel } from "@/components/notes-panel"
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Plus, Minus } from "lucide-react"
+import { Plus, Minus, NotebookPen } from "lucide-react"
 
 // Default campaign ID (single session)
 const DEFAULT_CAMPAIGN_ID = 1
@@ -117,6 +118,9 @@ function CombatTrackerContent() {
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
+  const [sessionNotes, setSessionNotes] = useState<Note[]>([])
+  const [isSyncingNotes, setIsSyncingNotes] = useState(false)
   const [combatHistory, setCombatHistory] = useState<HistoryEntry[]>([])
   // Track initiative overrides for players (session-only, not persisted)
   const [playerInitiatives, setPlayerInitiatives] = useState<Record<string, number>>({})
@@ -1762,6 +1766,65 @@ function CombatTrackerContent() {
     setConcentrationCheck(null)
   }
 
+  // Session notes handlers
+  const handleAddNote = (note: Omit<Note, "id">) => {
+    const newNote: Note = {
+      ...note,
+      id: crypto.randomUUID(),
+    }
+    setSessionNotes((prev) => [newNote, ...prev])
+  }
+
+  const handleUpdateNote = (id: string, updates: Partial<Note>) => {
+    setSessionNotes((prev) =>
+      prev.map((note) => (note.id === id ? { ...note, ...updates } : note))
+    )
+  }
+
+  const handleDeleteNote = (id: string) => {
+    setSessionNotes((prev) => prev.filter((note) => note.id !== id))
+  }
+
+  const handleSyncNotesToNotion = async () => {
+    if (sessionNotes.length === 0) {
+      toast.error("Aucune note à synchroniser")
+      return
+    }
+
+    setIsSyncingNotes(true)
+    try {
+      // Map local notes to Notion journal format
+      const journalEntries = sessionNotes.map((note) => ({
+        session: note.title,
+        date: note.date,
+        resumeCourt: note.content.substring(0, 200),
+        resumeLong: note.content,
+      }))
+
+      const response = await fetch('/api/notion/journal/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: journalEntries }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success(`${result.synced} note(s) synchronisée(s) vers Notion`)
+        if (result.errors && result.errors.length > 0) {
+          toast.warning(`${result.errors.length} erreur(s) lors de la synchronisation`)
+        }
+      } else {
+        throw new Error(result.error || 'Sync failed')
+      }
+    } catch (error) {
+      console.error('Error syncing notes to Notion:', error)
+      toast.error("Erreur lors de la synchronisation vers Notion")
+    } finally {
+      setIsSyncingNotes(false)
+    }
+  }
+
   const updateMonsterExhaustion = async (id: string, exhaustionLevel: number) => {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, exhaustionLevel } : m)))
     if (combatActive) {
@@ -2797,6 +2860,34 @@ function CombatTrackerContent() {
         onCampaignNameChange={setCampaignName}
         onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
       />
+
+      {/* Session Notes Panel - MJ only */}
+      {mode === "mj" && (
+        <NotesPanel
+          open={showNotes}
+          onOpenChange={setShowNotes}
+          notes={sessionNotes}
+          onAddNote={handleAddNote}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          onSyncToNotion={handleSyncNotesToNotion}
+          isSyncing={isSyncingNotes}
+        />
+      )}
+
+      {/* Floating Notes Button - MJ only */}
+      {mode === "mj" && (
+        <Button
+          onClick={() => setShowNotes(true)}
+          className={`fixed right-6 z-40 h-14 w-14 rounded-full shadow-lg bg-gold hover:bg-gold/80 text-background ${
+            isMobile ? "bottom-24" : "bottom-6"
+          }`}
+          size="icon"
+          title="Notes de session"
+        >
+          <NotebookPen className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   )
 }
