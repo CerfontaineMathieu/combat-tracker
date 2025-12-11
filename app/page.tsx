@@ -27,6 +27,8 @@ import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
 import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
 import { SpellbookPanel } from "@/components/spellbook-panel"
 import { NotesPanel } from "@/components/notes-panel"
+import { AIAssistantPanel } from "@/components/ai-assistant-panel"
+import type { CombatContext } from "@/lib/ai-types"
 import {
   Dialog,
   DialogContent,
@@ -163,6 +165,9 @@ function CombatTrackerContent() {
     dc: number
     pendingChange: number // The HP change to apply after check
   } | null>(null)
+
+  // State for AI Assistant sidebar (DM only, desktop only)
+  const [showAIAssistant, setShowAIAssistant] = useState(false)
 
   // Persist combat state to sessionStorage
   useEffect(() => {
@@ -831,6 +836,22 @@ function CombatTrackerContent() {
   const connectedPlayerIds = useMemo(() => {
     return new Set(displayPlayers.filter(p => p.isConnected).map(p => p.id))
   }, [displayPlayers.map(p => `${p.id}:${p.isConnected}`).join(',')])
+
+  // Build AI combat context for the assistant panel
+  const aiCombatContext: CombatContext = useMemo(() => ({
+    isActive: combatActive,
+    round: roundNumber,
+    currentTurn,
+    participants: combatParticipants.map((p, idx) => ({
+      name: p.name,
+      type: p.type,
+      currentHp: p.currentHp,
+      maxHp: p.maxHp,
+      ac: p.ac,
+      conditions: p.conditions || [],
+      isCurrentTurn: idx === currentTurn,
+    })),
+  }), [combatActive, roundNumber, currentTurn, combatParticipants])
 
   // Sync combat participants' isConnected status and level with displayPlayers
   useEffect(() => {
@@ -2933,6 +2954,30 @@ function CombatTrackerContent() {
           onClearNotes={handleClearNotes}
           isSyncing={isSyncingNotes}
         />
+      )}
+
+      {/* AI Assistant Sidebar - MJ only, desktop only */}
+      {mode === "mj" && !isMobile && (
+        <>
+          {/* Collapsible sidebar panel */}
+          {showAIAssistant && (
+            <div className="fixed right-0 top-0 h-full w-80 z-40 shadow-xl">
+              <AIAssistantPanel
+                isOpen={showAIAssistant}
+                onToggle={() => setShowAIAssistant(!showAIAssistant)}
+                combatContext={aiCombatContext}
+              />
+            </div>
+          )}
+          {/* Floating toggle button when closed */}
+          {!showAIAssistant && (
+            <AIAssistantPanel
+              isOpen={false}
+              onToggle={() => setShowAIAssistant(true)}
+              combatContext={aiCombatContext}
+            />
+          )}
+        </>
       )}
 
       {/* Floating Notes Button - MJ only */}

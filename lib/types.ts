@@ -682,11 +682,13 @@ export interface CatalogSpell {
   notion_id: string;
   name: string;
   level: number;                    // 0 = cantrip, 1-9 = spell levels
+  school: string | null;            // École de magie (Évocation, Abjuration, etc.)
   classes: string[];                // ['Magicien', 'Sorcier', 'Barde']
   casting_time: string | null;      // Temps d'incantation
   range: string | null;             // Portée
   duration: string | null;          // Durée
   components: string | null;        // V, S, M
+  material_details: string | null;  // Détails des composantes matérielles
   concentration: boolean;
   description: string | null;
   higher_levels: string | null;     // At higher levels

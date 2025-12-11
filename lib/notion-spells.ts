@@ -231,6 +231,16 @@ async function mapNotionPageToSpell(
     // Extract concentration (Concentration - checkbox)
     const concentration = extractCheckbox(props.Concentration);
 
+    // Extract school of magic (École de magie - select)
+    const school = extractSelect(props['École de magie']) ||
+      extractSelect(props['École']) ||
+      null;
+
+    // Extract material details (Matériel détaillé - rich_text)
+    const material_details = extractText(props['Matériel détaillé']?.rich_text || []) ||
+      extractText(props['Matériel']?.rich_text || []) ||
+      null;
+
     // Extract description (Description - rich_text)
     let description = extractText(props.Description?.rich_text || []) || null;
 
@@ -251,11 +261,13 @@ async function mapNotionPageToSpell(
       notion_id: page.id,
       name,
       level,
+      school,
       classes,
       casting_time,
       range,
       duration,
       components,
+      material_details,
       concentration,
       description,
       higher_levels,

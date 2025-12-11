@@ -22,6 +22,9 @@ export function compareSpells(
   if (existing.level !== updated.level) {
     changes.push('level');
   }
+  if (existing.school !== updated.school) {
+    changes.push('school');
+  }
   if (existing.casting_time !== updated.casting_time) {
     changes.push('casting_time');
   }
@@ -33,6 +36,9 @@ export function compareSpells(
   }
   if (existing.components !== updated.components) {
     changes.push('components');
+  }
+  if (existing.material_details !== updated.material_details) {
+    changes.push('material_details');
   }
   if (existing.concentration !== updated.concentration) {
     changes.push('concentration');
@@ -139,11 +145,13 @@ export function getSpellChangesSummary(changes: string[]): string {
   const fieldLabels: Record<string, string> = {
     name: 'Nom',
     level: 'Niveau',
+    school: 'École de magie',
     classes: 'Classes',
     casting_time: "Temps d'incantation",
     range: 'Portée',
     duration: 'Durée',
     components: 'Composantes',
+    material_details: 'Matériel détaillé',
     concentration: 'Concentration',
     description: 'Description',
     higher_levels: 'Niveaux supérieurs',
