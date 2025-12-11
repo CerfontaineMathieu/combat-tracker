@@ -18,8 +18,21 @@ import {
   Sparkles,
   Focus,
   Wand2,
+  BookOpen,
 } from "lucide-react"
 import type { CatalogSpell } from "@/lib/types"
+
+// School colors for badges
+const schoolColors: Record<string, string> = {
+  'Abjuration': 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+  'Conjuration': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+  'Divination': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50',
+  'Enchantement': 'bg-pink-500/20 text-pink-400 border-pink-500/50',
+  'Évocation': 'bg-red-500/20 text-red-400 border-red-500/50',
+  'Illusion': 'bg-purple-500/20 text-purple-400 border-purple-500/50',
+  'Nécromancie': 'bg-green-500/20 text-green-400 border-green-500/50',
+  'Transmutation': 'bg-orange-500/20 text-orange-400 border-orange-500/50',
+}
 
 interface SpellDetailProps {
   spell: CatalogSpell
@@ -44,9 +57,20 @@ export function SpellDetail({
       {/* Header */}
       <div>
         <h3 className="text-lg font-bold text-purple-400">{spell.name}</h3>
-        <p className="text-sm text-muted-foreground italic">
-          {getLevelLabel(spell.level)}
-        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm text-muted-foreground italic">
+            {getLevelLabel(spell.level)}
+          </p>
+          {spell.school && (
+            <Badge
+              variant="outline"
+              className={`text-xs ${schoolColors[spell.school] || 'text-muted-foreground border-muted'}`}
+            >
+              <BookOpen className="w-3 h-3 mr-1" />
+              {spell.school}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Action type - prominent display */}
@@ -78,6 +102,13 @@ export function SpellDetail({
           </div>
         )}
       </div>
+
+      {/* Material details (if components include M) */}
+      {spell.material_details && (
+        <p className="text-xs text-muted-foreground italic pl-6">
+          ({spell.material_details})
+        </p>
+      )}
 
       {/* Concentration badge */}
       {spell.concentration && (

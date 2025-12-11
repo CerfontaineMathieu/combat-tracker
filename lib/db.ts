@@ -1281,18 +1281,20 @@ export async function getSpellsByLevel(level: number): Promise<CatalogSpell[]> {
 export async function upsertSpell(spell: CatalogSpellInput): Promise<CatalogSpell> {
   const result = await pool.query(
     `INSERT INTO spell_catalog (
-      notion_id, name, level, classes, casting_time, range, duration,
-      components, concentration, description, higher_levels
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      notion_id, name, level, school, classes, casting_time, range, duration,
+      components, material_details, concentration, description, higher_levels
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     ON CONFLICT (notion_id)
     DO UPDATE SET
       name = EXCLUDED.name,
       level = EXCLUDED.level,
+      school = EXCLUDED.school,
       classes = EXCLUDED.classes,
       casting_time = EXCLUDED.casting_time,
       range = EXCLUDED.range,
       duration = EXCLUDED.duration,
       components = EXCLUDED.components,
+      material_details = EXCLUDED.material_details,
       concentration = EXCLUDED.concentration,
       description = EXCLUDED.description,
       higher_levels = EXCLUDED.higher_levels,
@@ -1302,11 +1304,13 @@ export async function upsertSpell(spell: CatalogSpellInput): Promise<CatalogSpel
       spell.notion_id,
       spell.name,
       spell.level,
+      spell.school,
       spell.classes,
       spell.casting_time,
       spell.range,
       spell.duration,
       spell.components,
+      spell.material_details,
       spell.concentration,
       spell.description,
       spell.higher_levels,
@@ -1367,11 +1371,13 @@ export async function getPreparedSpells(
       sc.notion_id as "spell.notion_id",
       sc.name as "spell.name",
       sc.level as "spell.level",
+      sc.school as "spell.school",
       sc.classes as "spell.classes",
       sc.casting_time as "spell.casting_time",
       sc.range as "spell.range",
       sc.duration as "spell.duration",
       sc.components as "spell.components",
+      sc.material_details as "spell.material_details",
       sc.concentration as "spell.concentration",
       sc.description as "spell.description",
       sc.higher_levels as "spell.higher_levels",
@@ -1396,11 +1402,13 @@ export async function getPreparedSpells(
       notion_id: row['spell.notion_id'],
       name: row['spell.name'],
       level: row['spell.level'],
+      school: row['spell.school'],
       classes: row['spell.classes'],
       casting_time: row['spell.casting_time'],
       range: row['spell.range'],
       duration: row['spell.duration'],
       components: row['spell.components'],
+      material_details: row['spell.material_details'],
       concentration: row['spell.concentration'],
       description: row['spell.description'],
       higher_levels: row['spell.higher_levels'],
