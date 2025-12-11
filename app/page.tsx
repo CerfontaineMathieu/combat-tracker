@@ -2760,8 +2760,20 @@ function CombatTrackerContent() {
                   </div>
                 )}
 
-                {/* Center Panel - Combat (9 cols for players with side panel, 6 cols for MJ) */}
-                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-9 overflow-auto"}>
+                {/* Center-Left Panel - Spellbook (player only during combat) */}
+                {mode === "joueur" && (
+                  <div className="col-span-4 overflow-auto">
+                    <SpellbookPanel
+                      characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
+                      onSpellSlotChange={updatePlayerSpellSlot}
+                      onShortRest={handleShortRest}
+                      onLongRest={handleLongRest}
+                    />
+                  </div>
+                )}
+
+                {/* Combat Panel (5 cols for players with spellbook, 6 cols for MJ) */}
+                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-5 overflow-auto"}>
                   <CombatPanel
                     participants={combatParticipants}
                     combatActive={combatActive}
