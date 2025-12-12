@@ -16,7 +16,31 @@ export interface ConsumableItem {
   description?: string
   rarity?: string
   catalogNotionId?: string  // Reference to item_catalog for auto-updates
+  // For scrolls (parchemins) - linked spell information
+  linkedSpell?: {
+    id: number
+    name: string
+    level: number
+  }
+  // For resistance potions - selected damage type
+  resistanceType?: ResistanceType
 }
+
+// D&D 5e Resistance Types (damage types) - French
+export const RESISTANCE_TYPES = [
+  'Acide',
+  'Froid',
+  'Feu',
+  'Force',
+  'Foudre',
+  'Nécrotique',
+  'Poison',
+  'Psychique',
+  'Radiant',
+  'Tonnerre',
+] as const
+
+export type ResistanceType = typeof RESISTANCE_TYPES[number]
 
 export interface CurrencyInventory {
   platinum: number  // pp (pièces de platine)
