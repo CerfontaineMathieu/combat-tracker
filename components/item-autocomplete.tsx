@@ -23,6 +23,16 @@ const categoryLabels: Record<ItemCategory, string> = {
   misc: "Divers",
 };
 
+// Helper to check if a catalog item requires attunement (from Notion properties)
+function checkRequiresAttunement(properties: Record<string, unknown> | undefined | null): boolean {
+  if (!properties) return false
+  if (properties.Harmonisation === true) return true
+  if (properties.harmonisation === true) return true
+  if (properties.Harmonisation === "Oui") return true
+  if (properties.harmonisation === "Oui") return true
+  return false
+}
+
 // Rarity color mapping (D&D style)
 function getRarityStyle(rarity: string | null): string {
   if (!rarity) return "";
@@ -188,6 +198,9 @@ export function ItemAutocomplete({
                 <span className="font-medium text-sm truncate flex-1 text-foreground">
                   {item.name}
                 </span>
+                {checkRequiresAttunement(item.properties) && (
+                  <span className="text-amber-400 text-xs font-bold shrink-0" title="Nécessite l'harmonisation">H</span>
+                )}
                 <Badge variant="secondary" className="text-xs shrink-0">
                   {categoryLabels[item.category]}
                 </Badge>

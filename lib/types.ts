@@ -3,6 +3,7 @@ export interface EquipmentItem {
   id: string
   name: string
   equipped: boolean
+  requiresAttunement?: boolean  // From Notion catalog - if true, counts toward 3-item attunement limit when equipped
   description?: string
   rarity?: string
   catalogNotionId?: string  // Reference to item_catalog for auto-updates
