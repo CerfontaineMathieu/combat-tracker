@@ -1057,6 +1057,26 @@ export async function getCharacterInventory(
   return result.rows[0].inventory;
 }
 
+// Save character inventory to PostgreSQL (upsert)
+export async function saveCharacterInventory(
+  characterId: string,
+  campaignId: number,
+  inventory: CharacterInventory
+): Promise<CharacterInventory> {
+  const result = await pool.query(
+    `INSERT INTO character_inventories (character_id, campaign_id, inventory, updated_at)
+     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+     ON CONFLICT (character_id)
+     DO UPDATE SET
+       inventory = $3,
+       updated_at = CURRENT_TIMESTAMP
+     RETURNING inventory`,
+    [characterId, campaignId, JSON.stringify(inventory)]
+  );
+
+  return result.rows[0].inventory;
+}
+
 // ============================================
 // Item Catalog Functions (for Notion sync)
 // ============================================

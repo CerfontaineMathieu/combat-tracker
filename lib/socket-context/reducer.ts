@@ -1,5 +1,5 @@
 import type { SocketState, SocketAction } from './types';
-import type { CombatParticipant } from '../types';
+import type { CombatParticipant, LootItem } from '../types';
 
 export function socketReducer(state: SocketState, action: SocketAction): SocketState {
   switch (action.type) {
@@ -679,6 +679,215 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         },
       }
     }
+
+    // ============ LOOT DISTRIBUTION ============
+    case 'LOOT_SESSION_UPDATE':
+      return {
+        ...state,
+        lootSession: action.session,
+      };
+
+    case 'LOOT_ITEM_ADD': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: [...state.lootSession.items, action.item],
+        },
+      };
+    }
+
+    case 'LOOT_ITEM_UPDATE': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.map((item) =>
+            item.id === action.item.id ? action.item : item
+          ),
+        },
+      };
+    }
+
+    case 'LOOT_ITEM_REMOVE': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.filter((item) => item.id !== action.itemId),
+        },
+      };
+    }
+
+    case 'LOOT_CLAIM': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.map((item) => {
+            if (item.id !== action.itemId) return item;
+            // Check if character already has a claim
+            const existingClaimIndex = item.claims.findIndex(
+              (c) => c.characterId === action.claim.characterId
+            );
+            let newClaims: typeof item.claims;
+            if (existingClaimIndex >= 0) {
+              // Update existing claim
+              newClaims = [...item.claims];
+              newClaims[existingClaimIndex] = action.claim;
+            } else {
+              // Add new claim
+              newClaims = [...item.claims, action.claim];
+            }
+            // Update item status based on claims
+            const newStatus: LootItem['status'] =
+              newClaims.length > 1 ? 'contested' : item.status;
+            return { ...item, claims: newClaims, status: newStatus };
+          }),
+        },
+      };
+    }
+
+    case 'LOOT_UNCLAIM': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.map((item) => {
+            if (item.id !== action.itemId) return item;
+            const newClaims = item.claims.filter(
+              (c) => c.characterId !== action.characterId
+            );
+            // Update item status based on remaining claims
+            const newStatus: LootItem['status'] =
+              newClaims.length > 1 ? 'contested' : 'unclaimed';
+            return { ...item, claims: newClaims, status: newStatus };
+          }),
+        },
+      };
+    }
+
+    case 'LOOT_ASSIGN': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.map((item) =>
+            item.id === action.itemId
+              ? {
+                  ...item,
+                  status: 'assigned' as const,
+                  assignedTo: action.characterId,
+                  assignedToName: action.characterName,
+                  resolvedAt: new Date(),
+                }
+              : item
+          ),
+        },
+      };
+    }
+
+    case 'LOOT_TO_TREASURY': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.map((item) =>
+            item.id === action.itemId
+              ? {
+                  ...item,
+                  status: 'treasury' as const,
+                  resolvedAt: new Date(),
+                }
+              : item
+          ),
+        },
+      };
+    }
+
+    case 'LOOT_CURRENCY_UPDATE': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          currency: action.currency,
+          currencySplitMethod: action.splitMethod ?? state.lootSession.currencySplitMethod,
+        },
+      };
+    }
+
+    case 'LOOT_ROLLOFF_START':
+      return {
+        ...state,
+        pendingRollOff: {
+          itemId: action.itemId,
+          itemName: action.itemName,
+          participants: action.participants,
+        },
+      };
+
+    case 'LOOT_ROLLOFF_RESULT':
+      return {
+        ...state,
+        rollOffResult: action.result,
+        pendingRollOff: null,
+      };
+
+    case 'LOOT_CLEAR_ROLLOFF':
+      return {
+        ...state,
+        rollOffResult: null,
+        pendingRollOff: null,
+      };
+
+    case 'LOOT_FINALIZED':
+      return {
+        ...state,
+        lootDistributions: action.distributions,
+        lootSession: state.lootSession
+          ? { ...state.lootSession, status: 'completed', completedAt: new Date() }
+          : null,
+      };
+
+    case 'LOOT_CLEAR_SESSION':
+      return {
+        ...state,
+        lootSession: null,
+        pendingRollOff: null,
+        rollOffResult: null,
+        lootDistributions: null,
+        lootError: null,
+      };
+
+    case 'LOOT_ERROR':
+      return {
+        ...state,
+        lootError: { error: action.error, code: action.code },
+      };
 
     default:
       return state;

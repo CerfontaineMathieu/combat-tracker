@@ -748,3 +748,133 @@ export interface PreparedSpell {
   is_always_prepared: boolean;
   spell?: CatalogSpell;             // Joined spell data
 }
+
+// ============================================
+// Loot Distribution System Types
+// ============================================
+
+export type LootSessionStatus = 'draft' | 'claiming' | 'resolving' | 'completed' | 'cancelled';
+export type LootItemType = 'weapon' | 'armor' | 'potion' | 'scroll' | 'wondrous' | 'currency' | 'misc';
+export type LootItemRarity = 'common' | 'uncommon' | 'rare' | 'very_rare' | 'legendary' | 'artifact';
+export type LootItemStatus = 'unclaimed' | 'contested' | 'assigned' | 'treasury' | 'sold';
+export type CurrencySplitMethod = 'equal' | 'manual';
+
+// Loot currency (all D&D 5e currencies)
+export interface LootCurrency {
+  platinum: number;  // pp (pièces de platine)
+  gold: number;      // po (pièces d'or)
+  electrum: number;  // pe (pièces d'électrum)
+  silver: number;    // pa (pièces d'argent)
+  copper: number;    // pc (pièces de cuivre)
+}
+
+// Loot session (one per combat/event)
+export interface LootSession {
+  id: string;
+  campaignId: number;
+  status: LootSessionStatus;
+  currency: LootCurrency;
+  currencySplitMethod: CurrencySplitMethod;
+  claimingDeadline?: Date;
+  createdAt: Date;
+  completedAt?: Date;
+  items: LootItem[];
+}
+
+// Item in loot pool
+export interface LootItem {
+  id: string;
+  sessionId: string;
+  catalogNotionId?: string;      // Reference to item_catalog
+  name: string;
+  description?: string;
+  itemType: LootItemType;
+  rarity: LootItemRarity;
+  quantity: number;
+  isIdentified: boolean;
+  estimatedValueGp?: number;
+  status: LootItemStatus;
+  assignedTo?: string;           // Character ID
+  assignedToName?: string;       // Denormalized for display
+  claims: LootClaim[];
+  createdAt: Date;
+  resolvedAt?: Date;
+  // For scrolls (parchemins) - linked spell information
+  linkedSpell?: {
+    id: number;
+    name: string;
+    level: number;
+  };
+  // For resistance potions - selected damage type
+  resistanceType?: ResistanceType;
+}
+
+// Player claim on an item
+export interface LootClaim {
+  id: string;
+  itemId: string;
+  characterId: string;
+  characterName: string;         // Denormalized for display
+  priority: 1 | 2 | 3;           // 1 = want, 2 = really want, 3 = NEED
+  note?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Final distribution per character
+export interface LootDistribution {
+  id: string;
+  sessionId: string;
+  characterId: string;
+  characterName: string;
+  currency: LootCurrency;
+  items: Array<{
+    itemId: string;
+    name: string;
+    quantity: number;
+    rarity: LootItemRarity;
+  }>;
+}
+
+// Roll-off result for contested items
+export interface RollOffResult {
+  itemId: string;
+  itemName: string;
+  rolls: Array<{
+    characterId: string;
+    characterName: string;
+    roll: number;               // 1-20
+  }>;
+  winnerId: string;
+  winnerName: string;
+}
+
+// Loot item type display info (French labels)
+export const LOOT_ITEM_TYPES: Record<LootItemType, { label: string; icon: string }> = {
+  weapon: { label: 'Arme', icon: 'sword' },
+  armor: { label: 'Armure', icon: 'shield' },
+  potion: { label: 'Potion', icon: 'flask-conical' },
+  scroll: { label: 'Parchemin', icon: 'scroll' },
+  wondrous: { label: 'Objet merveilleux', icon: 'sparkles' },
+  currency: { label: 'Monnaie', icon: 'coins' },
+  misc: { label: 'Divers', icon: 'package' },
+};
+
+// Loot rarity display info (French labels + colors)
+export const LOOT_RARITIES: Record<LootItemRarity, { label: string; color: string; bgColor: string; borderColor: string }> = {
+  common: { label: 'Commun', color: 'text-gray-400', bgColor: 'bg-gray-500/20', borderColor: 'border-gray-500/50' },
+  uncommon: { label: 'Peu commun', color: 'text-green-400', bgColor: 'bg-green-500/20', borderColor: 'border-green-500/50' },
+  rare: { label: 'Rare', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-500/50' },
+  very_rare: { label: 'Très rare', color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-500/50' },
+  legendary: { label: 'Légendaire', color: 'text-orange-400', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-500/50' },
+  artifact: { label: 'Artefact', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500/50' },
+};
+
+// Loot status display info (French labels + colors)
+export const LOOT_STATUSES: Record<LootItemStatus, { label: string; icon: string; color: string }> = {
+  unclaimed: { label: 'Non réclamé', icon: 'circle-dashed', color: 'text-gray-400' },
+  contested: { label: 'Contesté', icon: 'flame', color: 'text-orange-400' },
+  assigned: { label: 'Attribué', icon: 'check-circle', color: 'text-green-400' },
+  treasury: { label: 'Trésor commun', icon: 'landmark', color: 'text-amber-400' },
+  sold: { label: 'Vendu', icon: 'coins', color: 'text-yellow-400' },
+};
