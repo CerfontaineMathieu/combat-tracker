@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Package,
   Plus,
@@ -11,6 +11,8 @@ import {
   Pill,
   Search,
   X,
+  BookOpen,
+  Scroll,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,10 +28,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import type { CharacterInventory, EquipmentItem, ConsumableItem, MiscItem, CurrencyInventory, CatalogItem } from "@/lib/types"
+import type { CharacterInventory, EquipmentItem, ConsumableItem, MiscItem, CurrencyInventory, CatalogItem, CatalogSpell, ResistanceType } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { ItemAutocomplete } from "@/components/item-autocomplete"
 import { ItemPickerDialog } from "@/components/item-picker-dialog"
+import { ScrollSpellDialog } from "@/components/scroll-spell-dialog"
+import { ResistanceTypeDialog } from "@/components/resistance-type-dialog"
+import { SpellDetail } from "@/components/spell-detail"
 
 // Rarity color mapping (D&D style)
 function getRarityStyle(rarity: string | null | undefined): string {
@@ -69,6 +74,34 @@ function checkRequiresAttunement(properties: Record<string, unknown> | undefined
   return false
 }
 
+// Resistance type color mapping (matching resistance-type-dialog.tsx)
+function getResistanceStyle(type: string): string {
+  switch (type) {
+    case 'Acide':
+      return 'bg-lime-500/20 text-lime-400 border-lime-500/50'
+    case 'Froid':
+      return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50'
+    case 'Feu':
+      return 'bg-orange-500/20 text-orange-400 border-orange-500/50'
+    case 'Force':
+      return 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50'
+    case 'Foudre':
+      return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+    case 'Nécrotique':
+      return 'bg-purple-500/20 text-purple-400 border-purple-500/50'
+    case 'Poison':
+      return 'bg-green-500/20 text-green-400 border-green-500/50'
+    case 'Psychique':
+      return 'bg-pink-500/20 text-pink-400 border-pink-500/50'
+    case 'Radiant':
+      return 'bg-amber-500/20 text-amber-400 border-amber-500/50'
+    case 'Tonnerre':
+      return 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+    default:
+      return 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+  }
+}
+
 // Item detail type for the detail dialog
 type DetailItem = {
   name: string;
@@ -77,6 +110,11 @@ type DetailItem = {
   type: 'equipment' | 'consumable' | 'misc';
   quantity?: number;
   equipped?: boolean;
+  linkedSpell?: {
+    id: number;
+    name: string;
+    level: number;
+  };
 };
 
 interface InventoryManagerProps {
@@ -120,10 +158,12 @@ export function InventoryManager({
 
   // Equipment state
   const [newEquipmentName, setNewEquipmentName] = useState("")
+  const [equipmentSearch, setEquipmentSearch] = useState("")
 
   // Consumables state
   const [newConsumableName, setNewConsumableName] = useState("")
   const [newConsumableQty, setNewConsumableQty] = useState("1")
+  const [consumableSearch, setConsumableSearch] = useState("")
 
   // Currency local state
   const [localCurrency, setLocalCurrency] = useState(inventory.currency)
@@ -149,11 +189,39 @@ export function InventoryManager({
 
   // Detail dialog state
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
+  const [viewingDetailSpell, setViewingDetailSpell] = useState<CatalogSpell | null>(null)
 
   // Catalog item storage for adding with details
   const [pendingEquipment, setPendingEquipment] = useState<{description?: string, rarity?: string, catalogNotionId?: string}>({})
   const [pendingConsumable, setPendingConsumable] = useState<{description?: string, rarity?: string, catalogNotionId?: string}>({})
   const [pendingItem, setPendingItem] = useState<{description?: string, rarity?: string, catalogNotionId?: string}>({})
+
+  // Pending items for scroll spell selection and resistance type selection
+  const [pendingScrollItem, setPendingScrollItem] = useState<CatalogItem | null>(null)
+  const [pendingResistanceItem, setPendingResistanceItem] = useState<CatalogItem | null>(null)
+
+  // Filtered lists based on search
+  const filteredEquipment = useMemo(() => {
+    if (!equipmentSearch.trim()) return localInventory.equipment
+    const search = equipmentSearch.toLowerCase()
+    return localInventory.equipment.filter(item =>
+      item.name.toLowerCase().includes(search) ||
+      item.description?.toLowerCase().includes(search) ||
+      item.rarity?.toLowerCase().includes(search)
+    )
+  }, [localInventory.equipment, equipmentSearch])
+
+  const filteredConsumables = useMemo(() => {
+    if (!consumableSearch.trim()) return localInventory.consumables
+    const search = consumableSearch.toLowerCase()
+    return localInventory.consumables.filter(item =>
+      item.name.toLowerCase().includes(search) ||
+      item.description?.toLowerCase().includes(search) ||
+      item.rarity?.toLowerCase().includes(search) ||
+      item.linkedSpell?.name.toLowerCase().includes(search) ||
+      item.resistanceType?.toLowerCase().includes(search)
+    )
+  }, [localInventory.consumables, consumableSearch])
 
   // Equipment handlers
   const addEquipment = () => {
@@ -261,6 +329,19 @@ export function InventoryManager({
 
   // Add consumable directly from catalog item selection (default quantity: 1)
   const addConsumableFromCatalog = (item: CatalogItem) => {
+    // Intercept scrolls (parchemins) - require spell selection
+    if (item.subcategory === 'parchemin') {
+      setPendingScrollItem(item)
+      return
+    }
+
+    // Intercept resistance potions - require type selection
+    if (item.name.toLowerCase().includes('résistance') && item.subcategory === 'potion') {
+      setPendingResistanceItem(item)
+      return
+    }
+
+    // Normal flow for other consumables
     const newItem: ConsumableItem = {
       id: `cons-${Date.now()}`,
       name: item.name,
@@ -278,6 +359,54 @@ export function InventoryManager({
     setNewConsumableName("")
     setNewConsumableQty("1")
     setPendingConsumable({})
+  }
+
+  // Handle scroll spell selection confirmation
+  const handleScrollConfirm = (item: CatalogItem, spell: CatalogSpell) => {
+    const newItem: ConsumableItem = {
+      id: `cons-${Date.now()}`,
+      name: item.name,
+      quantity: 1,
+      description: item.description || undefined,
+      rarity: item.rarity || undefined,
+      catalogNotionId: item.notion_id,
+      linkedSpell: {
+        id: spell.id,
+        name: spell.name,
+        level: spell.level,
+      },
+    }
+    const updatedInventory = {
+      ...localInventory,
+      consumables: [...localInventory.consumables, newItem],
+    }
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
+    setPendingScrollItem(null)
+    setNewConsumableName("")
+    setNewConsumableQty("1")
+  }
+
+  // Handle resistance potion type selection confirmation
+  const handleResistanceConfirm = (item: CatalogItem, resistanceType: ResistanceType) => {
+    const newItem: ConsumableItem = {
+      id: `cons-${Date.now()}`,
+      name: item.name,
+      quantity: 1,
+      description: item.description || undefined,
+      rarity: item.rarity || undefined,
+      catalogNotionId: item.notion_id,
+      resistanceType,
+    }
+    const updatedInventory = {
+      ...localInventory,
+      consumables: [...localInventory.consumables, newItem],
+    }
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
+    setPendingResistanceItem(null)
+    setNewConsumableName("")
+    setNewConsumableQty("1")
   }
 
   const updateConsumableQty = (id: string, delta: number) => {
@@ -480,16 +609,36 @@ export function InventoryManager({
                     </Button>
                   }
                 />
-                <Button onClick={addEquipment} size="icon" className="shrink-0">
-                  <Plus className="w-4 h-4" />
-                </Button>
               </div>
             )}
 
-            {/* Attunement counter */}
-            <div className="flex items-center justify-end text-sm">
+            {/* Attunement counter and search */}
+            <div className="flex items-center justify-between gap-2">
+              {localInventory.equipment.length > 0 ? (
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrer l'équipement..."
+                    value={equipmentSearch}
+                    onChange={(e) => setEquipmentSearch(e.target.value)}
+                    className="pl-8 h-8 text-sm"
+                  />
+                  {equipmentSearch && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                      onClick={() => setEquipmentSearch("")}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div />
+              )}
               <span className={cn(
-                "text-muted-foreground",
+                "text-sm text-muted-foreground shrink-0",
                 attunedCount >= 3 && "text-amber-500 font-medium"
               )}>
                 Harmonisés: {attunedCount}/3
@@ -502,9 +651,14 @@ export function InventoryManager({
                   <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Aucun équipement</p>
                 </div>
+              ) : filteredEquipment.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Search className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Aucun résultat pour "{equipmentSearch}"</p>
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {localInventory.equipment.map((item) => (
+                  {filteredEquipment.map((item) => (
                     <div
                       key={item.id}
                       className={cn(
@@ -610,17 +764,29 @@ export function InventoryManager({
                     </Button>
                   }
                 />
+              </div>
+            )}
+
+            {/* Search filter for consumables */}
+            {localInventory.consumables.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  type="number"
-                  min="1"
-                  placeholder="Qté"
-                  value={newConsumableQty}
-                  onChange={(e) => setNewConsumableQty(e.target.value)}
-                  className="w-16"
+                  placeholder="Filtrer les consommables..."
+                  value={consumableSearch}
+                  onChange={(e) => setConsumableSearch(e.target.value)}
+                  className="pl-8 h-8 text-sm"
                 />
-                <Button onClick={addConsumable} size="icon" className="shrink-0">
-                  <Plus className="w-4 h-4" />
-                </Button>
+                {consumableSearch && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                    onClick={() => setConsumableSearch("")}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                )}
               </div>
             )}
 
@@ -630,23 +796,29 @@ export function InventoryManager({
                   <Pill className="w-12 h-12 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Aucun consommable</p>
                 </div>
+              ) : filteredConsumables.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Search className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Aucun résultat pour "{consumableSearch}"</p>
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {localInventory.consumables.map((item) => (
+                  {filteredConsumables.map((item) => (
                     <div
                       key={item.id}
                       className={cn(
                         "p-2 rounded-lg border bg-secondary/30 border-border/50",
-                        (item.description || item.rarity) && "cursor-pointer hover:bg-secondary/50"
+                        (item.description || item.rarity || item.linkedSpell) && "cursor-pointer hover:bg-secondary/50"
                       )}
                       onClick={() => {
-                        if (item.description || item.rarity) {
+                        if (item.description || item.rarity || item.linkedSpell) {
                           setDetailItem({
                             name: item.name,
                             description: item.description,
                             rarity: item.rarity,
                             type: 'consumable',
                             quantity: item.quantity,
+                            linkedSpell: item.linkedSpell,
                           })
                         }
                       }}
@@ -658,6 +830,16 @@ export function InventoryManager({
                             {item.rarity && (
                               <Badge variant="outline" className={`text-xs ${getRarityStyle(item.rarity)}`}>
                                 {item.rarity}
+                              </Badge>
+                            )}
+                            {item.linkedSpell && (
+                              <Badge className="text-xs bg-purple-500/20 text-purple-400 border-purple-500/50">
+                                Niv. {item.linkedSpell.level}: {item.linkedSpell.name}
+                              </Badge>
+                            )}
+                            {item.resistanceType && (
+                              <Badge className={`text-xs ${getResistanceStyle(item.resistanceType)}`}>
+                                {item.resistanceType}
                               </Badge>
                             )}
                           </div>
@@ -842,17 +1024,86 @@ export function InventoryManager({
                 <p className="text-sm whitespace-pre-wrap">{detailItem.description}</p>
               </div>
             )}
+
+            {/* Linked Spell for scrolls */}
+            {detailItem?.linkedSpell && !viewingDetailSpell && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Scroll className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm font-medium">Sort inscrit</span>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20"
+                  onClick={async () => {
+                    // Fetch full spell data
+                    try {
+                      const response = await fetch(`/api/spells/${detailItem.linkedSpell!.id}`)
+                      const data = await response.json()
+                      if (data.success && data.spell) {
+                        setViewingDetailSpell(data.spell)
+                      }
+                    } catch (error) {
+                      console.error('Error fetching spell:', error)
+                    }
+                  }}
+                >
+                  <BookOpen className="w-4 h-4 text-purple-400" />
+                  <span className="text-purple-400">
+                    Niv. {detailItem.linkedSpell.level}: {detailItem.linkedSpell.name}
+                  </span>
+                </Button>
+              </div>
+            )}
+
+            {/* Spell Detail View */}
+            {viewingDetailSpell && (
+              <div className="space-y-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => setViewingDetailSpell(null)}
+                >
+                  ← Retour à l'objet
+                </Button>
+                <div className="max-h-[300px] overflow-y-auto pr-2">
+                  <SpellDetail spell={viewingDetailSpell} />
+                </div>
+              </div>
+            )}
           </div>
 
           <Button
             variant="outline"
             className="w-full mt-2"
-            onClick={() => setDetailItem(null)}
+            onClick={() => {
+              setDetailItem(null)
+              setViewingDetailSpell(null)
+            }}
           >
             Fermer
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Scroll Spell Selection Dialog */}
+      <ScrollSpellDialog
+        open={!!pendingScrollItem}
+        onOpenChange={(open) => !open && setPendingScrollItem(null)}
+        catalogItem={pendingScrollItem}
+        onConfirm={handleScrollConfirm}
+        onCancel={() => setPendingScrollItem(null)}
+      />
+
+      {/* Resistance Type Selection Dialog */}
+      <ResistanceTypeDialog
+        open={!!pendingResistanceItem}
+        onOpenChange={(open) => !open && setPendingResistanceItem(null)}
+        catalogItem={pendingResistanceItem}
+        onConfirm={handleResistanceConfirm}
+        onCancel={() => setPendingResistanceItem(null)}
+      />
     </Dialog>
   )
 }
