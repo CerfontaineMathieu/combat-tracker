@@ -10,6 +10,9 @@ import type {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://dnd:dnd@localhost:5432/dnd_tracker',
+  max: 30,                       // Increase from default 10 for concurrent combat sessions
+  idleTimeoutMillis: 30000,      // Close idle connections after 30s
+  connectionTimeoutMillis: 5000, // Fail fast if can't connect in 5s
 });
 
 export default pool;
@@ -142,38 +145,53 @@ export async function updateMonsterFields(
 /**
  * Delete monsters by IDs with safety checks
  * Prevents deletion of monsters currently in active combat
+ * Uses batch queries for better performance (reduces N queries to 3 max)
  * @param ids - Array of monster IDs to delete
  * @returns Object with deleted count and any errors
  */
 export async function deleteMonstersById(ids: number[]): Promise<{ deleted: number; errors: string[] }> {
-  const errors: string[] = [];
-  let deleted = 0;
+  if (ids.length === 0) return { deleted: 0, errors: [] };
 
-  for (const id of ids) {
-    try {
-      // Check if monster is in use in combat
-      const inUseResult = await pool.query(
-        'SELECT COUNT(*) as count FROM combat_monsters WHERE monster_id = $1',
-        [id]
+  try {
+    // Single query: check which monsters are in use
+    const inUseResult = await pool.query(
+      `SELECT monster_id FROM combat_monsters WHERE monster_id = ANY($1) GROUP BY monster_id`,
+      [ids]
+    );
+
+    const inUseIds = new Set(inUseResult.rows.map(r => r.monster_id));
+    const safeToDelete = ids.filter(id => !inUseIds.has(id));
+    const blockedIds = ids.filter(id => inUseIds.has(id));
+
+    // Get names for error messages (single query)
+    const errors: string[] = [];
+    if (blockedIds.length > 0) {
+      const namesResult = await pool.query(
+        'SELECT id, name FROM monsters WHERE id = ANY($1)',
+        [blockedIds]
       );
-
-      const count = parseInt(inUseResult.rows[0].count);
-
-      if (count > 0) {
-        const monster = await getMonsterById(id);
-        errors.push(`Impossible de supprimer "${monster?.name || `ID ${id}`}": utilisé dans un combat actif`);
-        continue;
+      for (const row of namesResult.rows) {
+        errors.push(`Impossible de supprimer "${row.name}": utilisé dans un combat actif`);
       }
-
-      // Safe to delete
-      const result = await pool.query('DELETE FROM monsters WHERE id = $1', [id]);
-      if (result.rowCount && result.rowCount > 0) deleted++;
-    } catch (error) {
-      errors.push(`Erreur lors de la suppression du monstre ID ${id}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-  }
 
-  return { deleted, errors };
+    // Batch delete safe monsters (single query)
+    let deleted = 0;
+    if (safeToDelete.length > 0) {
+      const deleteResult = await pool.query(
+        'DELETE FROM monsters WHERE id = ANY($1)',
+        [safeToDelete]
+      );
+      deleted = deleteResult.rowCount || 0;
+    }
+
+    return { deleted, errors };
+  } catch (error) {
+    return {
+      deleted: 0,
+      errors: [`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`]
+    };
+  }
 }
 
 /**
@@ -654,13 +672,17 @@ export async function createCombatSession(
   );
   const session = sessionResult.rows[0];
 
-  // Insert participants
-  for (const participant of participants) {
-    await pool.query(
-      `INSERT INTO combat_session_participants
-       (session_id, participant_type, source_id, name, initiative, current_hp, max_hp, ac, conditions, exhaustion_level, position)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
+  // Insert all participants with single multi-row INSERT (reduces N queries to 1)
+  if (participants.length > 0) {
+    const values: unknown[] = [];
+    const placeholders: string[] = [];
+    let paramIndex = 1;
+
+    for (const participant of participants) {
+      placeholders.push(
+        `($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`
+      );
+      values.push(
         session.id,
         participant.participant_type,
         participant.source_id,
@@ -672,7 +694,14 @@ export async function createCombatSession(
         JSON.stringify(participant.conditions),
         participant.exhaustion_level || 0,
         participant.position
-      ]
+      );
+    }
+
+    await pool.query(
+      `INSERT INTO combat_session_participants
+       (session_id, participant_type, source_id, name, initiative, current_hp, max_hp, ac, conditions, exhaustion_level, position)
+       VALUES ${placeholders.join(', ')}`,
+      values
     );
   }
 
@@ -1215,6 +1244,36 @@ export async function getCharacterStatus(
     buffs: row.buffs ?? null,
     spellSlots: row.spell_slots ?? null,
   };
+}
+
+// Batch get character statuses (reduces N+1 queries to 1 query)
+export async function getBatchCharacterStatus(
+  characterIds: string[],
+  campaignId: number
+): Promise<Map<string, CharacterStatus>> {
+  if (characterIds.length === 0) return new Map();
+
+  const result = await pool.query(
+    `SELECT character_id, current_hp, temp_hp, exhaustion_level,
+            conditions, condition_durations, buffs, spell_slots
+     FROM character_hp
+     WHERE character_id = ANY($1) AND campaign_id = $2`,
+    [characterIds, campaignId]
+  );
+
+  const statusMap = new Map<string, CharacterStatus>();
+  for (const row of result.rows) {
+    statusMap.set(row.character_id, {
+      currentHp: row.current_hp,
+      tempHp: row.temp_hp ?? null,
+      exhaustionLevel: row.exhaustion_level ?? null,
+      conditions: row.conditions ?? null,
+      conditionDurations: row.condition_durations ?? null,
+      buffs: row.buffs ?? null,
+      spellSlots: row.spell_slots ?? null,
+    });
+  }
+  return statusMap;
 }
 
 // ============================================

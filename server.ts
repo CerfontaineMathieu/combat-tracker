@@ -3,7 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
-import { getDmPassword, getCharacterInventory, getCharacterStatus } from './lib/db';
+import { getDmPassword, getCharacterInventory, getCharacterStatus, getBatchCharacterStatus } from './lib/db';
 import {
   getRedis,
   getDmSession,
@@ -421,35 +421,39 @@ app.prepare().then(() => {
       if (role === 'dm') {
         const allPlayers = await getConnectedPlayers(campaignId);
 
-        // Refresh player status from database (in case it changed during combat)
-        const playersWithFreshStatus = await Promise.all(
-          allPlayers.map(async (player) => ({
-            ...player,
-            characters: await Promise.all(
-              player.characters.map(async (char: {
-                odNumber: string | number;
-                name: string;
-                currentHp: number;
-                tempHp?: number;
-                conditions?: string[];
-                conditionDurations?: Record<string, number>;
-                exhaustionLevel?: number;
-                buffs?: unknown[];
-              }) => {
-                const status = await getCharacterStatus(String(char.odNumber), campaignId);
-                return {
-                  ...char,
-                  currentHp: status.currentHp ?? char.currentHp,
-                  tempHp: status.tempHp ?? char.tempHp,
-                  conditions: status.conditions ?? char.conditions ?? [],
-                  conditionDurations: status.conditionDurations ?? char.conditionDurations ?? {},
-                  exhaustionLevel: status.exhaustionLevel ?? char.exhaustionLevel ?? 0,
-                  buffs: status.buffs ?? char.buffs ?? [],
-                };
-              })
-            ),
-          }))
+        // Collect all character IDs for batch query (reduces N+1 to single query)
+        const allCharacterIds = allPlayers.flatMap(p =>
+          p.characters.map((c: { odNumber: string | number }) => String(c.odNumber))
         );
+
+        // Single batch query for all character statuses
+        const statusMap = await getBatchCharacterStatus(allCharacterIds, campaignId);
+
+        // Map results back to players
+        const playersWithFreshStatus = allPlayers.map((player) => ({
+          ...player,
+          characters: player.characters.map((char: {
+            odNumber: string | number;
+            name: string;
+            currentHp: number;
+            tempHp?: number;
+            conditions?: string[];
+            conditionDurations?: Record<string, number>;
+            exhaustionLevel?: number;
+            buffs?: unknown[];
+          }) => {
+            const status = statusMap.get(String(char.odNumber));
+            return {
+              ...char,
+              currentHp: status?.currentHp ?? char.currentHp,
+              tempHp: status?.tempHp ?? char.tempHp,
+              conditions: status?.conditions ?? char.conditions ?? [],
+              conditionDurations: status?.conditionDurations ?? char.conditionDurations ?? {},
+              exhaustionLevel: status?.exhaustionLevel ?? char.exhaustionLevel ?? 0,
+              buffs: status?.buffs ?? char.buffs ?? [],
+            };
+          }),
+        }));
 
         console.log(`[Socket.io] Sending connected-players to DM: ${playersWithFreshStatus.length} players`, playersWithFreshStatus.map(p => p.characters.map((c: { name: string }) => c.name).join(', ')));
         socket.emit('connected-players', { players: playersWithFreshStatus });
