@@ -9,7 +9,6 @@ import {
   Coins,
   Backpack,
   Pill,
-  Box,
   Search,
   X,
 } from "lucide-react"
@@ -26,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import type { CharacterInventory, EquipmentItem, ConsumableItem, MiscItem, CurrencyInventory, CatalogItem } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { ItemAutocomplete } from "@/components/item-autocomplete"
@@ -55,6 +55,18 @@ function getRarityStyle(rarity: string | null | undefined): string {
     return "bg-red-500/20 text-red-400 border-red-500/50";
   }
   return "";
+}
+
+// Helper to check if a catalog item requires attunement (from Notion properties)
+function checkRequiresAttunement(properties: Record<string, unknown> | undefined | null): boolean {
+  if (!properties) return false
+  // Check for checkbox (boolean true)
+  if (properties.Harmonisation === true) return true
+  if (properties.harmonisation === true) return true
+  // Check for select/text "Oui"
+  if (properties.Harmonisation === "Oui") return true
+  if (properties.harmonisation === "Oui") return true
+  return false
 }
 
 // Item detail type for the detail dialog
@@ -172,6 +184,7 @@ export function InventoryManager({
       id: `eq-${Date.now()}`,
       name: item.name,
       equipped: false,
+      requiresAttunement: checkRequiresAttunement(item.properties),
       description: item.description || undefined,
       rarity: item.rarity || undefined,
       catalogNotionId: item.notion_id,
@@ -186,11 +199,26 @@ export function InventoryManager({
     setPendingEquipment({})
   }
 
+  // Attunement tracking (max 3 equipped items that require attunement)
+  const attunedCount = localInventory.equipment.filter(
+    item => item.equipped && item.requiresAttunement
+  ).length
+
   const toggleEquipped = (id: string) => {
+    const item = localInventory.equipment.find(i => i.id === id)
+
+    // If trying to equip an item that requires attunement, check limit
+    if (!item?.equipped && item?.requiresAttunement && attunedCount >= 3) {
+      toast.warning("Vous avez déjà 3 objets harmonisés équipés", {
+        description: "Déséquipez un objet harmonisé avant d'en équiper un autre."
+      })
+      return
+    }
+
     const updatedInventory = {
       ...localInventory,
-      equipment: localInventory.equipment.map(item =>
-        item.id === id ? { ...item, equipped: !item.equipped } : item
+      equipment: localInventory.equipment.map(i =>
+        i.id === id ? { ...i, equipped: !i.equipped } : i
       ),
     }
     setLocalInventory(updatedInventory)
@@ -406,7 +434,7 @@ export function InventoryManager({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsList className="grid w-full grid-cols-3 h-auto">
             <TabsTrigger value="equipment" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Équipement</span>
@@ -420,10 +448,6 @@ export function InventoryManager({
             <TabsTrigger value="currency" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
               <Coins className="w-4 h-4" />
               <span>Monnaie</span>
-            </TabsTrigger>
-            <TabsTrigger value="items" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
-              <Box className="w-4 h-4" />
-              <span>Objets</span>
             </TabsTrigger>
           </TabsList>
 
@@ -462,6 +486,16 @@ export function InventoryManager({
               </div>
             )}
 
+            {/* Attunement counter */}
+            <div className="flex items-center justify-end text-sm">
+              <span className={cn(
+                "text-muted-foreground",
+                attunedCount >= 3 && "text-amber-500 font-medium"
+              )}>
+                Harmonisés: {attunedCount}/3
+              </span>
+            </div>
+
             <ScrollArea className="h-[300px] pr-4">
               {localInventory.equipment.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
@@ -496,6 +530,9 @@ export function InventoryManager({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium">{item.name}</span>
+                            {item.requiresAttunement && (
+                              <span className="text-amber-400 text-xs font-bold" title="Nécessite l'harmonisation">H</span>
+                            )}
                             {item.rarity && (
                               <Badge variant="outline" className={`text-xs ${getRarityStyle(item.rarity)}`}>
                                 {item.rarity}
@@ -738,153 +775,7 @@ export function InventoryManager({
             </div>
           </TabsContent>
 
-          {/* ITEMS TAB */}
-          <TabsContent value="items" className="space-y-3">
-            {!readonly && (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <ItemAutocomplete
-                    value={newItemName}
-                    onChange={(val) => {
-                      setNewItemName(val)
-                      if (!val) {
-                        setNewItemDesc("")
-                        setPendingItem({})
-                      }
-                    }}
-                    onSelect={(item: CatalogItem) => {
-                      addMiscItemFromCatalog(item)
-                    }}
-                    placeholder="Nom de l'objet..."
-                    filterCategory="misc"
-                    className="flex-1"
-                  />
-                  <ItemPickerDialog
-                    filterCategory="misc"
-                    initialSearch={newItemName}
-                    onSelect={(item: CatalogItem) => {
-                      addMiscItemFromCatalog(item)
-                    }}
-                    trigger={
-                      <Button variant="outline" size="icon" className="shrink-0">
-                        <Search className="w-4 h-4" />
-                      </Button>
-                    }
-                  />
-                  <Input
-                    type="number"
-                    min="1"
-                    placeholder="Qté"
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(e.target.value)}
-                    className="w-16"
-                  />
-                  <Button onClick={addItem} size="icon" className="shrink-0">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <Input
-                  placeholder="Description (optionnel)..."
-                  value={newItemDesc}
-                  onChange={(e) => setNewItemDesc(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addItem()}
-                />
-              </div>
-            )}
-
-            <ScrollArea className="h-[300px] pr-4">
-              {localInventory.items.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                  <Box className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Aucun objet</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {localInventory.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "p-2 rounded-lg border bg-secondary/30 border-border/50",
-                        (item.description || item.rarity) && "cursor-pointer hover:bg-secondary/50"
-                      )}
-                      onClick={() => {
-                        if (item.description || item.rarity) {
-                          setDetailItem({
-                            name: item.name,
-                            description: item.description,
-                            rarity: item.rarity,
-                            type: 'misc',
-                            quantity: item.quantity || 1,
-                          })
-                        }
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium">{item.name}</p>
-                            {item.rarity && (
-                              <Badge variant="outline" className={`text-xs shrink-0 ${getRarityStyle(item.rarity)}`}>
-                                {item.rarity}
-                              </Badge>
-                            )}
-                          </div>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {!readonly && (
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                updateItemQty(item.id, -1)
-                              }}
-                            >
-                              <Minus className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <Badge variant="outline" className="min-w-[3rem] justify-center">
-                            {item.quantity || 1}
-                          </Badge>
-                          {!readonly && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  updateItemQty(item.id, 1)
-                                }}
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-crimson hover:text-crimson/80"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  removeItem(item.id)
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+          </Tabs>
 
         {readonly && (
           <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border/50">
@@ -934,7 +825,7 @@ export function InventoryManager({
               )}
               {detailItem?.type === 'misc' && (
                 <>
-                  <Box className="w-4 h-4" />
+                  <Package className="w-4 h-4" />
                   <span>Objet</span>
                   {detailItem.quantity !== undefined && (
                     <Badge variant="outline" className="ml-2">

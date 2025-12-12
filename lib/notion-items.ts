@@ -291,15 +291,9 @@ async function mapNotionPageToCatalogItem(
         category = 'consumable';
         subcategory = 'parchemin';
       } else {
-        // Equipment: wearable items (anneau, amulette, bottes, cape, gants, lunettes)
-        const equipmentTypes = ['anneau', 'amulette', 'bottes', 'cape', 'gants', 'lunettes'];
-        if (equipmentTypes.includes(typeLower)) {
-          category = 'equipment';
-          subcategory = 'objet_magique';
-        } else {
-          category = 'misc';
-          subcategory = 'objet_magique';
-        }
+        // All other items from objets database are equipment (magic objects)
+        category = 'equipment';
+        subcategory = 'objet_magique';
       }
     }
 
@@ -383,8 +377,8 @@ export async function fetchObjetsFromNotion(fetchContent: boolean = true): Promi
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    // Category and subcategory determined by Type property in mapNotionPageToCatalogItem
-    const item = await mapNotionPageToCatalogItem(page, 'objets', 'misc', 'objet_magique', fetchContent);
+    // Magic objects are equipment (can be equipped and may require attunement)
+    const item = await mapNotionPageToCatalogItem(page, 'objets', 'equipment', 'objet_magique', fetchContent);
     if (item) {
       items.push(item);
     }
