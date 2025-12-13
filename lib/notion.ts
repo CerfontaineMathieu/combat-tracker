@@ -400,6 +400,48 @@ function parseCommaSeparated(text: string): string[] {
 }
 
 /**
+ * Helper function to extract actions from a property that could be:
+ * - An array of action objects (new Notion format)
+ * - A rich_text field containing text to parse (old format)
+ * - A rich_text field containing JSON string (legacy format)
+ */
+function extractActions(prop: any, parser: (text: string) => any[] = parseActionsText): any[] {
+  // New format: property is directly an array of action objects
+  if (Array.isArray(prop)) {
+    return prop;
+  }
+
+  // Old format: property is a rich_text field
+  if (prop?.rich_text) {
+    const text = extractText(prop.rich_text);
+    if (!text) return [];
+    // Try JSON first, then text parsing
+    return safeParseJSON(text, null) || parser(text);
+  }
+
+  return [];
+}
+
+/**
+ * Helper function to extract a string property that could be:
+ * - A direct string value (new Notion format)
+ * - A rich_text field (old format)
+ */
+function extractStringProp(prop: any): string {
+  // Direct string value
+  if (typeof prop === 'string') {
+    return prop;
+  }
+
+  // Rich text field
+  if (prop?.rich_text) {
+    return extractText(prop.rich_text);
+  }
+
+  return '';
+}
+
+/**
  * Convert a Notion monster page to our Monster type
  */
 export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster> {
@@ -407,17 +449,17 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
 
   // Extract basic properties using actual French property names
   const name = extractText(props.Nom?.title || []);
-  const armor_class = extractNumber(props.CA?.number);
-  const hit_points = extractNumber(props.PV?.number);
-  const speed = extractText(props.Vitesse?.rich_text || []);
+  const armor_class = extractNumber(props.CA?.number) ?? (typeof props.CA === 'number' ? props.CA : null);
+  const hit_points = extractNumber(props.PV?.number) ?? (typeof props.PV === 'number' ? props.PV : null);
+  const speed = extractStringProp(props.Vitesse);
 
-  // Ability scores
-  const strength = extractNumber(props.FOR?.number);
-  const dexterity = extractNumber(props.DEX?.number);
-  const constitution = extractNumber(props.CON?.number);
-  const intelligence = extractNumber(props.INT?.number);
-  const wisdom = extractNumber(props.SAG?.number);
-  const charisma = extractNumber(props.CHAR?.number);
+  // Ability scores - handle both number property and direct number
+  const strength = extractNumber(props.FOR?.number) ?? (typeof props.FOR === 'number' ? props.FOR : null);
+  const dexterity = extractNumber(props.DEX?.number) ?? (typeof props.DEX === 'number' ? props.DEX : null);
+  const constitution = extractNumber(props.CON?.number) ?? (typeof props.CON === 'number' ? props.CON : null);
+  const intelligence = extractNumber(props.INT?.number) ?? (typeof props.INT === 'number' ? props.INT : null);
+  const wisdom = extractNumber(props.SAG?.number) ?? (typeof props.SAG === 'number' ? props.SAG : null);
+  const charisma = extractNumber(props.CHAR?.number) ?? (typeof props.CHAR === 'number' ? props.CHAR : null);
 
   // Ability modifiers (already calculated in Notion as formulas)
   const strength_mod = extractNumber(props['Modif. FOR']?.formula?.number);
@@ -427,50 +469,31 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
   const wisdom_mod = extractNumber(props['Modif. SAG']?.formula?.number);
   const charisma_mod = extractNumber(props['Modif. CHAR']?.formula?.number);
 
-  // Other properties
-  const creature_type = extractSelect(props.Race) || extractText(props.Race?.rich_text || []);
-  const size = extractSelect(props.Taille) || extractText(props.Taille?.rich_text || []);
-  const challenge_rating_xp = extractNumber(props.XP?.number);
+  // Other properties - handle both select and direct string
+  const creature_type = extractSelect(props.Race) || extractStringProp(props.Race);
+  const size = extractSelect(props.Taille) || extractStringProp(props.Taille);
 
-  // Read separate trait columns (comma-separated text)
-  const skillsText = extractText(props.Compétences?.rich_text || []);
-  const sensesText = extractText(props.Sens?.rich_text || []);
-  const languagesText = extractText(props.Langues?.rich_text || []);
-  const vulnerabilitiesText = extractText(props.Vulnérabilités?.rich_text || []);
-  const resistancesText = extractText(props.Résistances?.rich_text || []);
-  const immunitiesDmgText = extractText(props['Immunités Dégâts']?.rich_text || []);
-  const immunitiesCondText = extractText(props['Immunités États']?.rich_text || []);
+  // Challenge rating XP - handle both number property and direct number
+  const challenge_rating_xp = extractNumber(props.XP?.number) ?? (typeof props.XP === 'number' ? props.XP : null);
+
+  // Read separate trait columns (comma-separated text) - handle both formats
+  const skillsText = extractStringProp(props.Compétences);
+  const sensesText = extractStringProp(props.Sens);
+  const languagesText = extractStringProp(props.Langues);
+  const vulnerabilitiesText = extractStringProp(props.Vulnérabilités);
+  const resistancesText = extractStringProp(props.Résistances);
+  const immunitiesDmgText = extractStringProp(props['Immunités Dégâts']);
+  const immunitiesCondText = extractStringProp(props['Immunités États']);
 
   // Description (flavor text)
-  const description = extractText(props.Description?.rich_text || []) || null;
+  const description = extractStringProp(props.Description) || null;
 
-  // Read JSON fields for complex nested data
-  const actionsText = extractText(props.Actions?.rich_text || []);
-  const bonusActionsText = extractText(props['Actions Bonus']?.rich_text || []);
-  const reactionsText = extractText(props.Réactions?.rich_text || []);
-  const legendaryActionsText = extractText(props['Actions Légendaires']?.rich_text || []);
-  const specialAbilitiesText = extractText(props['Capacités Spéciales']?.rich_text || []);
-
-  // Parse JSON for actions (with fallback to text parsing for backwards compatibility)
-  const actions = actionsText
-    ? (safeParseJSON(actionsText, null) || parseActionsText(actionsText))
-    : [];
-
-  const bonus_actions = bonusActionsText
-    ? (safeParseJSON(bonusActionsText, null) || parseActionsText(bonusActionsText))
-    : [];
-
-  const reactions = reactionsText
-    ? (safeParseJSON(reactionsText, null) || parseActionsText(reactionsText))
-    : [];
-
-  const legendary_actions = legendaryActionsText
-    ? (safeParseJSON(legendaryActionsText, null) || parseLegendaryActionsText(legendaryActionsText))
-    : [];
-
-  const special_abilities = specialAbilitiesText
-    ? (safeParseJSON(specialAbilitiesText, null) || parseActionsText(specialAbilitiesText))
-    : [];
+  // Extract actions - handles both array (new) and rich_text (old) formats
+  const actions = extractActions(props.Actions);
+  const bonus_actions = extractActions(props['Actions Bonus']);
+  const reactions = extractActions(props.Réactions);
+  const legendary_actions = extractActions(props['Actions Légendaires'], parseLegendaryActionsText);
+  const special_abilities = extractActions(props['Capacités Spéciales']);
 
   // Build traits object from separate columns
   const traits = {
