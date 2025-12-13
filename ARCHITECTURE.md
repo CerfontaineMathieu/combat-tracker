@@ -55,6 +55,9 @@
 | Item Cards | `components/loot/loot-item-card.tsx` |
 | Currency Split | `components/loot/loot-currency.tsx` |
 | Roll-off Dialog | `components/loot/roll-off-dialog.tsx` |
+| Add Item Dialog | `components/loot/add-loot-item-dialog.tsx` |
+| Split Item Dialog | `components/loot/split-item-dialog.tsx` |
+| Distribution Summary | `components/loot/distribution-summary.tsx` |
 | Utilities | `lib/loot-utils.ts` |
 
 ---
@@ -100,8 +103,9 @@ lib/socket-context/
 
 ### Loot
 - `LootSession` - Loot pool with status (draft/claiming/resolving/completed)
-- `LootItem` - Item with claims and rarity
+- `LootItem` - Item with claims, rarity, linkedSpell (scrolls), resistanceType (potions)
 - `LootClaim` - Character claim with priority (1-3)
+- `LootDistribution` - Final distribution per character after finalization
 
 ---
 
@@ -209,6 +213,11 @@ hooks/                    # Custom React hooks
 ---
 
 ## Recent Work
+
+- **2025-12-13**: Loot system enhancements (`feat/loot` branch)
+  - Item splitting for multi-quantity items (e.g., 4 potions → split between players)
+  - Scroll linkedSpell and resistance potion type now persist through loot distribution
+  - Files: `components/loot/split-item-dialog.tsx`, `server.ts`, `lib/socket-events.ts`
 
 - **2025-12-12**: Loot system feature (`feat/loot` branch)
   - Files: `components/loot/`, `lib/loot-utils.ts`, `lib/types.ts`, `lib/socket-events.ts`
