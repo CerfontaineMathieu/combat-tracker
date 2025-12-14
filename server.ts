@@ -173,7 +173,9 @@ interface PreparedSpellsChangeData {
 
 // Loot system types
 interface LootCurrency {
+  platinum: number;
   gold: number;
+  electrum: number;
   silver: number;
   copper: number;
 }
@@ -194,6 +196,8 @@ interface LootClaim {
   updatedAt: Date;
 }
 
+type ResistanceType = 'Acide' | 'Froid' | 'Feu' | 'Force' | 'Foudre' | 'Nécrotique' | 'Poison' | 'Psychique' | 'Radiant' | 'Tonnerre';
+
 interface LootItem {
   id: string;
   sessionId: string;
@@ -211,6 +215,14 @@ interface LootItem {
   claims: LootClaim[];
   createdAt: Date;
   resolvedAt?: Date;
+  // For scrolls - linked spell information
+  linkedSpell?: {
+    id: number;
+    name: string;
+    level: number;
+  };
+  // For resistance potions - selected damage type
+  resistanceType?: ResistanceType;
 }
 
 interface LootSession {
@@ -1115,20 +1127,49 @@ app.prepare().then(() => {
         item.quantity = assignQty;
       }
 
-      item.assignedTo = data.characterId;
-      item.assignedToName = data.characterName;
-      item.status = 'assigned';
-      item.resolvedAt = new Date();
+      // Check if this character already has the same item assigned (stack them)
+      const existingAssigned = session.items.find(i =>
+        i.id !== item.id &&
+        i.assignedTo === data.characterId &&
+        i.status === 'assigned' &&
+        i.name === item.name &&
+        i.catalogNotionId === item.catalogNotionId &&
+        // For scrolls, must have same linked spell
+        ((!i.linkedSpell && !item.linkedSpell) ||
+          (i.linkedSpell?.id === item.linkedSpell?.id)) &&
+        // For resistance potions, must have same resistance type
+        i.resistanceType === item.resistanceType
+      );
 
-      io.to(room).emit('loot-assign', {
-        sessionId: session.id,
-        itemId: item.id,
-        characterId: data.characterId,
-        characterName: data.characterName,
-      });
-      // Also emit item-update to reflect quantity change if split occurred
-      io.to(room).emit('loot-item-update', { sessionId: session.id, item });
-      console.log(`[Loot] Assigned: ${item.quantity}x ${item.name} -> ${data.characterName}`);
+      if (existingAssigned) {
+        // Stack: add quantity to existing assigned item
+        existingAssigned.quantity += assignQty;
+        io.to(room).emit('loot-item-update', { sessionId: session.id, item: existingAssigned });
+        console.log(`[Loot] Stacked: +${assignQty}x ${item.name} -> ${data.characterName} (now ${existingAssigned.quantity}x)`);
+
+        // Remove the current item from the session
+        const itemIndex = session.items.findIndex(i => i.id === item.id);
+        if (itemIndex !== -1) {
+          session.items.splice(itemIndex, 1);
+          io.to(room).emit('loot-item-remove', { sessionId: session.id, itemId: item.id });
+        }
+      } else {
+        // No existing stack, assign normally
+        item.assignedTo = data.characterId;
+        item.assignedToName = data.characterName;
+        item.status = 'assigned';
+        item.resolvedAt = new Date();
+
+        io.to(room).emit('loot-assign', {
+          sessionId: session.id,
+          itemId: item.id,
+          characterId: data.characterId,
+          characterName: data.characterName,
+        });
+        // Also emit item-update to reflect quantity change if split occurred
+        io.to(room).emit('loot-item-update', { sessionId: session.id, item });
+        console.log(`[Loot] Assigned: ${item.quantity}x ${item.name} -> ${data.characterName}`);
+      }
     });
 
     // Send item to treasury (DM only)

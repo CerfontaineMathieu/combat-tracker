@@ -147,8 +147,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     // ============ CONNECTED PLAYERS EVENTS ============
     socket.on('connected-players', (data) => {
       dispatch({ type: 'SET_CONNECTED_PLAYERS', players: data.players });
-      // If we're DM and receive connected-players, we're successfully joined
-      if (stateRef.current.mode === 'mj') {
+      // Receiving connected-players means we're successfully joined (for both DM and player)
+      if (!stateRef.current.isJoined) {
         dispatch({ type: 'JOIN_SUCCESS' });
       }
     });
@@ -449,12 +449,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
     if (storedCharacters) {
       try {
         const characters = JSON.parse(storedCharacters);
+        console.log('[Socket] Auto-joining as player with stored characters');
         socket.emit('join-campaign', {
           campaignId: state.campaignId,
           role: 'player',
           characters,
         });
-        dispatch({ type: 'JOIN_SUCCESS' });
+        // Don't dispatch JOIN_SUCCESS here - wait for 'connected-players' event
+        // This prevents race conditions where server rejects but we think we're joined
       } catch {
         // Ignore parse errors
       }

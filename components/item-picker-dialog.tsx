@@ -83,6 +83,20 @@ function getRarityStyle(rarity: string | null): string {
   return "bg-secondary text-secondary-foreground";
 }
 
+// Rarity label in French
+function getRarityLabel(rarity: string | null): string {
+  if (!rarity) return "";
+  const rarityLower = rarity.toLowerCase();
+
+  if (rarityLower === "commun" || rarityLower === "common") return "Commun";
+  if (rarityLower === "peu commun" || rarityLower === "uncommon") return "Peu commun";
+  if (rarityLower === "rare") return "Rare";
+  if (rarityLower === "très rare" || rarityLower === "tres rare" || rarityLower === "very rare" || rarityLower === "very_rare") return "Très rare";
+  if (rarityLower === "légendaire" || rarityLower === "legendaire" || rarityLower === "legendary") return "Légendaire";
+  if (rarityLower === "artéfact" || rarityLower === "artefact" || rarityLower === "artifact") return "Artéfact";
+  return rarity;
+}
+
 export function ItemPickerDialog({
   trigger,
   onSelect,
@@ -238,7 +252,7 @@ export function ItemPickerDialog({
                             variant="outline"
                             className={`text-xs ${getRarityStyle(item.rarity)}`}
                           >
-                            {item.rarity}
+                            {getRarityLabel(item.rarity)}
                           </Badge>
                         )}
                       </div>
