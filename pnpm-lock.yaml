@@ -208,8 +208,8 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12
       '@types/node':
-        specifier: ^24.10.1
-        version: 24.10.1
+        specifier: ^25.0.2
+        version: 25.0.2
       '@types/pg':
         specifier: ^8.15.6
         version: 8.15.6
@@ -1533,8 +1533,8 @@ packages:
   '@types/howler@2.2.12':
     resolution: {integrity: sha512-hy769UICzOSdK0Kn1FBk4gN+lswcj1EKRkmiDtMkUGvFfYJzgaDXmVXkSShS2m89ERAatGIPnTUlp2HhfkVo5g==}
 
-  '@types/node@24.10.1':
-    resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
+  '@types/node@25.0.2':
+    resolution: {integrity: sha512-gWEkeiyYE4vqjON/+Obqcoeffmk0NF15WSBwSs7zwVA2bAbTaE0SJ7P0WNGoJn8uE7fiaV5a7dKYIJriEqOrmA==}
 
   '@types/pg@8.15.6':
     resolution: {integrity: sha512-NoaMtzhxOrubeL/7UZuNTrejB4MPAJ0RpxZqXQf2qXuVlTPuG6Y8p4u9dKRaue4yjmC7ZhzVO2/Yyyn25znrPQ==}
@@ -2019,6 +2019,7 @@ packages:
   next@16.0.8:
     resolution: {integrity: sha512-LmcZzG04JuzNXi48s5P+TnJBsTGPJunViNKV/iE4uM6kstjTQsQhvsAv+xF6MJxU2Pr26tl15eVbp0jQnsv6/g==}
     engines: {node: '>=20.9.0'}
+    deprecated: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/security-update-2025-12-11 for more details.
     hasBin: true
     peerDependencies:
       '@opentelemetry/api': ^1.1.0
@@ -3628,7 +3629,7 @@ snapshots:
 
   '@types/cors@2.8.19':
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 25.0.2
 
   '@types/d3-array@3.2.2': {}
 
@@ -3662,13 +3663,13 @@ snapshots:
 
   '@types/howler@2.2.12': {}
 
-  '@types/node@24.10.1':
+  '@types/node@25.0.2':
     dependencies:
       undici-types: 7.16.0
 
   '@types/pg@8.15.6':
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 25.0.2
       pg-protocol: 1.10.3
       pg-types: 2.2.0
 
@@ -3878,7 +3879,7 @@ snapshots:
   engine.io@6.6.4:
     dependencies:
       '@types/cors': 2.8.19
-      '@types/node': 24.10.1
+      '@types/node': 25.0.2
       accepts: 1.3.8
       base64id: 2.0.0
       cookie: 0.7.2
