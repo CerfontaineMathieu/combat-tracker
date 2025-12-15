@@ -214,6 +214,11 @@ hooks/                    # Custom React hooks
 
 ## Recent Work
 
+- **2025-12-15**: Loot item unassign feature (`feat/loot` branch)
+  - DM can unassign items back to unclaimed pool via "Retirer" button
+  - Unassigned items stack back with identical unclaimed items (no duplicates)
+  - Files: `components/loot/loot-item-card.tsx`, `server.ts`, `lib/socket-context/`, `lib/socket-events.ts`
+
 - **2025-12-13**: Loot system enhancements (`feat/loot` branch)
   - Item splitting for multi-quantity items (e.g., 4 potions → split between players)
   - Scroll linkedSpell and resistance potion type now persist through loot distribution
