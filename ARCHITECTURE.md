@@ -1,7 +1,7 @@
 # Architecture Map - D&D Combat Tracker
 
 > **Purpose**: Quick reference for Claude sessions to understand the codebase without re-exploring.
-> **Last updated**: 2025-12-12
+> **Last updated**: 2025-12-15
 
 ---
 
@@ -46,6 +46,7 @@
 | Fight Presets | `components/fight-presets-panel.tsx` |
 | Notion Sync | `components/notion-sync-dialog.tsx` |
 | QR Code Join | `components/qr-code-dialog.tsx` |
+| Spell Reference (DM) | `components/spell-reference-dialog.tsx` |
 
 ### Loot System
 | Component | File |
@@ -213,6 +214,11 @@ hooks/                    # Custom React hooks
 ---
 
 ## Recent Work
+
+- **2025-12-15**: DM Spell Reference dialog (`feat/mj-spellbook` branch)
+  - Added BookOpen icon in DM header to open spell catalog
+  - Read-only spell browsing with search and level filters
+  - Files: `components/spell-reference-dialog.tsx`, `components/header.tsx`
 
 - **2025-12-15**: Loot item unassign feature (`feat/loot` branch)
   - DM can unassign items back to unclaimed pool via "Retirer" button
