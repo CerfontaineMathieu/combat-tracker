@@ -25,6 +25,7 @@ export function LootPanelConnected({
     unclaimLootItem,
     assignLootItem,
     sendToTreasury,
+    unassignLootItem,
     triggerRollOff,
     updateLootCurrency,
     finalizeLoot,
@@ -107,6 +108,11 @@ export function LootPanelConnected({
     sendToTreasury(itemId)
   }, [sendToTreasury])
 
+  // Unassign handler
+  const handleUnassign = useCallback((itemId: string) => {
+    unassignLootItem(itemId)
+  }, [unassignLootItem])
+
   // Roll-off handler
   const handleTriggerRollOff = useCallback((itemId: string) => {
     triggerRollOff(itemId)
@@ -149,6 +155,7 @@ export function LootPanelConnected({
         onClaim={handleClaim}
         onUnclaim={handleUnclaim}
         onAssign={handleAssign}
+        onUnassign={handleUnassign}
         onSendToTreasury={handleSendToTreasury}
         onTriggerRollOff={handleTriggerRollOff}
         onCurrencyChange={handleCurrencyChange}

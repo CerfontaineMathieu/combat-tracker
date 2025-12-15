@@ -217,6 +217,7 @@ export type SocketAction =
   | { type: 'LOOT_UNCLAIM'; sessionId: string; itemId: string; characterId: string }
   | { type: 'LOOT_ASSIGN'; sessionId: string; itemId: string; characterId: string; characterName: string }
   | { type: 'LOOT_TO_TREASURY'; sessionId: string; itemId: string }
+  | { type: 'LOOT_UNASSIGN'; sessionId: string; itemId: string }
   | { type: 'LOOT_CURRENCY_UPDATE'; sessionId: string; currency: import('../types').LootCurrency; splitMethod?: import('../types').CurrencySplitMethod }
   | { type: 'LOOT_ROLLOFF_START'; itemId: string; itemName: string; participants: Array<{ characterId: string; characterName: string }> }
   | { type: 'LOOT_ROLLOFF_RESULT'; result: RollOffResult }
@@ -339,6 +340,7 @@ export interface SocketContextType {
   unclaimLootItem: (data: Omit<LootUnclaimItemData, 'sessionId'>) => void;
   assignLootItem: (data: Omit<LootAssignItemData, 'sessionId'>) => void;
   sendToTreasury: (itemId: string) => void;
+  unassignLootItem: (itemId: string) => void;
   triggerRollOff: (itemId: string) => void;
   updateLootCurrency: (data: Omit<LootUpdateCurrencyData, 'sessionId'>) => void;
   finalizeLoot: () => void;

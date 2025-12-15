@@ -826,6 +826,29 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
       };
     }
 
+    case 'LOOT_UNASSIGN': {
+      if (!state.lootSession || state.lootSession.id !== action.sessionId) {
+        return state;
+      }
+      return {
+        ...state,
+        lootSession: {
+          ...state.lootSession,
+          items: state.lootSession.items.map((item) =>
+            item.id === action.itemId
+              ? {
+                  ...item,
+                  status: 'unclaimed' as const,
+                  assignedTo: undefined,
+                  assignedToName: undefined,
+                  resolvedAt: undefined,
+                }
+              : item
+          ),
+        },
+      };
+    }
+
     case 'LOOT_CURRENCY_UPDATE': {
       if (!state.lootSession || state.lootSession.id !== action.sessionId) {
         return state;

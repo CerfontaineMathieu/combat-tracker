@@ -33,6 +33,7 @@ import {
   ChevronDown,
   Dice6,
   MessageSquare,
+  Undo2,
 } from "lucide-react"
 import type { LootItem, LootClaim, LootItemType, LootItemRarity } from "@/lib/types"
 import { LOOT_RARITIES, LOOT_STATUSES, LOOT_ITEM_TYPES } from "@/lib/types"
@@ -48,6 +49,7 @@ interface LootItemCardProps {
   onClaim?: (itemId: string, priority: 1 | 2 | 3, note?: string) => void
   onUnclaim?: (itemId: string) => void
   onAssign?: (itemId: string, characterId: string, characterName: string, quantity?: number) => void
+  onUnassign?: (itemId: string) => void
   onSendToTreasury?: (itemId: string) => void
   onTriggerRollOff?: (itemId: string) => void
   onRequestSplit?: (item: LootItem, character: { id: string; name: string }) => void
@@ -80,6 +82,7 @@ export function LootItemCard({
   onClaim,
   onUnclaim,
   onAssign,
+  onUnassign,
   onSendToTreasury,
   onTriggerRollOff,
   onRequestSplit,
@@ -213,10 +216,22 @@ export function LootItemCard({
 
         {/* Assigned to */}
         {item.assignedTo && item.assignedToName && (
-          <div className="mb-2 p-2 rounded bg-green-500/10 border border-green-500/30">
+          <div className="mb-2 p-2 rounded bg-green-500/10 border border-green-500/30 flex items-center justify-between">
             <span className="text-sm text-green-400">
               Attribué à {item.assignedToName}
             </span>
+            {isDM && onUnassign && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onUnassign(item.id)}
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-red-400"
+                aria-label={`Retirer l'attribution de ${item.name}`}
+              >
+                <Undo2 className="w-3 h-3 mr-1" />
+                Retirer
+              </Button>
+            )}
           </div>
         )}
 

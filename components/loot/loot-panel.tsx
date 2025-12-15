@@ -42,6 +42,7 @@ interface LootPanelProps {
   onClaim?: (itemId: string, priority: 1 | 2 | 3, note?: string) => void
   onUnclaim?: (itemId: string) => void
   onAssign?: (itemId: string, characterId: string, characterName: string, quantity?: number) => void
+  onUnassign?: (itemId: string) => void
   onSendToTreasury?: (itemId: string) => void
   onTriggerRollOff?: (itemId: string) => void
   onCurrencyChange?: (currency: LootSession['currency'], splitMethod: LootSession['currencySplitMethod']) => void
@@ -61,6 +62,7 @@ export function LootPanel({
   onClaim,
   onUnclaim,
   onAssign,
+  onUnassign,
   onSendToTreasury,
   onTriggerRollOff,
   onCurrencyChange,
@@ -259,6 +261,7 @@ export function LootPanel({
                       onClaim={onClaim}
                       onUnclaim={onUnclaim}
                       onAssign={onAssign}
+                      onUnassign={onUnassign}
                       onSendToTreasury={onSendToTreasury}
                       onTriggerRollOff={onTriggerRollOff}
                       onRequestSplit={handleRequestSplit}

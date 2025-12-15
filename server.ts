@@ -904,7 +904,11 @@ app.prepare().then(() => {
       }>;
       claimingDeadlineMinutes?: number;
     }) => {
-      if (socket.data.role !== 'dm') return;
+      console.log(`[Loot] Create session request from ${socket.id}, role: ${socket.data.role}`);
+      if (socket.data.role !== 'dm') {
+        console.log(`[Loot] Rejected: not a DM`);
+        return;
+      }
       const campaignId = data.campaignId;
       const room = `campaign-${campaignId}`;
 
@@ -1191,6 +1195,61 @@ app.prepare().then(() => {
       console.log(`[Loot] To treasury: ${item.name}`);
     });
 
+    // Unassign item (DM only) - revert an assigned item back to unclaimed
+    socket.on('loot-unassign-item', (data: { sessionId: string; itemId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item) return;
+
+      // Only allow unassigning if item is currently assigned (not treasury/sold)
+      if (item.status !== 'assigned') return;
+
+      const previousOwner = item.assignedToName;
+
+      // Check if there's an existing unclaimed item we can stack with
+      const existingUnclaimed = session.items.find(i =>
+        i.id !== item.id &&
+        i.status === 'unclaimed' &&
+        i.name === item.name &&
+        i.catalogNotionId === item.catalogNotionId &&
+        // For scrolls, must have same linked spell
+        ((!i.linkedSpell && !item.linkedSpell) ||
+          (i.linkedSpell?.id === item.linkedSpell?.id)) &&
+        // For resistance potions, must have same resistance type
+        i.resistanceType === item.resistanceType
+      );
+
+      if (existingUnclaimed) {
+        // Stack: add quantity to existing unclaimed item
+        existingUnclaimed.quantity += item.quantity;
+        io.to(room).emit('loot-item-update', { sessionId: session.id, item: existingUnclaimed });
+        console.log(`[Loot] Stacked unassigned: +${item.quantity}x ${item.name} (now ${existingUnclaimed.quantity}x unclaimed)`);
+
+        // Remove the unassigned item from the session
+        const itemIndex = session.items.findIndex(i => i.id === item.id);
+        if (itemIndex !== -1) {
+          session.items.splice(itemIndex, 1);
+          io.to(room).emit('loot-item-remove', { sessionId: session.id, itemId: item.id });
+        }
+      } else {
+        // No existing stack, just mark as unclaimed
+        item.status = 'unclaimed';
+        item.assignedTo = undefined;
+        item.assignedToName = undefined;
+        item.resolvedAt = undefined;
+        // Keep claims in case DM wants to reassign to same claimants
+
+        io.to(room).emit('loot-unassign', { sessionId: session.id, itemId: item.id });
+        console.log(`[Loot] Unassigned: ${item.name} (was: ${previousOwner})`);
+      }
+    });
+
     // Trigger roll-off for contested item (DM only)
     socket.on('loot-trigger-rolloff', (data: { sessionId: string; itemId: string }) => {
       if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
@@ -1317,6 +1376,36 @@ app.prepare().then(() => {
       // Build distribution map
       const distributionMap = new Map<string, LootDistribution>();
 
+      // Get connected players to know who should receive currency
+      const connectedPlayersForCurrency = await getConnectedPlayers(campaignId);
+      const hasCurrency = (
+        session.currency.platinum > 0 ||
+        session.currency.gold > 0 ||
+        session.currency.electrum > 0 ||
+        session.currency.silver > 0 ||
+        session.currency.copper > 0
+      );
+
+      // If there's currency to split and we're using equal split, pre-populate distribution map
+      // with all connected characters so they receive their share
+      if (session.currencySplitMethod === 'equal' && hasCurrency) {
+        for (const player of connectedPlayersForCurrency) {
+          for (const char of player.characters) {
+            const charId = String(char.odNumber);
+            if (!distributionMap.has(charId)) {
+              distributionMap.set(charId, {
+                id: generateId(),
+                sessionId: session.id,
+                characterId: charId,
+                characterName: char.name,
+                currency: { platinum: 0, gold: 0, electrum: 0, silver: 0, copper: 0 },
+                items: [],
+              });
+            }
+          }
+        }
+      }
+
       // Distribute items
       session.items.forEach(item => {
         if (item.status === 'assigned' && item.assignedTo && item.assignedToName) {
@@ -1342,7 +1431,7 @@ app.prepare().then(() => {
 
       // Split currency (if equal split)
       // D&D 5e rates: 1pp = 1000cp, 1gp = 100cp, 1ep = 50cp, 1sp = 10cp
-      if (session.currencySplitMethod === 'equal' && distributionMap.size > 0) {
+      if (session.currencySplitMethod === 'equal' && distributionMap.size > 0 && hasCurrency) {
         const totalCopper = (
           (session.currency.platinum * 1000) +
           (session.currency.gold * 100) +
@@ -1498,11 +1587,9 @@ app.prepare().then(() => {
       io.to(room).emit('loot-finalized', { sessionId: session.id, distributions });
       console.log(`[Loot] Session finalized: ${distributions.length} distributions`);
 
-      // Clean up after a delay
-      setTimeout(() => {
-        activeLootSessions.delete(campaignId);
-        console.log(`[Loot] Session cleaned up for campaign ${campaignId}`);
-      }, 60000); // Keep for 1 minute for late joiners
+      // Clean up immediately - items are already distributed to inventories
+      activeLootSessions.delete(campaignId);
+      console.log(`[Loot] Session cleaned up for campaign ${campaignId}`);
     });
 
     // Cancel loot session (DM only)
@@ -1523,10 +1610,13 @@ app.prepare().then(() => {
 
     // Request current loot session
     socket.on('loot-request-session', (data: { campaignId: number }) => {
+      console.log(`[Loot] Session requested by ${socket.id} for campaign ${data.campaignId}`);
       const session = activeLootSessions.get(data.campaignId);
       if (session) {
         socket.emit('loot-session-update', { session });
-        console.log(`[Loot] Session sent to ${socket.id}`);
+        console.log(`[Loot] Session sent to ${socket.id} (${session.items.length} items)`);
+      } else {
+        console.log(`[Loot] No active session for campaign ${data.campaignId}`);
       }
     });
 

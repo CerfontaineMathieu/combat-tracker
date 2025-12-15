@@ -11,19 +11,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Plus, Package, Search, Scroll, FlaskConical } from "lucide-react"
 import type { LootItemType, LootItemRarity, CatalogItem, CatalogSpell, ResistanceType } from "@/lib/types"
-import { LOOT_ITEM_TYPES, LOOT_RARITIES, RESISTANCE_TYPES } from "@/lib/types"
 import { ItemAutocomplete } from "@/components/item-autocomplete"
 import { ScrollSpellDialog } from "@/components/scroll-spell-dialog"
 import { ResistanceTypeDialog } from "@/components/resistance-type-dialog"
@@ -50,7 +39,7 @@ function mapRarityToLootRarity(rarity: string | null): LootItemRarity {
   if (r === 'commun' || r === 'common') return 'common'
   if (r === 'peu commun' || r === 'uncommon') return 'uncommon'
   if (r === 'rare') return 'rare'
-  if (r.includes('très rare') || r === 'very rare') return 'very_rare'
+  if (r.includes('très rare') || r === 'very rare' || r === 'very_rare') return 'very_rare'
   if (r.includes('légendaire') || r === 'legendary') return 'legendary'
   if (r.includes('artéfact') || r === 'artifact') return 'artifact'
   return 'common'
@@ -92,14 +81,8 @@ interface AddLootItemDialogProps {
 
 export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [itemType, setItemType] = useState<LootItemType>("misc")
-  const [rarity, setRarity] = useState<LootItemRarity>("common")
+  const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null)
   const [quantity, setQuantity] = useState(1)
-  const [isIdentified, setIsIdentified] = useState(true)
-  const [estimatedValueGp, setEstimatedValueGp] = useState<string>("")
-  const [selectedFromCatalog, setSelectedFromCatalog] = useState(false)
 
   // Scroll spell state
   const [linkedSpell, setLinkedSpell] = useState<{ id: number; name: string; level: number } | null>(null)
@@ -113,34 +96,12 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
 
   const resetForm = () => {
     setSearchQuery("")
-    setName("")
-    setDescription("")
-    setItemType("misc")
-    setRarity("common")
+    setSelectedItem(null)
     setQuantity(1)
-    setIsIdentified(true)
-    setEstimatedValueGp("")
-    setSelectedFromCatalog(false)
     setLinkedSpell(null)
     setResistanceType(null)
     setPendingScrollItem(null)
     setPendingResistanceItem(null)
-  }
-
-  const applyItemToForm = (item: CatalogItem) => {
-    setName(item.name)
-    setDescription(item.description || "")
-    setItemType(mapCategoryToLootType(item.category, item.subcategory))
-    setRarity(mapRarityToLootRarity(item.rarity))
-    setSelectedFromCatalog(true)
-    // Extract price if available in properties
-    if (item.properties?.Prix) {
-      const priceStr = String(item.properties.Prix)
-      const match = priceStr.match(/(\d+)/)
-      if (match) {
-        setEstimatedValueGp(match[1])
-      }
-    }
   }
 
   const handleCatalogSelect = (item: CatalogItem) => {
@@ -158,12 +119,14 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
       return
     }
 
-    // Normal item - apply directly
-    applyItemToForm(item)
+    // Normal item - select directly
+    setSelectedItem(item)
+    setSearchQuery(item.name)
   }
 
   const handleScrollConfirm = (item: CatalogItem, spell: CatalogSpell) => {
-    applyItemToForm(item)
+    setSelectedItem(item)
+    setSearchQuery(item.name)
     setLinkedSpell({
       id: spell.id,
       name: spell.name,
@@ -179,7 +142,8 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
   }
 
   const handleResistanceConfirm = (item: CatalogItem, type: ResistanceType) => {
-    applyItemToForm(item)
+    setSelectedItem(item)
+    setSearchQuery(item.name)
     setResistanceType(type)
     setShowResistanceDialog(false)
     setPendingResistanceItem(null)
@@ -191,16 +155,26 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
   }
 
   const handleSubmit = () => {
-    if (!name.trim()) return
+    if (!selectedItem) return
+
+    // Extract price if available in properties
+    let estimatedValueGp: number | undefined
+    if (selectedItem.properties?.Prix) {
+      const priceStr = String(selectedItem.properties.Prix)
+      const match = priceStr.match(/(\d+)/)
+      if (match) {
+        estimatedValueGp = parseInt(match[1], 10)
+      }
+    }
 
     onAdd({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      itemType,
-      rarity,
+      name: selectedItem.name,
+      description: selectedItem.description || undefined,
+      itemType: mapCategoryToLootType(selectedItem.category, selectedItem.subcategory),
+      rarity: mapRarityToLootRarity(selectedItem.rarity),
       quantity,
-      isIdentified,
-      estimatedValueGp: estimatedValueGp ? parseInt(estimatedValueGp, 10) : undefined,
+      isIdentified: true,
+      estimatedValueGp,
       linkedSpell: linkedSpell || undefined,
       resistanceType: resistanceType || undefined,
     })
@@ -217,7 +191,7 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
@@ -238,8 +212,10 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
                 onSelect={handleCatalogSelect}
                 placeholder="Tapez pour rechercher un objet..."
               />
-              {selectedFromCatalog && (
-                <p className="text-xs text-green-500">Objet sélectionné du catalogue</p>
+              {selectedItem && (
+                <p className="text-xs text-green-500">
+                  Objet sélectionné: {selectedItem.name}
+                </p>
               )}
             </div>
 
@@ -255,7 +231,13 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
                   variant="ghost"
                   size="sm"
                   className="ml-auto h-6 px-2 text-xs"
-                  onClick={() => setLinkedSpell(null)}
+                  onClick={() => {
+                    setLinkedSpell(null)
+                    if (selectedItem && isScrollItem(selectedItem)) {
+                      setPendingScrollItem(selectedItem)
+                      setShowScrollDialog(true)
+                    }
+                  }}
                 >
                   Modifier
                 </Button>
@@ -274,157 +256,29 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
                   variant="ghost"
                   size="sm"
                   className="ml-auto h-6 px-2 text-xs"
-                  onClick={() => setResistanceType(null)}
+                  onClick={() => {
+                    setResistanceType(null)
+                    if (selectedItem && isResistancePotion(selectedItem)) {
+                      setPendingResistanceItem(selectedItem)
+                      setShowResistanceDialog(true)
+                    }
+                  }}
                 >
                   Modifier
                 </Button>
               </div>
             )}
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">ou saisie manuelle</span>
-              </div>
-            </div>
-
-            {/* Name */}
+            {/* Quantity */}
             <div className="grid gap-2">
-              <Label htmlFor="name">Nom de l'objet *</Label>
+              <Label htmlFor="quantity">Quantité</Label>
               <Input
-                id="name"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  setSelectedFromCatalog(false)
-                }}
-                placeholder="Épée longue +1"
-              />
-            </div>
-
-            {/* Item Type and Rarity */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="type">Type</Label>
-                <Select value={itemType} onValueChange={(v) => setItemType(v as LootItemType)}>
-                  <SelectTrigger id="type">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(LOOT_ITEM_TYPES).map(([key, { label }]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="rarity">Rareté</Label>
-                <Select value={rarity} onValueChange={(v) => setRarity(v as LootItemRarity)}>
-                  <SelectTrigger id="rarity">
-                    <SelectValue placeholder="Rareté" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(LOOT_RARITIES).map(([key, { label, color }]) => (
-                      <SelectItem key={key} value={key}>
-                        <span className={color}>{label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Manual spell/resistance selection for manual entry */}
-            {itemType === 'scroll' && !linkedSpell && (
-              <div className="grid gap-2">
-                <Label>Sort du parchemin</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="justify-start text-muted-foreground"
-                  onClick={() => {
-                    setPendingScrollItem({ id: 0, notion_id: '', name, category: 'consumable', subcategory: 'parchemin', source_database: '', description: null, rarity: null, properties: {}, image_url: null, created_at: '', updated_at: '' })
-                    setShowScrollDialog(true)
-                  }}
-                >
-                  <Scroll className="w-4 h-4 mr-2" />
-                  Sélectionner un sort...
-                </Button>
-              </div>
-            )}
-
-            {itemType === 'potion' && !resistanceType && (
-              <div className="grid gap-2">
-                <Label>Type de résistance (si applicable)</Label>
-                <Select
-                  value={resistanceType || "none"}
-                  onValueChange={(v) => setResistanceType(v === "none" ? null : v as ResistanceType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Optionnel - si potion de résistance" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucun</SelectItem>
-                    {RESISTANCE_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Quantity and Value */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="quantity">Quantité</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="value">Valeur estimée (po)</Label>
-                <Input
-                  id="value"
-                  type="number"
-                  min={0}
-                  value={estimatedValueGp}
-                  onChange={(e) => setEstimatedValueGp(e.target.value)}
-                  placeholder="Optionnel"
-                />
-              </div>
-            </div>
-
-            {/* Identified toggle */}
-            <div className="flex items-center justify-between">
-              <Label htmlFor="identified">Objet identifié</Label>
-              <Switch
-                id="identified"
-                checked={isIdentified}
-                onCheckedChange={setIsIdentified}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description (optionnel)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Description de l'objet..."
-                rows={3}
+                id="quantity"
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className="w-24"
               />
             </div>
           </div>
@@ -433,7 +287,7 @@ export function AddLootItemDialog({ isOpen, onClose, onAdd }: AddLootItemDialogP
             <Button variant="outline" onClick={handleClose}>
               Annuler
             </Button>
-            <Button onClick={handleSubmit} disabled={!name.trim()}>
+            <Button onClick={handleSubmit} disabled={!selectedItem}>
               <Plus className="w-4 h-4 mr-2" />
               Ajouter
             </Button>

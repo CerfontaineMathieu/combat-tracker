@@ -304,6 +304,12 @@ export interface LootToTreasuryData {
   itemId: string;
 }
 
+// Item unassigned (back to unclaimed)
+export interface LootUnassignData {
+  sessionId: string;
+  itemId: string;
+}
+
 // Currency updated
 export interface LootCurrencyUpdateData {
   sessionId: string;
@@ -408,6 +414,12 @@ export interface LootToTreasuryItemData {
   itemId: string;
 }
 
+// Client requests to unassign an item (DM only)
+export interface LootUnassignItemData {
+  sessionId: string;
+  itemId: string;
+}
+
 // Client requests roll-off (DM only)
 export interface LootTriggerRollOffData {
   sessionId: string;
@@ -484,6 +496,7 @@ export interface ServerToClientEvents {
   'loot-claims-update': (data: LootClaimsUpdateData) => void;
   'loot-assign': (data: LootAssignData) => void;
   'loot-to-treasury': (data: LootToTreasuryData) => void;
+  'loot-unassign': (data: LootUnassignData) => void;
   'loot-currency-update': (data: LootCurrencyUpdateData) => void;
   'loot-rolloff-start': (data: LootRollOffStartData) => void;
   'loot-rolloff-result': (data: LootRollOffResultData) => void;
@@ -527,6 +540,7 @@ export interface ClientToServerEvents {
   'loot-unclaim-item': (data: LootUnclaimItemData) => void;
   'loot-assign-item': (data: LootAssignItemData) => void;
   'loot-to-treasury-item': (data: LootToTreasuryItemData) => void;
+  'loot-unassign-item': (data: LootUnassignItemData) => void;
   'loot-trigger-rolloff': (data: LootTriggerRollOffData) => void;
   'loot-update-currency': (data: LootUpdateCurrencyData) => void;
   'loot-finalize': (data: LootFinalizeData) => void;
