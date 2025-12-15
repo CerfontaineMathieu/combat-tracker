@@ -6,6 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 D&D Combat Tracker - A real-time Dungeons & Dragons combat tracking application built with Next.js 16 and React 19. The UI is in French.
 
+**See `ARCHITECTURE.md` for detailed feature-to-file mapping and codebase structure.**
+
+## Claude Session Workflow
+
+**IMPORTANT: Follow these rules to save tokens and maintain documentation.**
+
+### At Session Start
+1. **Read `ARCHITECTURE.md` FIRST** before exploring the codebase
+2. **Only use Explore agents if** the architecture file lacks the information you need
+3. Most tasks can be accomplished by reading the specific files listed in the architecture map
+
+### When Finishing a Feature
+**ALWAYS update `ARCHITECTURE.md`** before ending the session:
+- Add new components/files to the feature mapping tables
+- Update the "Recent Work" section with date and changed files
+- Add any new patterns or key types introduced
+
+This keeps the architecture map current and saves tokens for future sessions.
+
 ## Docker Environment (Required)
 
 **Always use Docker for development and production.** Do not run the Node server directly on the host machine.

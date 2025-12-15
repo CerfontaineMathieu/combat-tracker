@@ -20,6 +20,13 @@ import type {
   NotificationData,
   InventoryUpdateData,
   SpellSlotChangeData,
+  // Loot types
+  LootCreateSessionData,
+  LootAddItemData,
+  LootClaimItemData,
+  LootUnclaimItemData,
+  LootAssignItemData,
+  LootUpdateCurrencyData,
 } from './types';
 import { initialSocketState } from './types';
 
@@ -140,8 +147,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     // ============ CONNECTED PLAYERS EVENTS ============
     socket.on('connected-players', (data) => {
       dispatch({ type: 'SET_CONNECTED_PLAYERS', players: data.players });
-      // If we're DM and receive connected-players, we're successfully joined
-      if (stateRef.current.mode === 'mj') {
+      // Receiving connected-players means we're successfully joined (for both DM and player)
+      if (!stateRef.current.isJoined) {
         dispatch({ type: 'JOIN_SUCCESS' });
       }
     });
@@ -275,6 +282,120 @@ export function SocketProvider({ children }: SocketProviderProps) {
       });
     });
 
+    // ============ LOOT DISTRIBUTION EVENTS ============
+    socket.on('loot-session-update', (data) => {
+      dispatch({ type: 'LOOT_SESSION_UPDATE', session: data.session });
+    });
+
+    socket.on('loot-item-add', (data) => {
+      dispatch({
+        type: 'LOOT_ITEM_ADD',
+        sessionId: data.sessionId,
+        item: data.item,
+      });
+    });
+
+    socket.on('loot-item-update', (data) => {
+      dispatch({
+        type: 'LOOT_ITEM_UPDATE',
+        sessionId: data.sessionId,
+        item: data.item,
+      });
+    });
+
+    socket.on('loot-item-remove', (data) => {
+      dispatch({
+        type: 'LOOT_ITEM_REMOVE',
+        sessionId: data.sessionId,
+        itemId: data.itemId,
+      });
+    });
+
+    socket.on('loot-claim', (data) => {
+      dispatch({
+        type: 'LOOT_CLAIM',
+        sessionId: data.sessionId,
+        itemId: data.itemId,
+        claim: data.claim,
+      });
+    });
+
+    socket.on('loot-unclaim', (data) => {
+      dispatch({
+        type: 'LOOT_UNCLAIM',
+        sessionId: data.sessionId,
+        itemId: data.itemId,
+        characterId: data.characterId,
+      });
+    });
+
+    socket.on('loot-assign', (data) => {
+      dispatch({
+        type: 'LOOT_ASSIGN',
+        sessionId: data.sessionId,
+        itemId: data.itemId,
+        characterId: data.characterId,
+        characterName: data.characterName,
+      });
+    });
+
+    socket.on('loot-to-treasury', (data) => {
+      dispatch({
+        type: 'LOOT_TO_TREASURY',
+        sessionId: data.sessionId,
+        itemId: data.itemId,
+      });
+    });
+
+    socket.on('loot-unassign', (data) => {
+      dispatch({
+        type: 'LOOT_UNASSIGN',
+        sessionId: data.sessionId,
+        itemId: data.itemId,
+      });
+    });
+
+    socket.on('loot-currency-update', (data) => {
+      dispatch({
+        type: 'LOOT_CURRENCY_UPDATE',
+        sessionId: data.sessionId,
+        currency: data.currency,
+        splitMethod: data.splitMethod,
+      });
+    });
+
+    socket.on('loot-rolloff-start', (data) => {
+      dispatch({
+        type: 'LOOT_ROLLOFF_START',
+        itemId: data.itemId,
+        itemName: data.itemName,
+        participants: data.participants,
+      });
+    });
+
+    socket.on('loot-rolloff-result', (data) => {
+      dispatch({
+        type: 'LOOT_ROLLOFF_RESULT',
+        result: data.result,
+      });
+    });
+
+    socket.on('loot-finalized', (data) => {
+      dispatch({
+        type: 'LOOT_FINALIZED',
+        distributions: data.distributions,
+      });
+    });
+
+    socket.on('loot-cancelled', () => {
+      dispatch({ type: 'LOOT_CLEAR_SESSION' });
+    });
+
+    socket.on('loot-error', (data) => {
+      console.error('[Loot] Error:', data.error, data.code);
+      dispatch({ type: 'LOOT_ERROR', error: data.error, code: data.code });
+    });
+
     // Connect the socket
     socket.connect();
 
@@ -302,6 +423,22 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('dm-reconnected');
       socket.off('inventory-update');
       socket.off('spell-slot-change');
+      // Loot events
+      socket.off('loot-session-update');
+      socket.off('loot-item-add');
+      socket.off('loot-item-update');
+      socket.off('loot-item-remove');
+      socket.off('loot-claim');
+      socket.off('loot-unclaim');
+      socket.off('loot-assign');
+      socket.off('loot-to-treasury');
+      socket.off('loot-unassign');
+      socket.off('loot-currency-update');
+      socket.off('loot-rolloff-start');
+      socket.off('loot-rolloff-result');
+      socket.off('loot-finalized');
+      socket.off('loot-cancelled');
+      socket.off('loot-error');
 
       socket.disconnect();
       socketRef.current = null;
@@ -321,12 +458,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
     if (storedCharacters) {
       try {
         const characters = JSON.parse(storedCharacters);
+        console.log('[Socket] Auto-joining as player with stored characters');
         socket.emit('join-campaign', {
           campaignId: state.campaignId,
           role: 'player',
           characters,
         });
-        dispatch({ type: 'JOIN_SUCCESS' });
+        // Don't dispatch JOIN_SUCCESS here - wait for 'connected-players' event
+        // This prevents race conditions where server rejects but we think we're joined
       } catch {
         // Ignore parse errors
       }
@@ -374,6 +513,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.emit('request-connected-players', { campaignId: state.campaignId });
 
     return () => clearInterval(interval);
+  }, [state.isConnected, state.isJoined, state.campaignId]);
+
+  // Request active loot session after joining (for both DM and player)
+  // This ensures the loot panel is restored after page refresh
+  useEffect(() => {
+    if (!state.isConnected || !state.isJoined) return;
+
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    // Request any active loot session for this campaign
+    socket.emit('loot-request-session', { campaignId: state.campaignId });
+    console.log('[Socket] Requesting active loot session for campaign', state.campaignId);
   }, [state.isConnected, state.isJoined, state.campaignId]);
 
   // ============ ACTION FUNCTIONS ============
@@ -521,6 +673,145 @@ export function SocketProvider({ children }: SocketProviderProps) {
     });
   }, []);
 
+  // ============ LOOT DISTRIBUTION ACTIONS ============
+
+  const createLootSession = useCallback((data: Omit<LootCreateSessionData, 'campaignId'>) => {
+    const socket = socketRef.current;
+    console.log('[Loot] createLootSession called, socket connected:', socket?.connected);
+    if (!socket?.connected) {
+      console.log('[Loot] Socket not connected, aborting');
+      return;
+    }
+
+    console.log('[Loot] Emitting loot-create-session for campaign', stateRef.current.campaignId);
+    socket.emit('loot-create-session', {
+      ...data,
+      campaignId: stateRef.current.campaignId,
+    });
+  }, []);
+
+  const addLootItem = useCallback((data: Omit<LootAddItemData, 'sessionId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-add-item', { ...data, sessionId });
+  }, []);
+
+  const claimLootItem = useCallback((data: Omit<LootClaimItemData, 'sessionId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-claim-item', { ...data, sessionId });
+  }, []);
+
+  const unclaimLootItem = useCallback((data: Omit<LootUnclaimItemData, 'sessionId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-unclaim-item', { ...data, sessionId });
+  }, []);
+
+  const assignLootItem = useCallback((data: Omit<LootAssignItemData, 'sessionId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) {
+      console.log('[Loot] assignLootItem: socket not connected');
+      return;
+    }
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) {
+      console.log('[Loot] assignLootItem: no session ID');
+      return;
+    }
+
+    console.log('[Loot] Emitting loot-assign-item:', { ...data, sessionId });
+    socket.emit('loot-assign-item', { ...data, sessionId });
+  }, []);
+
+  const sendToTreasury = useCallback((itemId: string) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-to-treasury-item', { sessionId, itemId });
+  }, []);
+
+  const unassignLootItem = useCallback((itemId: string) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-unassign-item', { sessionId, itemId });
+  }, []);
+
+  const triggerRollOff = useCallback((itemId: string) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-trigger-rolloff', { sessionId, itemId });
+  }, []);
+
+  const updateLootCurrency = useCallback((data: Omit<LootUpdateCurrencyData, 'sessionId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-update-currency', { ...data, sessionId });
+  }, []);
+
+  const finalizeLoot = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-finalize', { sessionId });
+  }, []);
+
+  const cancelLoot = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const sessionId = stateRef.current.lootSession?.id;
+    if (!sessionId) return;
+
+    socket.emit('loot-cancel', { sessionId });
+  }, []);
+
+  const requestLootSession = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    socket.emit('loot-request-session', { campaignId: stateRef.current.campaignId });
+  }, []);
+
+  const clearRollOffResult = useCallback(() => {
+    dispatch({ type: 'LOOT_CLEAR_ROLLOFF' });
+  }, []);
+
+  const clearLootSession = useCallback(() => {
+    dispatch({ type: 'LOOT_CLEAR_SESSION' });
+  }, []);
+
   // Context value - memoized to ensure proper React re-renders when state changes
   const value: SocketContextType = useMemo(() => ({
     state,
@@ -540,6 +831,21 @@ export function SocketProvider({ children }: SocketProviderProps) {
     requestPlayerPositions,
     requestConnectedPlayers,
     emitNotification,
+    // Loot distribution
+    createLootSession,
+    addLootItem,
+    claimLootItem,
+    unclaimLootItem,
+    assignLootItem,
+    sendToTreasury,
+    unassignLootItem,
+    triggerRollOff,
+    updateLootCurrency,
+    finalizeLoot,
+    cancelLoot,
+    requestLootSession,
+    clearRollOffResult,
+    clearLootSession,
   }), [
     state,
     dispatch,
@@ -558,6 +864,21 @@ export function SocketProvider({ children }: SocketProviderProps) {
     requestPlayerPositions,
     requestConnectedPlayers,
     emitNotification,
+    // Loot distribution
+    createLootSession,
+    addLootItem,
+    claimLootItem,
+    unclaimLootItem,
+    assignLootItem,
+    sendToTreasury,
+    unassignLootItem,
+    triggerRollOff,
+    updateLootCurrency,
+    finalizeLoot,
+    cancelLoot,
+    requestLootSession,
+    clearRollOffResult,
+    clearLootSession,
   ]);
 
   return (

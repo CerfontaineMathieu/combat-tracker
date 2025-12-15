@@ -50,7 +50,7 @@ function getRarityStyle(rarity: string | null | undefined): string {
   if (rarityLower === "rare") {
     return "bg-blue-500/20 text-blue-400 border-blue-500/50";
   }
-  if (rarityLower === "très rare" || rarityLower === "tres rare" || rarityLower === "very rare") {
+  if (rarityLower === "très rare" || rarityLower === "tres rare" || rarityLower === "very rare" || rarityLower === "very_rare") {
     return "bg-purple-500/20 text-purple-400 border-purple-500/50";
   }
   if (rarityLower === "légendaire" || rarityLower === "legendaire" || rarityLower === "legendary") {
@@ -60,6 +60,20 @@ function getRarityStyle(rarity: string | null | undefined): string {
     return "bg-red-500/20 text-red-400 border-red-500/50";
   }
   return "";
+}
+
+// Rarity label translation (English -> French)
+function getRarityLabel(rarity: string | null | undefined): string {
+  if (!rarity) return "";
+  const rarityLower = rarity.toLowerCase();
+
+  if (rarityLower === "common") return "Commun";
+  if (rarityLower === "uncommon") return "Peu commun";
+  if (rarityLower === "rare") return "Rare";
+  if (rarityLower === "very_rare" || rarityLower === "very rare") return "Très rare";
+  if (rarityLower === "legendary") return "Légendaire";
+  if (rarityLower === "artifact") return "Artéfact";
+  return rarity; // Return as-is if already French or unknown
 }
 
 // Helper to check if a catalog item requires attunement (from Notion properties)
@@ -689,7 +703,7 @@ export function InventoryManager({
                             )}
                             {item.rarity && (
                               <Badge variant="outline" className={`text-xs ${getRarityStyle(item.rarity)}`}>
-                                {item.rarity}
+                                {getRarityLabel(item.rarity)}
                               </Badge>
                             )}
                           </div>
@@ -829,7 +843,7 @@ export function InventoryManager({
                             <span className="text-sm font-medium">{item.name}</span>
                             {item.rarity && (
                               <Badge variant="outline" className={`text-xs ${getRarityStyle(item.rarity)}`}>
-                                {item.rarity}
+                                {getRarityLabel(item.rarity)}
                               </Badge>
                             )}
                             {item.linkedSpell && (
@@ -974,7 +988,7 @@ export function InventoryManager({
               {detailItem?.name}
               {detailItem?.rarity && (
                 <Badge variant="outline" className={`text-xs ${getRarityStyle(detailItem.rarity)}`}>
-                  {detailItem.rarity}
+                  {getRarityLabel(detailItem.rarity)}
                 </Badge>
               )}
             </DialogTitle>

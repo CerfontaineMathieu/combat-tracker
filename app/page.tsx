@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, Suspense } from "react"
+import { useState, useEffect, useMemo, useRef, Suspense } from "react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Header } from "@/components/header"
 import { MobileNav, type MobileTab } from "@/components/mobile-nav"
@@ -28,6 +28,7 @@ import { ConcentrationCheckDialog } from "@/components/concentration-check-dialo
 import { SpellbookPanel } from "@/components/spellbook-panel"
 import { NotesPanel } from "@/components/notes-panel"
 import { AIAssistantPanel } from "@/components/ai-assistant-panel"
+import { LootPanelConnected, LootDistributionSummaryDialog } from "@/components/loot"
 import type { CombatContext } from "@/lib/ai-types"
 import {
   Dialog,
@@ -84,6 +85,8 @@ function CombatTrackerContent() {
     emitInventoryUpdate,
     emitSpellSlotChange,
     emitAmbientEffect,
+    createLootSession,
+    clearLootSession,
   } = useSocketContext()
 
   // User selection state - null means not selected yet
@@ -169,6 +172,30 @@ function CombatTrackerContent() {
   // State for AI Assistant sidebar (DM only, desktop only)
   const [showAIAssistant, setShowAIAssistant] = useState(false)
 
+  // State for loot distribution summary dialog
+  const [showLootSummary, setShowLootSummary] = useState(false)
+
+  // Track if we've done the initial loot tab restore (to avoid forcing user back to loot)
+  const lootTabRestoredRef = useRef(false)
+
+  // Show loot distribution summary when finalized, or clear session if empty
+  useEffect(() => {
+    if (socketState.lootDistributions) {
+      if (socketState.lootDistributions.length > 0) {
+        setShowLootSummary(true)
+      } else {
+        // No distributions (empty loot) - clear session immediately
+        clearLootSession()
+      }
+    }
+  }, [socketState.lootDistributions, clearLootSession])
+
+  // Handle closing the loot summary dialog
+  const handleCloseLootSummary = () => {
+    setShowLootSummary(false)
+    clearLootSession()
+  }
+
   // Persist combat state to sessionStorage
   useEffect(() => {
     sessionStorage.setItem('dnd-combatActive', String(combatActive))
@@ -215,6 +242,22 @@ function CombatTrackerContent() {
       }
     }
   }, [combatActive, isMobile, mode, activeTab])
+
+  // Switch to loot tab on mobile when a loot session becomes available (after refresh)
+  // Only do this once per session to avoid forcing the user back to loot if they navigate away
+  useEffect(() => {
+    if (socketState.lootSession && !lootTabRestoredRef.current) {
+      lootTabRestoredRef.current = true
+      // For players on mobile, auto-switch to loot tab when session is restored
+      if (isMobile && mode === "joueur" && activeTab !== "loot") {
+        setActiveTab("loot")
+      }
+    }
+    // Reset the flag when loot session ends
+    if (!socketState.lootSession) {
+      lootTabRestoredRef.current = false
+    }
+  }, [isMobile, socketState.lootSession, mode, activeTab])
 
   // Auto-end combat when all monsters are dead (DM only)
   useEffect(() => {
@@ -712,7 +755,7 @@ function CombatTrackerContent() {
 
   // Build displayPlayers by merging all campaign characters with connected players
   // Connected players get real-time data, disconnected players show from allCampaignCharacters
-  const displayPlayers: Character[] = (() => {
+  const displayPlayers: Character[] = useMemo(() => {
     // Get connected character IDs and their data
     const connectedCharacterIds = new Set<string>()
     const connectedCharactersMap = new Map<string, Character>()
@@ -830,12 +873,12 @@ function CombatTrackerContent() {
       if (!a.isConnected && b.isConnected) return 1
       return a.name.localeCompare(b.name)
     })
-  })()
+  }, [socketState.connectedPlayers, allCampaignCharacters, socketState.combatState.participants, playerInitiatives, players])
 
   // Memoize connected player IDs to avoid infinite loops
   const connectedPlayerIds = useMemo(() => {
     return new Set(displayPlayers.filter(p => p.isConnected).map(p => p.id))
-  }, [displayPlayers.map(p => `${p.id}:${p.isConnected}`).join(',')])
+  }, [displayPlayers])
 
   // Build AI combat context for the assistant panel
   const aiCombatContext: CombatContext = useMemo(() => ({
@@ -2552,6 +2595,11 @@ function CombatTrackerContent() {
         onClose={confirmEndCombat}
         killedMonsters={xpSummaryData.killedMonsters}
         playerCount={xpSummaryData.playerCount}
+        isDM={mode === "mj"}
+        onStartLoot={() => {
+          createLootSession({})
+          if (isMobile) setActiveTab("loot")
+        }}
       />
 
       {/* Orphan Pet Dialog */}
@@ -2703,6 +2751,12 @@ function CombatTrackerContent() {
                 <MonsterPickerPanel
                   onAddMonsters={addMonstersFromDb}
                   refreshKey={monsterRefreshKey}
+                />
+              )}
+              {activeTab === "loot" && (
+                <LootPanelConnected
+                  currentCharacterId={selectedCharacters.length > 0 ? String(selectedCharacters[0].id) : undefined}
+                  currentCharacterName={selectedCharacters.length > 0 ? selectedCharacters[0].name : undefined}
                 />
               )}
             </div>
@@ -2934,6 +2988,7 @@ function CombatTrackerContent() {
           onTabChange={setActiveTab}
           mode={mode}
           combatActive={combatActive}
+          hasLootSession={!!socketState.lootSession}
         />
       )}
 
@@ -2991,6 +3046,26 @@ function CombatTrackerContent() {
           )}
         </>
       )}
+
+      {/* Loot Panel Modal - Desktop only, when there's a loot session */}
+      {!isMobile && socketState.lootSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-2xl h-[85vh] bg-card border border-amber-500/30 rounded-lg shadow-2xl overflow-hidden">
+            <LootPanelConnected
+              currentCharacterId={selectedCharacters.length > 0 ? String(selectedCharacters[0].id) : undefined}
+              currentCharacterName={selectedCharacters.length > 0 ? selectedCharacters[0].name : undefined}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Loot Distribution Summary Dialog */}
+      <LootDistributionSummaryDialog
+        isOpen={showLootSummary}
+        onClose={handleCloseLootSummary}
+        distributions={socketState.lootDistributions || []}
+        currentCharacterId={mode === "joueur" && selectedCharacters.length > 0 ? String(selectedCharacters[0].id) : undefined}
+      />
 
       {/* Floating Notes Button - MJ only */}
       {mode === "mj" && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { Trophy, Users, Scroll } from 'lucide-react'
+import { Trophy, Users, Scroll, Package } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,8 @@ interface XpSummaryModalProps {
   onClose: () => void
   killedMonsters: KilledMonster[]
   playerCount: number
+  onStartLoot?: () => void
+  isDM?: boolean
 }
 
 export function XpSummaryModal({
@@ -28,6 +30,8 @@ export function XpSummaryModal({
   onClose,
   killedMonsters,
   playerCount,
+  onStartLoot,
+  isDM = false,
 }: XpSummaryModalProps) {
   const totalXp = killedMonsters.reduce((sum, m) => sum + m.xp, 0)
   const perPlayerXp = playerCount > 0 ? Math.floor(totalXp / playerCount) : totalXp
@@ -96,10 +100,22 @@ export function XpSummaryModal({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          {isDM && onStartLoot && (
+            <Button
+              onClick={() => {
+                onStartLoot()
+                onClose()
+              }}
+              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-semibold"
+            >
+              <Package className="w-4 h-4 mr-2" />
+              Distribuer le butin
+            </Button>
+          )}
           <Button
             onClick={onClose}
-            className="w-full bg-gold hover:bg-gold/80 text-slate-900 font-semibold"
+            className="w-full sm:w-auto bg-gold hover:bg-gold/80 text-slate-900 font-semibold"
           >
             Fermer
           </Button>
