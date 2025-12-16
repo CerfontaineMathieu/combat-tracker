@@ -13,8 +13,41 @@ import type {
   InventoryUpdateData,
   BuffChangeData,
   SpellSlotChangeData,
+  // Loot events
+  LootSessionUpdateData,
+  LootItemAddData,
+  LootItemUpdateData,
+  LootItemRemoveData,
+  LootClaimData,
+  LootUnclaimData,
+  LootAssignData,
+  LootToTreasuryData,
+  LootCurrencyUpdateData,
+  LootRollOffStartData,
+  LootRollOffResultData,
+  LootFinalizedData,
+  LootCreateSessionData,
+  LootAddItemData,
+  LootClaimItemData,
+  LootUnclaimItemData,
+  LootAssignItemData,
+  LootToTreasuryItemData,
+  LootTriggerRollOffData,
+  LootUpdateCurrencyData,
+  LootFinalizeData,
+  LootCancelData,
 } from '../socket-events';
-import type { Character, Monster, CombatParticipant, CharacterInventory } from '../types';
+import type {
+  Character,
+  Monster,
+  CombatParticipant,
+  CharacterInventory,
+  LootSession,
+  LootItem,
+  LootClaim,
+  RollOffResult,
+  LootDistribution,
+} from '../types';
 
 // Re-export types from socket-events for convenience
 export type {
@@ -30,6 +63,29 @@ export type {
   InventoryUpdateData,
   BuffChangeData,
   SpellSlotChangeData,
+  // Loot types
+  LootSessionUpdateData,
+  LootItemAddData,
+  LootItemUpdateData,
+  LootItemRemoveData,
+  LootClaimData,
+  LootUnclaimData,
+  LootAssignData,
+  LootToTreasuryData,
+  LootCurrencyUpdateData,
+  LootRollOffStartData,
+  LootRollOffResultData,
+  LootFinalizedData,
+  LootCreateSessionData,
+  LootAddItemData,
+  LootClaimItemData,
+  LootUnclaimItemData,
+  LootAssignItemData,
+  LootToTreasuryItemData,
+  LootTriggerRollOffData,
+  LootUpdateCurrencyData,
+  LootFinalizeData,
+  LootCancelData,
 };
 
 // Typed socket
@@ -83,6 +139,17 @@ export interface SocketState {
     playerCount: number;
     killedMonsters: { name: string; xp: number }[];
   } | null;
+
+  // Loot Distribution
+  lootSession: LootSession | null;
+  pendingRollOff: {
+    itemId: string;
+    itemName: string;
+    participants: Array<{ characterId: string; characterName: string }>;
+  } | null;
+  rollOffResult: RollOffResult | null;
+  lootDistributions: LootDistribution[] | null;
+  lootError: { error: string; code: string } | null;
 }
 
 // Action types
@@ -139,7 +206,25 @@ export type SocketAction =
 
   // XP Summary
   | { type: 'SET_XP_SUMMARY'; xpSummary: SocketState['xpSummary'] }
-  | { type: 'CLEAR_XP_SUMMARY' };
+  | { type: 'CLEAR_XP_SUMMARY' }
+
+  // Loot Distribution
+  | { type: 'LOOT_SESSION_UPDATE'; session: LootSession }
+  | { type: 'LOOT_ITEM_ADD'; sessionId: string; item: LootItem }
+  | { type: 'LOOT_ITEM_UPDATE'; sessionId: string; item: LootItem }
+  | { type: 'LOOT_ITEM_REMOVE'; sessionId: string; itemId: string }
+  | { type: 'LOOT_CLAIM'; sessionId: string; itemId: string; claim: LootClaim }
+  | { type: 'LOOT_UNCLAIM'; sessionId: string; itemId: string; characterId: string }
+  | { type: 'LOOT_ASSIGN'; sessionId: string; itemId: string; characterId: string; characterName: string }
+  | { type: 'LOOT_TO_TREASURY'; sessionId: string; itemId: string }
+  | { type: 'LOOT_UNASSIGN'; sessionId: string; itemId: string }
+  | { type: 'LOOT_CURRENCY_UPDATE'; sessionId: string; currency: import('../types').LootCurrency; splitMethod?: import('../types').CurrencySplitMethod }
+  | { type: 'LOOT_ROLLOFF_START'; itemId: string; itemName: string; participants: Array<{ characterId: string; characterName: string }> }
+  | { type: 'LOOT_ROLLOFF_RESULT'; result: RollOffResult }
+  | { type: 'LOOT_CLEAR_ROLLOFF' }
+  | { type: 'LOOT_FINALIZED'; distributions: LootDistribution[] }
+  | { type: 'LOOT_CLEAR_SESSION' }
+  | { type: 'LOOT_ERROR'; error: string; code: string };
 
 // Initial state
 export const initialSocketState: SocketState = {
@@ -184,6 +269,13 @@ export const initialSocketState: SocketState = {
 
   // XP Summary
   xpSummary: null,
+
+  // Loot Distribution
+  lootSession: null,
+  pendingRollOff: null,
+  rollOffResult: null,
+  lootDistributions: null,
+  lootError: null,
 };
 
 // Join campaign data
@@ -240,4 +332,20 @@ export interface SocketContextType {
 
   // Notifications
   emitNotification: (data: NotificationData) => void;
+
+  // Loot distribution actions
+  createLootSession: (data: Omit<LootCreateSessionData, 'campaignId'>) => void;
+  addLootItem: (data: Omit<LootAddItemData, 'sessionId'>) => void;
+  claimLootItem: (data: Omit<LootClaimItemData, 'sessionId'>) => void;
+  unclaimLootItem: (data: Omit<LootUnclaimItemData, 'sessionId'>) => void;
+  assignLootItem: (data: Omit<LootAssignItemData, 'sessionId'>) => void;
+  sendToTreasury: (itemId: string) => void;
+  unassignLootItem: (itemId: string) => void;
+  triggerRollOff: (itemId: string) => void;
+  updateLootCurrency: (data: Omit<LootUpdateCurrencyData, 'sessionId'>) => void;
+  finalizeLoot: () => void;
+  cancelLoot: () => void;
+  requestLootSession: () => void;
+  clearRollOffResult: () => void;
+  clearLootSession: () => void;
 }

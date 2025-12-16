@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Sword, Settings, Skull, Crown, User, LogOut, Sparkles, Menu, QrCode, Volume2, VolumeX } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Sparkles, Menu, QrCode, Volume2, VolumeX, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -10,6 +10,7 @@ import { AmbientControls, CriticalButtons, type AmbientEffect } from "@/componen
 import { isSoundMuted, setSoundMuted } from "@/lib/sounds"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { QrCodeDialog } from "@/components/qr-code-dialog"
+import { SpellReferenceDialog } from "@/components/spell-reference-dialog"
 
 interface HeaderProps {
   mode: "mj" | "joueur"
@@ -33,6 +34,7 @@ export function Header({
   onAmbientEffectChange,
 }: HeaderProps) {
   const [showQrDialog, setShowQrDialog] = useState(false)
+  const [showSpellRefDialog, setShowSpellRefDialog] = useState(false)
   const [soundMuted, setSoundMutedState] = useState(() => {
     if (typeof window !== "undefined") {
       return isSoundMuted()
@@ -128,6 +130,19 @@ export function Header({
               title="Code QR de connexion"
             >
               <QrCode className="w-4 h-4" />
+            </Button>
+          )}
+
+          {/* Spell Reference Button - DM only */}
+          {mode === "mj" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSpellRefDialog(true)}
+              className="h-9 w-9 hover:bg-primary/20 hover:text-purple-400 transition-smooth"
+              title="Référence des Sorts"
+            >
+              <BookOpen className="w-4 h-4" />
             </Button>
           )}
 
@@ -234,6 +249,14 @@ export function Header({
                     </Button>
                     <Button
                       variant="ghost"
+                      onClick={() => setShowSpellRefDialog(true)}
+                      className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-purple-400"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span className="text-sm">Sorts</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
                       onClick={onSettingsClick}
                       className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-gold"
                     >
@@ -262,6 +285,9 @@ export function Header({
 
       {/* QR Code Dialog */}
       <QrCodeDialog open={showQrDialog} onOpenChange={setShowQrDialog} />
+
+      {/* Spell Reference Dialog */}
+      <SpellReferenceDialog open={showSpellRefDialog} onOpenChange={setShowSpellRefDialog} />
     </header>
   )
 }

@@ -1,35 +1,40 @@
 "use client"
 
-import { Users, Swords, Settings2, Database, BookOpen } from "lucide-react"
+import { Users, Swords, Settings2, Database, BookOpen, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type MobileTab = "players" | "combat" | "setup" | "bestiary" | "spellbook"
+export type MobileTab = "players" | "combat" | "setup" | "bestiary" | "spellbook" | "loot"
 
 interface MobileNavProps {
   activeTab?: MobileTab
   onTabChange?: (tab: MobileTab) => void
   mode: "mj" | "joueur"
   combatActive?: boolean
+  hasLootSession?: boolean
 }
 
-export function MobileNav({ activeTab, onTabChange, mode, combatActive = false }: MobileNavProps) {
-  // DM tabs depend on combat state
+export function MobileNav({ activeTab, onTabChange, mode, combatActive = false, hasLootSession = false }: MobileNavProps) {
+  // DM tabs depend on combat state - DM always has access to loot tab
   const dmTabs = combatActive
     ? [
         { id: "combat" as const, label: "Combat", icon: Swords },
         { id: "bestiary" as const, label: "Monstres", icon: Database },
         { id: "players" as const, label: "Groupe", icon: Users },
+        { id: "loot" as const, label: "Butin", icon: Package },
       ]
     : [
         { id: "setup" as const, label: "Préparer", icon: Settings2 },
         { id: "bestiary" as const, label: "Monstres", icon: Database },
         { id: "players" as const, label: "Groupe", icon: Users },
+        { id: "loot" as const, label: "Butin", icon: Package },
       ]
 
+  // Players only see loot tab when there's an active session
   const playerTabs = [
     { id: "players" as const, label: "Perso", icon: Users },
     { id: "spellbook" as const, label: "Sorts", icon: BookOpen },
     { id: "combat" as const, label: "Combat", icon: Swords },
+    ...(hasLootSession ? [{ id: "loot" as const, label: "Butin", icon: Package }] : []),
   ]
 
   const tabs = mode === "mj" ? dmTabs : playerTabs

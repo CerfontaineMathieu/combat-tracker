@@ -3,7 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
 import 'dotenv/config';
-import { getDmPassword, getCharacterInventory, getCharacterStatus, getBatchCharacterStatus } from './lib/db';
+import { getDmPassword, getCharacterInventory, getCharacterStatus, getBatchCharacterStatus, saveCharacterInventory } from './lib/db';
 import {
   getRedis,
   getDmSession,
@@ -169,6 +169,100 @@ interface PreparedSpellsChangeData {
   participantType: 'player';
   preparedSpells: any[]; // Use any to avoid importing full type definition
   source: 'dm' | 'player';
+}
+
+// Loot system types
+interface LootCurrency {
+  platinum: number;
+  gold: number;
+  electrum: number;
+  silver: number;
+  copper: number;
+}
+
+type LootItemType = 'weapon' | 'armor' | 'potion' | 'scroll' | 'wondrous' | 'currency' | 'misc';
+type LootItemRarity = 'common' | 'uncommon' | 'rare' | 'very_rare' | 'legendary' | 'artifact';
+type LootItemStatus = 'unclaimed' | 'contested' | 'assigned' | 'treasury' | 'sold';
+type CurrencySplitMethod = 'equal' | 'manual';
+
+interface LootClaim {
+  id: string;
+  itemId: string;
+  characterId: string;
+  characterName: string;
+  priority: 1 | 2 | 3;
+  note?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type ResistanceType = 'Acide' | 'Froid' | 'Feu' | 'Force' | 'Foudre' | 'Nécrotique' | 'Poison' | 'Psychique' | 'Radiant' | 'Tonnerre';
+
+interface LootItem {
+  id: string;
+  sessionId: string;
+  catalogNotionId?: string;
+  name: string;
+  description?: string;
+  itemType: LootItemType;
+  rarity: LootItemRarity;
+  quantity: number;
+  isIdentified: boolean;
+  estimatedValueGp?: number;
+  status: LootItemStatus;
+  assignedTo?: string;
+  assignedToName?: string;
+  claims: LootClaim[];
+  createdAt: Date;
+  resolvedAt?: Date;
+  // For scrolls - linked spell information
+  linkedSpell?: {
+    id: number;
+    name: string;
+    level: number;
+  };
+  // For resistance potions - selected damage type
+  resistanceType?: ResistanceType;
+}
+
+interface LootSession {
+  id: string;
+  campaignId: number;
+  status: 'draft' | 'claiming' | 'resolving' | 'completed' | 'cancelled';
+  currency: LootCurrency;
+  currencySplitMethod: CurrencySplitMethod;
+  claimingDeadline?: Date;
+  createdAt: Date;
+  completedAt?: Date;
+  items: LootItem[];
+}
+
+interface LootDistribution {
+  id: string;
+  sessionId: string;
+  characterId: string;
+  characterName: string;
+  currency: LootCurrency;
+  items: Array<{ itemId: string; name: string; quantity: number; rarity: LootItemRarity }>;
+}
+
+// In-memory loot session storage (per campaign)
+// TODO: Move to Redis for persistence across server restarts
+const activeLootSessions = new Map<number, LootSession>();
+
+// Helper to generate UUIDs
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// Helper to calculate item status based on claims
+function calculateItemStatus(item: LootItem): LootItemStatus {
+  if (item.assignedTo) return 'assigned';
+  if (item.status === 'treasury') return 'treasury';
+  if (item.status === 'sold') return 'sold';
+  if (item.claims.length === 0) return 'unclaimed';
+  if (item.claims.length === 1) return 'unclaimed'; // Single claim = auto-assigned on finalize
+  return 'contested'; // Multiple claims = contested
 }
 
 interface AmbientEffectData {
@@ -789,6 +883,740 @@ app.prepare().then(() => {
         // Broadcast to all clients in room
         io.to(room).emit('prepared-spells-change', data);
         console.log(`[Socket.io] Prepared spells change in ${room}:`, data.participantId, 'by', data.source);
+      }
+    });
+
+    // ============ LOOT DISTRIBUTION EVENTS ============
+
+    // Create loot session (DM only)
+    socket.on('loot-create-session', (data: {
+      campaignId: number;
+      currency?: LootCurrency;
+      items?: Array<{
+        name: string;
+        description?: string;
+        itemType: LootItemType;
+        rarity?: LootItemRarity;
+        quantity?: number;
+        isIdentified?: boolean;
+        estimatedValueGp?: number;
+        catalogNotionId?: string;
+      }>;
+      claimingDeadlineMinutes?: number;
+    }) => {
+      console.log(`[Loot] Create session request from ${socket.id}, role: ${socket.data.role}`);
+      if (socket.data.role !== 'dm') {
+        console.log(`[Loot] Rejected: not a DM`);
+        return;
+      }
+      const campaignId = data.campaignId;
+      const room = `campaign-${campaignId}`;
+
+      // Check for existing session
+      if (activeLootSessions.has(campaignId)) {
+        socket.emit('loot-error', {
+          sessionId: '',
+          error: 'Une session de butin est déjà active',
+          code: 'SESSION_EXISTS'
+        });
+        return;
+      }
+
+      const sessionId = generateId();
+      const now = new Date();
+
+      // Create items from initial data
+      const items: LootItem[] = (data.items || []).map(item => ({
+        id: generateId(),
+        sessionId,
+        name: item.name,
+        description: item.description,
+        itemType: item.itemType,
+        rarity: item.rarity || 'common',
+        quantity: item.quantity || 1,
+        isIdentified: item.isIdentified !== false,
+        estimatedValueGp: item.estimatedValueGp,
+        catalogNotionId: item.catalogNotionId,
+        status: 'unclaimed' as LootItemStatus,
+        claims: [],
+        createdAt: now,
+      }));
+
+      const session: LootSession = {
+        id: sessionId,
+        campaignId,
+        status: 'claiming',
+        currency: data.currency || { platinum: 0, gold: 0, electrum: 0, silver: 0, copper: 0 },
+        currencySplitMethod: 'equal',
+        claimingDeadline: data.claimingDeadlineMinutes
+          ? new Date(now.getTime() + data.claimingDeadlineMinutes * 60 * 1000)
+          : undefined,
+        createdAt: now,
+        items,
+      };
+
+      activeLootSessions.set(campaignId, session);
+      io.to(room).emit('loot-session-update', { session });
+      console.log(`[Loot] Session created for campaign ${campaignId}: ${sessionId}`);
+    });
+
+    // Add item to loot session (DM only)
+    socket.on('loot-add-item', (data: {
+      sessionId: string;
+      name: string;
+      description?: string;
+      itemType: LootItemType;
+      rarity?: LootItemRarity;
+      quantity?: number;
+      isIdentified?: boolean;
+      estimatedValueGp?: number;
+      catalogNotionId?: string;
+      linkedSpell?: { id: number; name: string; level: number };
+      resistanceType?: string;
+    }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) {
+        socket.emit('loot-error', { sessionId: data.sessionId, error: 'Session introuvable', code: 'SESSION_NOT_FOUND' });
+        return;
+      }
+
+      const newItem: LootItem = {
+        id: generateId(),
+        sessionId: session.id,
+        name: data.name,
+        description: data.description,
+        itemType: data.itemType,
+        rarity: data.rarity || 'common',
+        quantity: data.quantity || 1,
+        isIdentified: data.isIdentified !== false,
+        estimatedValueGp: data.estimatedValueGp,
+        catalogNotionId: data.catalogNotionId,
+        status: 'unclaimed',
+        claims: [],
+        createdAt: new Date(),
+        linkedSpell: data.linkedSpell,
+        resistanceType: data.resistanceType,
+      };
+
+      session.items.push(newItem);
+      io.to(room).emit('loot-item-add', { sessionId: session.id, item: newItem });
+      console.log(`[Loot] Item added: ${newItem.name}${data.linkedSpell ? ` (spell: ${data.linkedSpell.name})` : ''}${data.resistanceType ? ` (${data.resistanceType})` : ''}`);
+    });
+
+    // Claim item (player)
+    socket.on('loot-claim-item', (data: {
+      sessionId: string;
+      itemId: string;
+      characterId: string;
+      characterName: string;
+      priority: 1 | 2 | 3;
+      note?: string;
+    }) => {
+      if (!socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId || session.status !== 'claiming') {
+        socket.emit('loot-error', { sessionId: data.sessionId, error: 'Session introuvable ou fermée', code: 'INVALID_SESSION' });
+        return;
+      }
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item) {
+        socket.emit('loot-error', { sessionId: data.sessionId, error: 'Objet introuvable', code: 'ITEM_NOT_FOUND' });
+        return;
+      }
+
+      // Check if character already claimed
+      const existingClaimIndex = item.claims.findIndex(c => c.characterId === data.characterId);
+      const now = new Date();
+
+      if (existingClaimIndex >= 0) {
+        // Update existing claim
+        item.claims[existingClaimIndex].priority = data.priority;
+        item.claims[existingClaimIndex].note = data.note;
+        item.claims[existingClaimIndex].updatedAt = now;
+      } else {
+        // Add new claim
+        const claim: LootClaim = {
+          id: generateId(),
+          itemId: item.id,
+          characterId: data.characterId,
+          characterName: data.characterName,
+          priority: data.priority,
+          note: data.note,
+          createdAt: now,
+          updatedAt: now,
+        };
+        item.claims.push(claim);
+      }
+
+      // Recalculate status
+      item.status = calculateItemStatus(item);
+
+      const claim = item.claims.find(c => c.characterId === data.characterId)!;
+      io.to(room).emit('loot-claim', { sessionId: session.id, itemId: item.id, claim });
+      console.log(`[Loot] Claim: ${data.characterName} -> ${item.name} (priority ${data.priority})`);
+    });
+
+    // Unclaim item (player)
+    socket.on('loot-unclaim-item', (data: { sessionId: string; itemId: string; characterId: string }) => {
+      if (!socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item) return;
+
+      item.claims = item.claims.filter(c => c.characterId !== data.characterId);
+      item.status = calculateItemStatus(item);
+
+      io.to(room).emit('loot-unclaim', { sessionId: session.id, itemId: item.id, characterId: data.characterId });
+      console.log(`[Loot] Unclaim: ${data.characterId} from ${item.name}`);
+    });
+
+    // Assign item to character (DM only)
+    socket.on('loot-assign-item', (data: {
+      sessionId: string;
+      itemId: string;
+      characterId: string;
+      characterName: string;
+      quantity?: number;
+    }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item) return;
+
+      // Handle partial assignment (splitting stacks)
+      const assignQty = data.quantity ?? item.quantity;
+      if (assignQty < item.quantity) {
+        // Create a new item with remaining quantity
+        const remainingQty = item.quantity - assignQty;
+        const remainingItem: LootItem = {
+          id: generateId(),
+          sessionId: session.id,
+          name: item.name,
+          description: item.description,
+          itemType: item.itemType,
+          rarity: item.rarity,
+          quantity: remainingQty,
+          isIdentified: item.isIdentified,
+          estimatedValueGp: item.estimatedValueGp,
+          catalogNotionId: item.catalogNotionId,
+          status: 'unclaimed',
+          claims: [],
+          createdAt: new Date(),
+          linkedSpell: item.linkedSpell,
+          resistanceType: item.resistanceType,
+        };
+        session.items.push(remainingItem);
+        io.to(room).emit('loot-item-add', { sessionId: session.id, item: remainingItem });
+        console.log(`[Loot] Split: ${remainingQty}x ${item.name} remaining in pool`);
+
+        // Update original item quantity
+        item.quantity = assignQty;
+      }
+
+      // Check if this character already has the same item assigned (stack them)
+      const existingAssigned = session.items.find(i =>
+        i.id !== item.id &&
+        i.assignedTo === data.characterId &&
+        i.status === 'assigned' &&
+        i.name === item.name &&
+        i.catalogNotionId === item.catalogNotionId &&
+        // For scrolls, must have same linked spell
+        ((!i.linkedSpell && !item.linkedSpell) ||
+          (i.linkedSpell?.id === item.linkedSpell?.id)) &&
+        // For resistance potions, must have same resistance type
+        i.resistanceType === item.resistanceType
+      );
+
+      if (existingAssigned) {
+        // Stack: add quantity to existing assigned item
+        existingAssigned.quantity += assignQty;
+        io.to(room).emit('loot-item-update', { sessionId: session.id, item: existingAssigned });
+        console.log(`[Loot] Stacked: +${assignQty}x ${item.name} -> ${data.characterName} (now ${existingAssigned.quantity}x)`);
+
+        // Remove the current item from the session
+        const itemIndex = session.items.findIndex(i => i.id === item.id);
+        if (itemIndex !== -1) {
+          session.items.splice(itemIndex, 1);
+          io.to(room).emit('loot-item-remove', { sessionId: session.id, itemId: item.id });
+        }
+      } else {
+        // No existing stack, assign normally
+        item.assignedTo = data.characterId;
+        item.assignedToName = data.characterName;
+        item.status = 'assigned';
+        item.resolvedAt = new Date();
+
+        io.to(room).emit('loot-assign', {
+          sessionId: session.id,
+          itemId: item.id,
+          characterId: data.characterId,
+          characterName: data.characterName,
+        });
+        // Also emit item-update to reflect quantity change if split occurred
+        io.to(room).emit('loot-item-update', { sessionId: session.id, item });
+        console.log(`[Loot] Assigned: ${item.quantity}x ${item.name} -> ${data.characterName}`);
+      }
+    });
+
+    // Send item to treasury (DM only)
+    socket.on('loot-to-treasury-item', (data: { sessionId: string; itemId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item) return;
+
+      item.status = 'treasury';
+      item.resolvedAt = new Date();
+
+      io.to(room).emit('loot-to-treasury', { sessionId: session.id, itemId: item.id });
+      console.log(`[Loot] To treasury: ${item.name}`);
+    });
+
+    // Unassign item (DM only) - revert an assigned item back to unclaimed
+    socket.on('loot-unassign-item', (data: { sessionId: string; itemId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item) return;
+
+      // Only allow unassigning if item is currently assigned (not treasury/sold)
+      if (item.status !== 'assigned') return;
+
+      const previousOwner = item.assignedToName;
+
+      // Check if there's an existing unclaimed item we can stack with
+      const existingUnclaimed = session.items.find(i =>
+        i.id !== item.id &&
+        i.status === 'unclaimed' &&
+        i.name === item.name &&
+        i.catalogNotionId === item.catalogNotionId &&
+        // For scrolls, must have same linked spell
+        ((!i.linkedSpell && !item.linkedSpell) ||
+          (i.linkedSpell?.id === item.linkedSpell?.id)) &&
+        // For resistance potions, must have same resistance type
+        i.resistanceType === item.resistanceType
+      );
+
+      if (existingUnclaimed) {
+        // Stack: add quantity to existing unclaimed item
+        existingUnclaimed.quantity += item.quantity;
+        io.to(room).emit('loot-item-update', { sessionId: session.id, item: existingUnclaimed });
+        console.log(`[Loot] Stacked unassigned: +${item.quantity}x ${item.name} (now ${existingUnclaimed.quantity}x unclaimed)`);
+
+        // Remove the unassigned item from the session
+        const itemIndex = session.items.findIndex(i => i.id === item.id);
+        if (itemIndex !== -1) {
+          session.items.splice(itemIndex, 1);
+          io.to(room).emit('loot-item-remove', { sessionId: session.id, itemId: item.id });
+        }
+      } else {
+        // No existing stack, just mark as unclaimed
+        item.status = 'unclaimed';
+        item.assignedTo = undefined;
+        item.assignedToName = undefined;
+        item.resolvedAt = undefined;
+        // Keep claims in case DM wants to reassign to same claimants
+
+        io.to(room).emit('loot-unassign', { sessionId: session.id, itemId: item.id });
+        console.log(`[Loot] Unassigned: ${item.name} (was: ${previousOwner})`);
+      }
+    });
+
+    // Trigger roll-off for contested item (DM only)
+    socket.on('loot-trigger-rolloff', (data: { sessionId: string; itemId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      const item = session.items.find(i => i.id === data.itemId);
+      if (!item || item.claims.length < 2) return;
+
+      // Get highest priority claims
+      const maxPriority = Math.max(...item.claims.map(c => c.priority));
+      const topClaims = item.claims.filter(c => c.priority === maxPriority);
+
+      // If only one at top priority, auto-assign
+      if (topClaims.length === 1) {
+        item.assignedTo = topClaims[0].characterId;
+        item.assignedToName = topClaims[0].characterName;
+        item.status = 'assigned';
+        item.resolvedAt = new Date();
+        io.to(room).emit('loot-assign', {
+          sessionId: session.id,
+          itemId: item.id,
+          characterId: topClaims[0].characterId,
+          characterName: topClaims[0].characterName,
+        });
+        return;
+      }
+
+      // Perform roll-off
+      const rolls = topClaims.map(claim => ({
+        characterId: claim.characterId,
+        characterName: claim.characterName,
+        roll: Math.floor(Math.random() * 20) + 1, // d20 roll
+      }));
+
+      // Find winner (highest roll, first in case of tie)
+      rolls.sort((a, b) => b.roll - a.roll);
+      const winner = rolls[0];
+
+      // Assign to winner
+      item.assignedTo = winner.characterId;
+      item.assignedToName = winner.characterName;
+      item.status = 'assigned';
+      item.resolvedAt = new Date();
+
+      // Notify room of roll-off start
+      io.to(room).emit('loot-rolloff-start', {
+        sessionId: session.id,
+        itemId: item.id,
+        itemName: item.name,
+        participants: topClaims.map(c => ({ characterId: c.characterId, characterName: c.characterName })),
+      });
+
+      // After a short delay, send result
+      setTimeout(() => {
+        io.to(room).emit('loot-rolloff-result', {
+          sessionId: session.id,
+          result: {
+            itemId: item.id,
+            itemName: item.name,
+            rolls,
+            winnerId: winner.characterId,
+            winnerName: winner.characterName,
+          },
+        });
+        io.to(room).emit('loot-assign', {
+          sessionId: session.id,
+          itemId: item.id,
+          characterId: winner.characterId,
+          characterName: winner.characterName,
+        });
+        console.log(`[Loot] Roll-off: ${item.name} -> ${winner.characterName} (rolled ${winner.roll})`);
+      }, 2000); // 2 second delay for animation
+    });
+
+    // Update currency (DM only)
+    socket.on('loot-update-currency', (data: {
+      sessionId: string;
+      currency: LootCurrency;
+      splitMethod?: CurrencySplitMethod;
+    }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      session.currency = data.currency;
+      if (data.splitMethod) {
+        session.currencySplitMethod = data.splitMethod;
+      }
+
+      io.to(room).emit('loot-currency-update', {
+        sessionId: session.id,
+        currency: session.currency,
+        splitMethod: session.currencySplitMethod,
+      });
+      console.log(`[Loot] Currency updated: ${data.currency.gold}gp ${data.currency.silver}sp ${data.currency.copper}cp`);
+    });
+
+    // Finalize loot session (DM only)
+    socket.on('loot-finalize', async (data: { sessionId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      // Auto-assign single claims
+      session.items.forEach(item => {
+        if (item.status === 'unclaimed' && item.claims.length === 1) {
+          item.assignedTo = item.claims[0].characterId;
+          item.assignedToName = item.claims[0].characterName;
+          item.status = 'assigned';
+          item.resolvedAt = new Date();
+        }
+      });
+
+      // Build distribution map
+      const distributionMap = new Map<string, LootDistribution>();
+
+      // Get connected players to know who should receive currency
+      const connectedPlayersForCurrency = await getConnectedPlayers(campaignId);
+      const hasCurrency = (
+        session.currency.platinum > 0 ||
+        session.currency.gold > 0 ||
+        session.currency.electrum > 0 ||
+        session.currency.silver > 0 ||
+        session.currency.copper > 0
+      );
+
+      // If there's currency to split and we're using equal split, pre-populate distribution map
+      // with all connected characters so they receive their share
+      if (session.currencySplitMethod === 'equal' && hasCurrency) {
+        for (const player of connectedPlayersForCurrency) {
+          for (const char of player.characters) {
+            const charId = String(char.odNumber);
+            if (!distributionMap.has(charId)) {
+              distributionMap.set(charId, {
+                id: generateId(),
+                sessionId: session.id,
+                characterId: charId,
+                characterName: char.name,
+                currency: { platinum: 0, gold: 0, electrum: 0, silver: 0, copper: 0 },
+                items: [],
+              });
+            }
+          }
+        }
+      }
+
+      // Distribute items
+      session.items.forEach(item => {
+        if (item.status === 'assigned' && item.assignedTo && item.assignedToName) {
+          if (!distributionMap.has(item.assignedTo)) {
+            distributionMap.set(item.assignedTo, {
+              id: generateId(),
+              sessionId: session.id,
+              characterId: item.assignedTo,
+              characterName: item.assignedToName,
+              currency: { platinum: 0, gold: 0, electrum: 0, silver: 0, copper: 0 },
+              items: [],
+            });
+          }
+          const dist = distributionMap.get(item.assignedTo)!;
+          dist.items.push({
+            itemId: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            rarity: item.rarity,
+          });
+        }
+      });
+
+      // Split currency (if equal split)
+      // D&D 5e rates: 1pp = 1000cp, 1gp = 100cp, 1ep = 50cp, 1sp = 10cp
+      if (session.currencySplitMethod === 'equal' && distributionMap.size > 0 && hasCurrency) {
+        const totalCopper = (
+          (session.currency.platinum * 1000) +
+          (session.currency.gold * 100) +
+          (session.currency.electrum * 50) +
+          (session.currency.silver * 10) +
+          session.currency.copper
+        );
+        const perPersonCopper = Math.floor(totalCopper / distributionMap.size);
+
+        distributionMap.forEach(dist => {
+          const pp = Math.floor(perPersonCopper / 1000);
+          const remainingAfterPp = perPersonCopper % 1000;
+          const gp = Math.floor(remainingAfterPp / 100);
+          const remainingAfterGp = remainingAfterPp % 100;
+          const sp = Math.floor(remainingAfterGp / 10);
+          const cp = remainingAfterGp % 10;
+
+          dist.currency = {
+            platinum: pp,
+            gold: gp,
+            electrum: 0, // Skip electrum in auto-split
+            silver: sp,
+            copper: cp,
+          };
+        });
+      }
+
+      const distributions = Array.from(distributionMap.values());
+
+      // === ADD ITEMS TO CHARACTER INVENTORIES ===
+      try {
+        const connectedPlayers = await getConnectedPlayers(campaignId);
+
+        for (const distribution of distributions) {
+          // Find the character in connected players
+          let targetPlayer: RedisConnectedPlayer | undefined;
+          let targetCharacter: RedisConnectedPlayer['characters'][0] | undefined;
+
+          for (const player of connectedPlayers) {
+            const char = player.characters.find(c => String(c.odNumber) === distribution.characterId);
+            if (char) {
+              targetPlayer = player;
+              targetCharacter = char;
+              break;
+            }
+          }
+
+          if (!targetPlayer || !targetCharacter) {
+            console.log(`[Loot] Character ${distribution.characterId} not found in connected players`);
+            continue;
+          }
+
+          // Get current inventory or create default
+          const currentInventory = targetCharacter.inventory || {
+            equipment: [],
+            consumables: [],
+            currency: { platinum: 0, gold: 0, electrum: 0, silver: 0, copper: 0 },
+            items: [],
+          };
+
+          // Add currency (all D&D 5e denominations)
+          currentInventory.currency.platinum += distribution.currency.platinum;
+          currentInventory.currency.gold += distribution.currency.gold;
+          currentInventory.currency.electrum += distribution.currency.electrum;
+          currentInventory.currency.silver += distribution.currency.silver;
+          currentInventory.currency.copper += distribution.currency.copper;
+
+          // Add items based on type
+          for (const distItem of distribution.items) {
+            const lootItem = session.items.find(i => i.id === distItem.itemId);
+            if (!lootItem) continue;
+
+            const newItemId = generateId();
+            const itemData = {
+              id: newItemId,
+              name: distItem.name,
+              description: lootItem.description,
+              rarity: distItem.rarity,
+              catalogNotionId: lootItem.catalogNotionId,
+            };
+
+            // Route to appropriate inventory category
+            if (lootItem.itemType === 'weapon' || lootItem.itemType === 'armor' || lootItem.itemType === 'wondrous') {
+              // Equipment items
+              currentInventory.equipment.push({
+                ...itemData,
+                equipped: false,
+                requiresAttunement: false,
+              });
+            } else if (lootItem.itemType === 'potion' || lootItem.itemType === 'scroll') {
+              // Consumables - check if already exists and add quantity
+              // For scrolls, also match by linkedSpell; for resistance potions, match by resistanceType
+              const existing = currentInventory.consumables.find(c => {
+                if (c.name !== distItem.name || c.catalogNotionId !== lootItem.catalogNotionId) return false;
+                // Scrolls with different spells are different items
+                if (lootItem.linkedSpell && c.linkedSpell) {
+                  return c.linkedSpell.id === lootItem.linkedSpell.id;
+                }
+                // Resistance potions with different types are different items
+                if (lootItem.resistanceType && c.resistanceType) {
+                  return c.resistanceType === lootItem.resistanceType;
+                }
+                return true;
+              });
+              if (existing) {
+                existing.quantity += distItem.quantity;
+              } else {
+                currentInventory.consumables.push({
+                  ...itemData,
+                  quantity: distItem.quantity,
+                  linkedSpell: lootItem.linkedSpell,
+                  resistanceType: lootItem.resistanceType,
+                });
+              }
+            } else {
+              // Misc items
+              const existing = currentInventory.items.find(
+                i => i.name === distItem.name && i.catalogNotionId === lootItem.catalogNotionId
+              );
+              if (existing) {
+                existing.quantity += distItem.quantity;
+              } else {
+                currentInventory.items.push({
+                  ...itemData,
+                  quantity: distItem.quantity,
+                });
+              }
+            }
+          }
+
+          // Update Redis (temporary cache)
+          await updateCharacterInventory(campaignId, distribution.characterId, currentInventory);
+
+          // Persist to PostgreSQL (permanent storage)
+          await saveCharacterInventory(distribution.characterId, campaignId, currentInventory);
+
+          // Broadcast inventory update
+          io.to(room).emit('inventory-update', {
+            participantId: distribution.characterId,
+            inventory: currentInventory,
+            source: 'loot-finalization',
+          });
+
+          console.log(`[Loot] Updated and persisted inventory for ${distribution.characterName}: +${distribution.currency.gold}gp, ${distribution.items.length} items`);
+        }
+      } catch (error) {
+        console.error('[Loot] Error updating inventories:', error);
+      }
+
+      session.status = 'completed';
+      session.completedAt = new Date();
+
+      io.to(room).emit('loot-finalized', { sessionId: session.id, distributions });
+      console.log(`[Loot] Session finalized: ${distributions.length} distributions`);
+
+      // Clean up immediately - items are already distributed to inventories
+      activeLootSessions.delete(campaignId);
+      console.log(`[Loot] Session cleaned up for campaign ${campaignId}`);
+    });
+
+    // Cancel loot session (DM only)
+    socket.on('loot-cancel', (data: { sessionId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const session = activeLootSessions.get(campaignId);
+
+      if (!session || session.id !== data.sessionId) return;
+
+      session.status = 'cancelled';
+      activeLootSessions.delete(campaignId);
+
+      io.to(room).emit('loot-cancelled');
+      console.log(`[Loot] Session cancelled for campaign ${campaignId}`);
+    });
+
+    // Request current loot session
+    socket.on('loot-request-session', (data: { campaignId: number }) => {
+      console.log(`[Loot] Session requested by ${socket.id} for campaign ${data.campaignId}`);
+      const session = activeLootSessions.get(data.campaignId);
+      if (session) {
+        socket.emit('loot-session-update', { session });
+        console.log(`[Loot] Session sent to ${socket.id} (${session.items.length} items)`);
+      } else {
+        console.log(`[Loot] No active session for campaign ${data.campaignId}`);
       }
     });
 

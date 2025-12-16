@@ -1,6 +1,20 @@
 // Socket.io event type definitions
 
-import type { CharacterInventory, ActiveBuff, PreparedSpell } from './types';
+import type {
+  CharacterInventory,
+  ActiveBuff,
+  PreparedSpell,
+  LootSession,
+  LootItem,
+  LootClaim,
+  LootCurrency,
+  LootItemType,
+  LootItemRarity,
+  RollOffResult,
+  LootDistribution,
+  CurrencySplitMethod,
+  ResistanceType,
+} from './types';
 
 export interface JoinCampaignData {
   campaignId: number;
@@ -222,6 +236,218 @@ export interface PreparedSpellsChangeData {
   source: 'dm' | 'player';
 }
 
+// ============================================
+// Loot Distribution Events
+// ============================================
+
+// Loot session created/updated
+export interface LootSessionUpdateData {
+  session: LootSession;
+}
+
+// Loot session status change
+export interface LootStatusChangeData {
+  sessionId: string;
+  status: LootSession['status'];
+}
+
+// Item added to loot pool
+export interface LootItemAddData {
+  sessionId: string;
+  item: LootItem;
+}
+
+// Item updated (status, assignment, etc.)
+export interface LootItemUpdateData {
+  sessionId: string;
+  item: LootItem;
+}
+
+// Item removed from loot pool
+export interface LootItemRemoveData {
+  sessionId: string;
+  itemId: string;
+}
+
+// Claim added/updated
+export interface LootClaimData {
+  sessionId: string;
+  itemId: string;
+  claim: LootClaim;
+}
+
+// Claim removed
+export interface LootUnclaimData {
+  sessionId: string;
+  itemId: string;
+  characterId: string;
+}
+
+// Claims updated for an item (full replacement)
+export interface LootClaimsUpdateData {
+  sessionId: string;
+  itemId: string;
+  claims: LootClaim[];
+}
+
+// Item assigned to character
+export interface LootAssignData {
+  sessionId: string;
+  itemId: string;
+  characterId: string;
+  characterName: string;
+}
+
+// Item sent to treasury
+export interface LootToTreasuryData {
+  sessionId: string;
+  itemId: string;
+}
+
+// Item unassigned (back to unclaimed)
+export interface LootUnassignData {
+  sessionId: string;
+  itemId: string;
+}
+
+// Currency updated
+export interface LootCurrencyUpdateData {
+  sessionId: string;
+  currency: LootCurrency;
+  splitMethod?: CurrencySplitMethod;
+}
+
+// Roll-off triggered
+export interface LootRollOffStartData {
+  sessionId: string;
+  itemId: string;
+  itemName: string;
+  participants: Array<{ characterId: string; characterName: string }>;
+}
+
+// Roll-off result
+export interface LootRollOffResultData {
+  sessionId: string;
+  result: RollOffResult;
+}
+
+// Session finalized
+export interface LootFinalizedData {
+  sessionId: string;
+  distributions: LootDistribution[];
+}
+
+// Loot error
+export interface LootErrorData {
+  sessionId: string;
+  error: string;
+  code: string;
+}
+
+// Client requests to create loot session
+export interface LootCreateSessionData {
+  campaignId: number;
+  currency?: LootCurrency;
+  items?: Array<{
+    name: string;
+    description?: string;
+    itemType: LootItemType;
+    rarity?: LootItemRarity;
+    quantity?: number;
+    isIdentified?: boolean;
+    estimatedValueGp?: number;
+    catalogNotionId?: string;
+  }>;
+  claimingDeadlineMinutes?: number;
+}
+
+// Client requests to add item
+export interface LootAddItemData {
+  sessionId: string;
+  name: string;
+  description?: string;
+  itemType: LootItemType;
+  rarity?: LootItemRarity;
+  quantity?: number;
+  isIdentified?: boolean;
+  estimatedValueGp?: number;
+  catalogNotionId?: string;
+  // For scrolls (parchemins) - linked spell information
+  linkedSpell?: {
+    id: number;
+    name: string;
+    level: number;
+  };
+  // For resistance potions - selected damage type
+  resistanceType?: ResistanceType;
+}
+
+// Client requests to claim item
+export interface LootClaimItemData {
+  sessionId: string;
+  itemId: string;
+  characterId: string;
+  characterName: string;
+  priority: 1 | 2 | 3;
+  note?: string;
+}
+
+// Client requests to unclaim item
+export interface LootUnclaimItemData {
+  sessionId: string;
+  itemId: string;
+  characterId: string;
+}
+
+// Client requests to assign item (DM only)
+export interface LootAssignItemData {
+  sessionId: string;
+  itemId: string;
+  characterId: string;
+  characterName: string;
+  quantity?: number; // For partial assignment (splitting stacks)
+}
+
+// Client requests to send item to treasury (DM only)
+export interface LootToTreasuryItemData {
+  sessionId: string;
+  itemId: string;
+}
+
+// Client requests to unassign an item (DM only)
+export interface LootUnassignItemData {
+  sessionId: string;
+  itemId: string;
+}
+
+// Client requests roll-off (DM only)
+export interface LootTriggerRollOffData {
+  sessionId: string;
+  itemId: string;
+}
+
+// Client requests to update currency (DM only)
+export interface LootUpdateCurrencyData {
+  sessionId: string;
+  currency: LootCurrency;
+  splitMethod?: CurrencySplitMethod;
+}
+
+// Client requests to finalize session (DM only)
+export interface LootFinalizeData {
+  sessionId: string;
+}
+
+// Client requests to cancel session (DM only)
+export interface LootCancelData {
+  sessionId: string;
+}
+
+// Client requests current loot session
+export interface LootRequestSessionData {
+  campaignId: number;
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -259,6 +485,24 @@ export interface ServerToClientEvents {
   'spell-slot-change': (data: SpellSlotChangeData) => void;
   // Prepared spells events
   'prepared-spells-change': (data: PreparedSpellsChangeData) => void;
+  // Loot distribution events
+  'loot-session-update': (data: LootSessionUpdateData) => void;
+  'loot-status-change': (data: LootStatusChangeData) => void;
+  'loot-item-add': (data: LootItemAddData) => void;
+  'loot-item-update': (data: LootItemUpdateData) => void;
+  'loot-item-remove': (data: LootItemRemoveData) => void;
+  'loot-claim': (data: LootClaimData) => void;
+  'loot-unclaim': (data: LootUnclaimData) => void;
+  'loot-claims-update': (data: LootClaimsUpdateData) => void;
+  'loot-assign': (data: LootAssignData) => void;
+  'loot-to-treasury': (data: LootToTreasuryData) => void;
+  'loot-unassign': (data: LootUnassignData) => void;
+  'loot-currency-update': (data: LootCurrencyUpdateData) => void;
+  'loot-rolloff-start': (data: LootRollOffStartData) => void;
+  'loot-rolloff-result': (data: LootRollOffResultData) => void;
+  'loot-finalized': (data: LootFinalizedData) => void;
+  'loot-cancelled': () => void;
+  'loot-error': (data: LootErrorData) => void;
 }
 
 // Client to server events
@@ -289,4 +533,17 @@ export interface ClientToServerEvents {
   'spell-slot-change': (data: SpellSlotChangeData) => void;
   // Prepared spells events
   'prepared-spells-change': (data: PreparedSpellsChangeData) => void;
+  // Loot distribution events (client to server)
+  'loot-create-session': (data: LootCreateSessionData) => void;
+  'loot-add-item': (data: LootAddItemData) => void;
+  'loot-claim-item': (data: LootClaimItemData) => void;
+  'loot-unclaim-item': (data: LootUnclaimItemData) => void;
+  'loot-assign-item': (data: LootAssignItemData) => void;
+  'loot-to-treasury-item': (data: LootToTreasuryItemData) => void;
+  'loot-unassign-item': (data: LootUnassignItemData) => void;
+  'loot-trigger-rolloff': (data: LootTriggerRollOffData) => void;
+  'loot-update-currency': (data: LootUpdateCurrencyData) => void;
+  'loot-finalize': (data: LootFinalizeData) => void;
+  'loot-cancel': (data: LootCancelData) => void;
+  'loot-request-session': (data: LootRequestSessionData) => void;
 }
