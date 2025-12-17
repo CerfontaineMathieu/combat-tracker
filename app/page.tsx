@@ -496,6 +496,7 @@ function CombatTrackerContent() {
               charisma: number | null
               max_spell_slots: Record<number, number> | null
               is_warlock: boolean
+              saving_throw_proficiencies: string[]
             }) => {
               // Load persisted data from database in parallel
               const [inventory, persistedStatus] = await Promise.all([
@@ -526,6 +527,7 @@ function CombatTrackerContent() {
                 intelligence: c.intelligence,
                 wisdom: c.wisdom,
                 charisma: c.charisma,
+                savingThrowProficiencies: c.saving_throw_proficiencies,
                 // Spell slots: use persisted if available, otherwise default to max from Notion
                 maxSpellSlots: c.max_spell_slots ?? undefined,
                 spellSlots: persistedStatus.spellSlots ?? c.max_spell_slots ?? undefined,

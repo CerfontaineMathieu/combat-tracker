@@ -26,10 +26,30 @@ import { SpellSlotManager } from "@/components/spell-slot-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
-function formatMod(score: number | null | undefined): string {
-  if (score == null) return "-"
-  const mod = Math.floor((score - 10) / 2)
-  return mod >= 0 ? `+${mod}` : `${mod}`
+// Calculate proficiency bonus from level
+function getProficiencyBonus(level: number): number {
+  return Math.floor((level - 1) / 4) + 2
+}
+
+// Calculate saving throw bonus (ability mod + proficiency if proficient)
+function getSaveBonus(
+  score: number | null | undefined,
+  level: number,
+  proficiencies: string[] | undefined,
+  saveKey: string
+): { bonus: string; isProficient: boolean; numericBonus: number | null } {
+  if (score == null) return { bonus: "-", isProficient: false, numericBonus: null }
+
+  const abilityMod = Math.floor((score - 10) / 2)
+  const isProficient = proficiencies?.includes(saveKey) ?? false
+  const profBonus = isProficient ? getProficiencyBonus(level) : 0
+  const totalBonus = abilityMod + profBonus
+
+  return {
+    bonus: totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`,
+    isProficient,
+    numericBonus: totalBonus
+  }
 }
 
 interface PlayerPanelProps {
@@ -573,7 +593,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       {/* Combat Stats Section - DM Only */}
                       {(player.passivePerception || player.strength) && (
                         <div className="mb-3 p-2 bg-secondary/30 rounded-lg">
-                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Stats de combat</h4>
+                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Jets de sauvegarde</h4>
 
                           {/* Passive Perception */}
                           {player.passivePerception && (
@@ -583,7 +603,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             </div>
                           )}
 
-                          {/* Ability Scores Grid */}
+                          {/* Saving Throws Grid */}
                           <div className="grid grid-cols-6 gap-1 text-center text-xs">
                             {[
                               { label: "FOR", value: player.strength },
@@ -593,18 +613,38 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                               { label: "SAG", value: player.wisdom },
                               { label: "CHA", value: player.charisma },
                             ].map((stat) => {
-                              const mod = stat.value != null ? Math.floor((stat.value - 10) / 2) : null
+                              const saveResult = getSaveBonus(
+                                stat.value,
+                                player.level || 1,
+                                player.savingThrowProficiencies,
+                                stat.label
+                              )
                               return (
-                                <div key={stat.label} className="p-1 bg-background/50 rounded border border-border/50">
-                                  <div className="text-muted-foreground">{stat.label}</div>
-                                  <div className="font-medium">{stat.value ?? "-"}</div>
+                                <div
+                                  key={stat.label}
+                                  className={cn(
+                                    "p-1 bg-background/50 rounded border",
+                                    saveResult.isProficient
+                                      ? "border-gold/50 bg-gold/10"
+                                      : "border-border/50"
+                                  )}
+                                >
                                   <div className={cn(
-                                    "text-xs font-bold",
-                                    mod === null ? "text-muted-foreground" :
-                                    mod > 0 ? "text-emerald" :
-                                    mod < 0 ? "text-crimson" : "text-foreground"
+                                    "text-muted-foreground",
+                                    saveResult.isProficient && "text-gold font-semibold"
                                   )}>
-                                    {formatMod(stat.value)}
+                                    {stat.label}
+                                  </div>
+                                  <div className="font-medium text-muted-foreground/70 text-[10px]">
+                                    ({stat.value ?? "-"})
+                                  </div>
+                                  <div className={cn(
+                                    "text-sm font-bold",
+                                    saveResult.numericBonus === null ? "text-muted-foreground" :
+                                    saveResult.numericBonus > 0 ? "text-emerald" :
+                                    saveResult.numericBonus < 0 ? "text-crimson" : "text-foreground"
+                                  )}>
+                                    {saveResult.bonus}
                                   </div>
                                 </div>
                               )

@@ -108,6 +108,8 @@ export interface Character {
   intelligence?: number | null
   wisdom?: number | null
   charisma?: number | null
+  // Saving throw proficiencies (e.g., ["FOR", "CON"])
+  savingThrowProficiencies?: string[]
   // Spell slots (synced from Notion)
   spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
   maxSpellSlots?: Record<number, number>  // Max slots from Notion
