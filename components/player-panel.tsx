@@ -592,13 +592,23 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                               { label: "INT", value: player.intelligence },
                               { label: "SAG", value: player.wisdom },
                               { label: "CHA", value: player.charisma },
-                            ].map((stat) => (
-                              <div key={stat.label} className="p-1 bg-background/50 rounded">
-                                <div className="text-muted-foreground">{stat.label}</div>
-                                <div className="font-medium">{stat.value ?? "-"}</div>
-                                <div className="text-gold text-xs">{formatMod(stat.value)}</div>
-                              </div>
-                            ))}
+                            ].map((stat) => {
+                              const mod = stat.value != null ? Math.floor((stat.value - 10) / 2) : null
+                              return (
+                                <div key={stat.label} className="p-1 bg-background/50 rounded border border-border/50">
+                                  <div className="text-muted-foreground">{stat.label}</div>
+                                  <div className="font-medium">{stat.value ?? "-"}</div>
+                                  <div className={cn(
+                                    "text-xs font-bold",
+                                    mod === null ? "text-muted-foreground" :
+                                    mod > 0 ? "text-emerald" :
+                                    mod < 0 ? "text-crimson" : "text-foreground"
+                                  )}>
+                                    {formatMod(stat.value)}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
                       )}

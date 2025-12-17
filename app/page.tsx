@@ -2149,6 +2149,13 @@ function CombatTrackerContent() {
       type: "player",
       level: player.level,  // For difficulty calculation (2024 rules)
       isConnected: player.isConnected,
+      // Ability scores for saving throw display
+      strength: player.strength,
+      dexterity: player.dexterity,
+      constitution: player.constitution,
+      intelligence: player.intelligence,
+      wisdom: player.wisdom,
+      charisma: player.charisma,
     }
     const updated = sortParticipantsByInitiative([...combatParticipants, participant])
     setCombatParticipants(updated)

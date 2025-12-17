@@ -160,6 +160,13 @@ export interface CombatParticipant {
   spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
   maxSpellSlots?: Record<number, number>  // Max slots from Notion
   isWarlock?: boolean                      // Warlocks recover slots on short rest
+  // Ability scores (players only, for saving throw display)
+  strength?: number | null
+  dexterity?: number | null
+  constitution?: number | null
+  intelligence?: number | null
+  wisdom?: number | null
+  charisma?: number | null
 }
 
 export interface Note {
