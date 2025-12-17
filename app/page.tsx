@@ -2333,14 +2333,16 @@ function CombatTrackerContent() {
     setCombatParticipants(prev => {
       const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
 
-      // If combat is active, sync the updated participants to players
+      // If combat is active, sync the updated participants to players (deferred to avoid setState during render)
       if (combatActive) {
-        emitCombatUpdate({
-          type: 'state-sync',
-          combatActive: true,
-          currentTurn,
-          roundNumber,
-          participants: updated,
+        queueMicrotask(() => {
+          emitCombatUpdate({
+            type: 'state-sync',
+            combatActive: true,
+            currentTurn,
+            roundNumber,
+            participants: updated,
+          })
         })
       }
 
@@ -2367,14 +2369,16 @@ function CombatTrackerContent() {
     setCombatParticipants(prev => {
       const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
 
-      // If combat is active, sync the updated participants to players
+      // If combat is active, sync the updated participants to players (deferred to avoid setState during render)
       if (combatActive) {
-        emitCombatUpdate({
-          type: 'state-sync',
-          combatActive: true,
-          currentTurn,
-          roundNumber,
-          participants: updated,
+        queueMicrotask(() => {
+          emitCombatUpdate({
+            type: 'state-sync',
+            combatActive: true,
+            currentTurn,
+            roundNumber,
+            participants: updated,
+          })
         })
       }
 
