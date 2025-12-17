@@ -26,9 +26,28 @@ import { SpellSlotManager } from "@/components/spell-slot-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
+// Map abbreviated save keys to all possible Notion values (French full names, abbreviations)
+const SAVE_KEY_ALIASES: Record<string, string[]> = {
+  FOR: ["FOR", "FORCE", "STRENGTH", "STR"],
+  DEX: ["DEX", "DEXTÉRITÉ", "DEXTERITE", "DEXTERITY"],
+  CON: ["CON", "CONSTITUTION"],
+  INT: ["INT", "INTELLIGENCE"],
+  SAG: ["SAG", "SAGESSE", "WISDOM", "WIS"],
+  CHA: ["CHA", "CHARISME", "CHARISMA"],
+}
+
 // Calculate proficiency bonus from level
 function getProficiencyBonus(level: number): number {
   return Math.floor((level - 1) / 4) + 2
+}
+
+// Check if proficiencies array contains any alias for the given save key
+function hasSaveProficiency(proficiencies: string[] | undefined, saveKey: string): boolean {
+  if (!proficiencies || proficiencies.length === 0) return false
+  const aliases = SAVE_KEY_ALIASES[saveKey] || [saveKey]
+  return proficiencies.some(prof =>
+    aliases.some(alias => prof.toUpperCase() === alias)
+  )
 }
 
 // Calculate saving throw bonus (ability mod + proficiency if proficient)
@@ -41,7 +60,7 @@ function getSaveBonus(
   if (score == null) return { bonus: "-", isProficient: false, numericBonus: null }
 
   const abilityMod = Math.floor((score - 10) / 2)
-  const isProficient = proficiencies?.includes(saveKey) ?? false
+  const isProficient = hasSaveProficiency(proficiencies, saveKey)
   const profBonus = isProficient ? getProficiencyBonus(level) : 0
   const totalBonus = abilityMod + profBonus
 
