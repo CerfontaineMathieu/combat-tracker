@@ -164,31 +164,37 @@ export function SpellPickerDialog({
               className="pl-9"
             />
           </div>
-          <div className="flex gap-2">
-            <Select value={level} onValueChange={setLevel}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Niveau" />
-              </SelectTrigger>
-              <SelectContent>
-                {SPELL_LEVELS.map((l) => (
-                  <SelectItem key={l.value} value={l.value}>
-                    {l.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={saveType} onValueChange={setSaveType}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="JdS" />
-              </SelectTrigger>
-              <SelectContent>
-                {SAVE_TYPES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Niveau</label>
+              <Select value={level} onValueChange={setLevel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Niveau" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SPELL_LEVELS.map((l) => (
+                    <SelectItem key={l.value} value={l.value}>
+                      {l.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Jet de sauvegarde</label>
+              <Select value={saveType} onValueChange={setSaveType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="JdS" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAVE_TYPES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
