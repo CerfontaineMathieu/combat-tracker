@@ -726,6 +726,7 @@ export interface CatalogSpell {
   concentration: boolean;
   description: string | null;
   higher_levels: string | null;     // At higher levels
+  saving_throw: string | null;      // Jet de sauvegarde (FOR, DEX, CON, INT, SAG, CHA)
   created_at: string;
   updated_at: string;
 }

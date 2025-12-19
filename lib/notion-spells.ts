@@ -257,6 +257,9 @@ async function mapNotionPageToSpell(
       extractText(props['À plus haut niveau']?.rich_text || []) ||
       null;
 
+    // Extract saving throw characteristic (JdS - select)
+    const saving_throw = extractSelect(props['JdS']) || null;
+
     return {
       notion_id: page.id,
       name,
@@ -271,6 +274,7 @@ async function mapNotionPageToSpell(
       concentration,
       description,
       higher_levels,
+      saving_throw,
     };
   } catch (error) {
     console.error('Error mapping Notion page to spell:', error);

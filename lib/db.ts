@@ -1325,7 +1325,8 @@ export async function getSpellByNotionId(notionId: string): Promise<CatalogSpell
 
 export async function searchSpells(
   query: string,
-  level?: number
+  level?: number,
+  save?: string
 ): Promise<CatalogSpell[]> {
   let sql = 'SELECT * FROM spell_catalog WHERE 1=1';
   const params: any[] = [];
@@ -1340,6 +1341,12 @@ export async function searchSpells(
   if (level !== undefined && level >= 0) {
     sql += ` AND level = $${paramIndex}`;
     params.push(level);
+    paramIndex++;
+  }
+
+  if (save) {
+    sql += ` AND saving_throw = $${paramIndex}`;
+    params.push(save);
     paramIndex++;
   }
 
@@ -1460,6 +1467,7 @@ export async function getPreparedSpells(
       sc.concentration as "spell.concentration",
       sc.description as "spell.description",
       sc.higher_levels as "spell.higher_levels",
+      sc.saving_throw as "spell.saving_throw",
       sc.created_at as "spell.created_at",
       sc.updated_at as "spell.updated_at"
      FROM character_prepared_spells ps
@@ -1491,6 +1499,7 @@ export async function getPreparedSpells(
       concentration: row['spell.concentration'],
       description: row['spell.description'],
       higher_levels: row['spell.higher_levels'],
+      saving_throw: row['spell.saving_throw'],
       created_at: row['spell.created_at'],
       updated_at: row['spell.updated_at'],
     }

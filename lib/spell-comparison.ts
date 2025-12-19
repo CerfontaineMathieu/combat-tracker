@@ -62,6 +62,10 @@ export function compareSpells(
     changes.push('higher_levels');
   }
 
+  if (existing.saving_throw !== updated.saving_throw) {
+    changes.push('saving_throw');
+  }
+
   // Compare classes array (sorted for consistent comparison)
   const existingClasses = JSON.stringify([...(existing.classes || [])].sort());
   const updatedClasses = JSON.stringify([...(updated.classes || [])].sort());
@@ -155,6 +159,7 @@ export function getSpellChangesSummary(changes: string[]): string {
     concentration: 'Concentration',
     description: 'Description',
     higher_levels: 'Niveaux supérieurs',
+    saving_throw: 'Jet de sauvegarde',
   };
 
   return changes.map(field => fieldLabels[field] || field).join(', ');

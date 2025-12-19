@@ -19,6 +19,7 @@ import {
   Focus,
   Wand2,
   BookOpen,
+  Shield,
 } from "lucide-react"
 import type { CatalogSpell } from "@/lib/types"
 
@@ -110,16 +111,27 @@ export function SpellDetail({
         </p>
       )}
 
-      {/* Concentration badge */}
-      {spell.concentration && (
-        <Badge
-          variant="outline"
-          className="text-amber-400 border-amber-500/50"
-        >
-          <Focus className="w-3 h-3 mr-1" />
-          Concentration
-        </Badge>
-      )}
+      {/* Concentration and Saving Throw badges */}
+      <div className="flex flex-wrap gap-2">
+        {spell.concentration && (
+          <Badge
+            variant="outline"
+            className="text-amber-400 border-amber-500/50"
+          >
+            <Focus className="w-3 h-3 mr-1" />
+            Concentration
+          </Badge>
+        )}
+        {spell.saving_throw && (
+          <Badge
+            variant="outline"
+            className="text-emerald-400 border-emerald-500/50"
+          >
+            <Shield className="w-3 h-3 mr-1" />
+            JdS {spell.saving_throw}
+          </Badge>
+        )}
+      </div>
 
       <Separator />
 
