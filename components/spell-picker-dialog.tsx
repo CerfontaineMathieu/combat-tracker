@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, BookOpen, Loader2, Plus, Sparkles, Zap } from "lucide-react"
+import { Search, BookOpen, Loader2, Plus, Sparkles, Zap, Shield } from "lucide-react"
 import { SpellDetail } from "./spell-detail"
 import type { CatalogSpell } from "@/lib/types"
 
@@ -43,6 +43,16 @@ const SPELL_LEVELS = [
   { value: "9", label: "Niveau 9" },
 ]
 
+const SAVE_TYPES = [
+  { value: "all", label: "Tous les JdS" },
+  { value: "FOR", label: "FOR" },
+  { value: "DEX", label: "DEX" },
+  { value: "CON", label: "CON" },
+  { value: "INT", label: "INT" },
+  { value: "SAG", label: "SAG" },
+  { value: "CHA", label: "CHA" },
+]
+
 export function SpellPickerDialog({
   trigger,
   onSelect,
@@ -51,6 +61,7 @@ export function SpellPickerDialog({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [level, setLevel] = useState<string>("all")
+  const [saveType, setSaveType] = useState<string>("all")
   const [allSpells, setAllSpells] = useState<CatalogSpell[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedSpell, setSelectedSpell] = useState<CatalogSpell | null>(null)
@@ -67,13 +78,15 @@ export function SpellPickerDialog({
   // Fetch spells from API
   const fetchSpells = useCallback(async (
     searchQuery: string,
-    levelFilter: string
+    levelFilter: string,
+    saveFilter: string
   ) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.set("q", searchQuery)
       if (levelFilter !== "all") params.set("level", levelFilter)
+      if (saveFilter !== "all") params.set("save", saveFilter)
 
       const response = await fetch(`/api/spells/search?${params}`)
       const data = await response.json()
@@ -94,9 +107,10 @@ export function SpellPickerDialog({
       // Reset state
       setSearch("")
       setLevel("all")
+      setSaveType("all")
       setSelectedSpell(null)
       // Fetch with initial values
-      fetchSpells("", "all")
+      fetchSpells("", "all", "all")
     }
   }, [open, fetchSpells])
 
@@ -105,11 +119,11 @@ export function SpellPickerDialog({
     if (!open) return
 
     const timer = setTimeout(() => {
-      fetchSpells(search, level)
+      fetchSpells(search, level, saveType)
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [open, search, level, fetchSpells])
+  }, [open, search, level, saveType, fetchSpells])
 
   const handleSelect = (spell: CatalogSpell) => {
     onSelect(spell)
@@ -131,7 +145,7 @@ export function SpellPickerDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-purple-400">
             <Sparkles className="w-5 h-5" />
@@ -140,8 +154,8 @@ export function SpellPickerDialog({
         </DialogHeader>
 
         {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[150px]">
+        <div className="space-y-2">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher un sort.."
@@ -150,18 +164,38 @@ export function SpellPickerDialog({
               className="pl-9"
             />
           </div>
-          <Select value={level} onValueChange={setLevel}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Niveau" />
-            </SelectTrigger>
-            <SelectContent>
-              {SPELL_LEVELS.map((l) => (
-                <SelectItem key={l.value} value={l.value}>
-                  {l.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Niveau</label>
+              <Select value={level} onValueChange={setLevel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Niveau" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SPELL_LEVELS.map((l) => (
+                    <SelectItem key={l.value} value={l.value}>
+                      {l.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Jet de sauvegarde</label>
+              <Select value={saveType} onValueChange={setSaveType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="JdS" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAVE_TYPES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         {/* Results count */}
@@ -227,7 +261,7 @@ export function SpellPickerDialog({
                       onClick={() => setSelectedSpell(spell)}
                       className="p-3 rounded-lg border border-border hover:border-purple-500/50 cursor-pointer transition-colors"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{spell.name}</span>
                         <Badge variant="outline" className="text-xs">
                           {getLevelLabel(spell.level)}
@@ -238,6 +272,15 @@ export function SpellPickerDialog({
                             className="text-xs text-amber-400"
                           >
                             C
+                          </Badge>
+                        )}
+                        {spell.saving_throw && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs text-emerald-400"
+                          >
+                            <Shield className="w-3 h-3 mr-0.5" />
+                            {spell.saving_throw}
                           </Badge>
                         )}
                       </div>

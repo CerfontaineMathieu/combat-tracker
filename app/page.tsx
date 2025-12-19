@@ -496,6 +496,7 @@ function CombatTrackerContent() {
               charisma: number | null
               max_spell_slots: Record<number, number> | null
               is_warlock: boolean
+              saving_throw_proficiencies: string[]
             }) => {
               // Load persisted data from database in parallel
               const [inventory, persistedStatus] = await Promise.all([
@@ -526,6 +527,7 @@ function CombatTrackerContent() {
                 intelligence: c.intelligence,
                 wisdom: c.wisdom,
                 charisma: c.charisma,
+                savingThrowProficiencies: c.saving_throw_proficiencies,
                 // Spell slots: use persisted if available, otherwise default to max from Notion
                 maxSpellSlots: c.max_spell_slots ?? undefined,
                 spellSlots: persistedStatus.spellSlots ?? c.max_spell_slots ?? undefined,
@@ -806,6 +808,7 @@ function CombatTrackerContent() {
           intelligence: campaignChar?.intelligence,
           wisdom: campaignChar?.wisdom,
           charisma: campaignChar?.charisma,
+          savingThrowProficiencies: campaignChar?.savingThrowProficiencies,
           // Spell slots from campaign characters (Notion) and socket state
           maxSpellSlots: campaignChar?.maxSpellSlots,
           spellSlots: char.spellSlots ?? campaignChar?.spellSlots ?? campaignChar?.maxSpellSlots,
@@ -2149,6 +2152,13 @@ function CombatTrackerContent() {
       type: "player",
       level: player.level,  // For difficulty calculation (2024 rules)
       isConnected: player.isConnected,
+      // Ability scores for saving throw display
+      strength: player.strength,
+      dexterity: player.dexterity,
+      constitution: player.constitution,
+      intelligence: player.intelligence,
+      wisdom: player.wisdom,
+      charisma: player.charisma,
     }
     const updated = sortParticipantsByInitiative([...combatParticipants, participant])
     setCombatParticipants(updated)
@@ -2333,14 +2343,16 @@ function CombatTrackerContent() {
     setCombatParticipants(prev => {
       const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
 
-      // If combat is active, sync the updated participants to players
+      // If combat is active, sync the updated participants to players (deferred to avoid setState during render)
       if (combatActive) {
-        emitCombatUpdate({
-          type: 'state-sync',
-          combatActive: true,
-          currentTurn,
-          roundNumber,
-          participants: updated,
+        queueMicrotask(() => {
+          emitCombatUpdate({
+            type: 'state-sync',
+            combatActive: true,
+            currentTurn,
+            roundNumber,
+            participants: updated,
+          })
         })
       }
 
@@ -2367,14 +2379,16 @@ function CombatTrackerContent() {
     setCombatParticipants(prev => {
       const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
 
-      // If combat is active, sync the updated participants to players
+      // If combat is active, sync the updated participants to players (deferred to avoid setState during render)
       if (combatActive) {
-        emitCombatUpdate({
-          type: 'state-sync',
-          combatActive: true,
-          currentTurn,
-          roundNumber,
-          participants: updated,
+        queueMicrotask(() => {
+          emitCombatUpdate({
+            type: 'state-sync',
+            combatActive: true,
+            currentTurn,
+            roundNumber,
+            participants: updated,
+          })
         })
       }
 

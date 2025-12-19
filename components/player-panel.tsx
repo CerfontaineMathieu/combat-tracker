@@ -26,10 +26,49 @@ import { SpellSlotManager } from "@/components/spell-slot-manager"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
-function formatMod(score: number | null | undefined): string {
-  if (score == null) return "-"
-  const mod = Math.floor((score - 10) / 2)
-  return mod >= 0 ? `+${mod}` : `${mod}`
+// Map abbreviated save keys to all possible Notion values (French full names, abbreviations)
+const SAVE_KEY_ALIASES: Record<string, string[]> = {
+  FOR: ["FOR", "FORCE", "STRENGTH", "STR"],
+  DEX: ["DEX", "DEXTÉRITÉ", "DEXTERITE", "DEXTERITY"],
+  CON: ["CON", "CONSTITUTION"],
+  INT: ["INT", "INTELLIGENCE"],
+  SAG: ["SAG", "SAGESSE", "WISDOM", "WIS"],
+  CHA: ["CHA", "CHARISME", "CHARISMA"],
+}
+
+// Calculate proficiency bonus from level
+function getProficiencyBonus(level: number): number {
+  return Math.floor((level - 1) / 4) + 2
+}
+
+// Check if proficiencies array contains any alias for the given save key
+function hasSaveProficiency(proficiencies: string[] | undefined, saveKey: string): boolean {
+  if (!proficiencies || proficiencies.length === 0) return false
+  const aliases = SAVE_KEY_ALIASES[saveKey] || [saveKey]
+  return proficiencies.some(prof =>
+    aliases.some(alias => prof.toUpperCase() === alias)
+  )
+}
+
+// Calculate saving throw bonus (ability mod + proficiency if proficient)
+function getSaveBonus(
+  score: number | null | undefined,
+  level: number,
+  proficiencies: string[] | undefined,
+  saveKey: string
+): { bonus: string; isProficient: boolean; numericBonus: number | null } {
+  if (score == null) return { bonus: "-", isProficient: false, numericBonus: null }
+
+  const abilityMod = Math.floor((score - 10) / 2)
+  const isProficient = hasSaveProficiency(proficiencies, saveKey)
+  const profBonus = isProficient ? getProficiencyBonus(level) : 0
+  const totalBonus = abilityMod + profBonus
+
+  return {
+    bonus: totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`,
+    isProficient,
+    numericBonus: totalBonus
+  }
 }
 
 interface PlayerPanelProps {
@@ -573,7 +612,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       {/* Combat Stats Section - DM Only */}
                       {(player.passivePerception || player.strength) && (
                         <div className="mb-3 p-2 bg-secondary/30 rounded-lg">
-                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Stats de combat</h4>
+                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Caractéristiques</h4>
 
                           {/* Passive Perception */}
                           {player.passivePerception && (
@@ -583,8 +622,8 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             </div>
                           )}
 
-                          {/* Ability Scores Grid */}
-                          <div className="grid grid-cols-6 gap-1 text-center text-xs">
+                          {/* Ability Scores Grid - Shows ability modifiers */}
+                          <div className="grid grid-cols-6 gap-1 text-center text-xs mb-2">
                             {[
                               { label: "FOR", value: player.strength },
                               { label: "DEX", value: player.dexterity },
@@ -592,13 +631,62 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                               { label: "INT", value: player.intelligence },
                               { label: "SAG", value: player.wisdom },
                               { label: "CHA", value: player.charisma },
-                            ].map((stat) => (
-                              <div key={stat.label} className="p-1 bg-background/50 rounded">
-                                <div className="text-muted-foreground">{stat.label}</div>
-                                <div className="font-medium">{stat.value ?? "-"}</div>
-                                <div className="text-gold text-xs">{formatMod(stat.value)}</div>
-                              </div>
-                            ))}
+                            ].map((stat) => {
+                              const mod = stat.value != null ? Math.floor((stat.value - 10) / 2) : null
+                              return (
+                                <div
+                                  key={stat.label}
+                                  className="p-1 bg-background/50 rounded border border-border/50"
+                                >
+                                  <div className="text-muted-foreground">{stat.label}</div>
+                                  <div className="font-medium">{stat.value ?? "-"}</div>
+                                  <div className={cn(
+                                    "text-xs font-bold",
+                                    mod === null ? "text-muted-foreground" :
+                                    mod > 0 ? "text-emerald" :
+                                    mod < 0 ? "text-crimson" : "text-foreground"
+                                  )}>
+                                    {mod === null ? "-" : mod >= 0 ? `+${mod}` : `${mod}`}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Saving Throws Row - Shows save bonuses with proficiency */}
+                          <div className="flex items-center gap-1 text-xs flex-wrap">
+                            <span className="text-muted-foreground font-medium mr-1">JS:</span>
+                            {[
+                              { label: "FOR", value: player.strength },
+                              { label: "DEX", value: player.dexterity },
+                              { label: "CON", value: player.constitution },
+                              { label: "INT", value: player.intelligence },
+                              { label: "SAG", value: player.wisdom },
+                              { label: "CHA", value: player.charisma },
+                            ].map((stat, idx) => {
+                              const saveResult = getSaveBonus(
+                                stat.value,
+                                player.level || 1,
+                                player.savingThrowProficiencies,
+                                stat.label
+                              )
+                              return (
+                                <span key={stat.label} className="flex items-center">
+                                  <span className={cn(
+                                    "font-medium px-1 py-0.5 rounded",
+                                    saveResult.isProficient && "bg-gold/20 text-gold",
+                                    !saveResult.isProficient && (
+                                      saveResult.numericBonus === null ? "text-muted-foreground" :
+                                      saveResult.numericBonus > 0 ? "text-emerald" :
+                                      saveResult.numericBonus < 0 ? "text-crimson" : "text-foreground"
+                                    )
+                                  )}>
+                                    {stat.label} {saveResult.bonus}
+                                  </span>
+                                  {idx < 5 && <span className="text-muted-foreground/50 mx-0.5">|</span>}
+                                </span>
+                              )
+                            })}
                           </div>
                         </div>
                       )}

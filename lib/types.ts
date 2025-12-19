@@ -108,6 +108,8 @@ export interface Character {
   intelligence?: number | null
   wisdom?: number | null
   charisma?: number | null
+  // Saving throw proficiencies (e.g., ["FOR", "CON"])
+  savingThrowProficiencies?: string[]
   // Spell slots (synced from Notion)
   spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
   maxSpellSlots?: Record<number, number>  // Max slots from Notion
@@ -160,6 +162,13 @@ export interface CombatParticipant {
   spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
   maxSpellSlots?: Record<number, number>  // Max slots from Notion
   isWarlock?: boolean                      // Warlocks recover slots on short rest
+  // Ability scores (players only, for saving throw display)
+  strength?: number | null
+  dexterity?: number | null
+  constitution?: number | null
+  intelligence?: number | null
+  wisdom?: number | null
+  charisma?: number | null
 }
 
 export interface Note {
@@ -717,6 +726,7 @@ export interface CatalogSpell {
   concentration: boolean;
   description: string | null;
   higher_levels: string | null;     // At higher levels
+  saving_throw: string | null;      // Jet de sauvegarde (FOR, DEX, CON, INT, SAG, CHA)
   created_at: string;
   updated_at: string;
 }

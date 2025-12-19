@@ -340,8 +340,8 @@ export function CombatPanel({
                             {participant.name}
                           </h3>
                         )}
-                        {/* AC Badge for monsters */}
-                        {participant.type === "monster" && participant.ac && (
+                        {/* AC Badge for monsters - hidden from players */}
+                        {mode === "mj" && participant.type === "monster" && participant.ac && (
                           <Badge variant="outline" className="text-xs ml-1 border-crimson/50 text-crimson shrink-0">
                             <Shield className="w-3 h-3 mr-0.5" />
                             {participant.ac}
@@ -814,8 +814,8 @@ export function CombatPanel({
                             {participant.name}
                           </h3>
                         )}
-                        {/* AC Badge for monsters */}
-                        {participant.type === "monster" && participant.ac && (
+                        {/* AC Badge for monsters - hidden from players */}
+                        {mode === "mj" && participant.type === "monster" && participant.ac && (
                           <Badge variant="outline" className="text-xs border-crimson/50 text-crimson shrink-0">
                             <Shield className="w-3 h-3 mr-0.5" />
                             {participant.ac}

@@ -570,6 +570,8 @@ export interface NotionCharacter {
   intelligence: number | null;
   wisdom: number | null;
   charisma: number | null;
+  // Saving throw proficiencies (e.g., ["FOR", "CON"])
+  saving_throw_proficiencies: string[];
   // Spell slots
   max_spell_slots: Record<number, number> | null;
   is_warlock: boolean;
@@ -679,6 +681,17 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
     // Try both "CHAR" and "CHA" for charisma
     const charisma = extractNumber(props.CHAR?.number) ?? extractNumber(props.CHA?.number);
 
+    // Extract saving throw proficiencies from "Saves maîtrisés" multi-select
+    const savingThrowProficiencies: string[] = [];
+    const savesProperty = props['Saves maîtrisés'];
+    if (savesProperty?.multi_select) {
+      for (const option of savesProperty.multi_select) {
+        if (option.name) {
+          savingThrowProficiencies.push(option.name.toUpperCase());
+        }
+      }
+    }
+
     // Extract max spell slots from "Sorts Niv. X" columns (1-9)
     const maxSpellSlots: Record<number, number> = {};
     for (let level = 1; level <= 9; level++) {
@@ -712,6 +725,7 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
       intelligence,
       wisdom,
       charisma,
+      saving_throw_proficiencies: savingThrowProficiencies,
       max_spell_slots: hasSpellSlots ? maxSpellSlots : null,
       is_warlock: isWarlock,
     };

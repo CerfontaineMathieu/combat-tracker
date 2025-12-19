@@ -257,6 +257,20 @@ async function mapNotionPageToSpell(
       extractText(props['À plus haut niveau']?.rich_text || []) ||
       null;
 
+    // Extract saving throw characteristic (JdS - multi_select or select)
+    // JdS can be multi_select (take first value) or select
+    const jdsProp = props['JdS'] || props['Jds'] || props['Jet de sauvegarde'] || props['Sauvegarde'];
+    let saving_throw: string | null = null;
+    if (jdsProp) {
+      if (jdsProp.multi_select && jdsProp.multi_select.length > 0) {
+        // Multi-select: take the first value
+        saving_throw = jdsProp.multi_select[0].name || null;
+      } else if (jdsProp.select && jdsProp.select.name) {
+        // Regular select
+        saving_throw = jdsProp.select.name;
+      }
+    }
+
     return {
       notion_id: page.id,
       name,
@@ -271,6 +285,7 @@ async function mapNotionPageToSpell(
       concentration,
       description,
       higher_levels,
+      saving_throw,
     };
   } catch (error) {
     console.error('Error mapping Notion page to spell:', error);
