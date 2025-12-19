@@ -612,7 +612,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       {/* Combat Stats Section - DM Only */}
                       {(player.passivePerception || player.strength) && (
                         <div className="mb-3 p-2 bg-secondary/30 rounded-lg">
-                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Jets de sauvegarde</h4>
+                          <h4 className="text-xs text-muted-foreground mb-2 font-medium">Caractéristiques</h4>
 
                           {/* Passive Perception */}
                           {player.passivePerception && (
@@ -622,8 +622,8 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                             </div>
                           )}
 
-                          {/* Saving Throws Grid */}
-                          <div className="grid grid-cols-6 gap-1 text-center text-xs">
+                          {/* Ability Scores Grid - Shows ability modifiers */}
+                          <div className="grid grid-cols-6 gap-1 text-center text-xs mb-2">
                             {[
                               { label: "FOR", value: player.strength },
                               { label: "DEX", value: player.dexterity },
@@ -632,6 +632,38 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                               { label: "SAG", value: player.wisdom },
                               { label: "CHA", value: player.charisma },
                             ].map((stat) => {
+                              const mod = stat.value != null ? Math.floor((stat.value - 10) / 2) : null
+                              return (
+                                <div
+                                  key={stat.label}
+                                  className="p-1 bg-background/50 rounded border border-border/50"
+                                >
+                                  <div className="text-muted-foreground">{stat.label}</div>
+                                  <div className="font-medium">{stat.value ?? "-"}</div>
+                                  <div className={cn(
+                                    "text-xs font-bold",
+                                    mod === null ? "text-muted-foreground" :
+                                    mod > 0 ? "text-emerald" :
+                                    mod < 0 ? "text-crimson" : "text-foreground"
+                                  )}>
+                                    {mod === null ? "-" : mod >= 0 ? `+${mod}` : `${mod}`}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Saving Throws Row - Shows save bonuses with proficiency */}
+                          <div className="flex items-center gap-1 text-xs flex-wrap">
+                            <span className="text-muted-foreground font-medium mr-1">JS:</span>
+                            {[
+                              { label: "FOR", value: player.strength },
+                              { label: "DEX", value: player.dexterity },
+                              { label: "CON", value: player.constitution },
+                              { label: "INT", value: player.intelligence },
+                              { label: "SAG", value: player.wisdom },
+                              { label: "CHA", value: player.charisma },
+                            ].map((stat, idx) => {
                               const saveResult = getSaveBonus(
                                 stat.value,
                                 player.level || 1,
@@ -639,33 +671,20 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                 stat.label
                               )
                               return (
-                                <div
-                                  key={stat.label}
-                                  className={cn(
-                                    "p-1 bg-background/50 rounded border",
-                                    saveResult.isProficient
-                                      ? "border-gold/50 bg-gold/10"
-                                      : "border-border/50"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "text-muted-foreground",
-                                    saveResult.isProficient && "text-gold font-semibold"
+                                <span key={stat.label} className="flex items-center">
+                                  <span className={cn(
+                                    "font-medium px-1 py-0.5 rounded",
+                                    saveResult.isProficient && "bg-gold/20 text-gold",
+                                    !saveResult.isProficient && (
+                                      saveResult.numericBonus === null ? "text-muted-foreground" :
+                                      saveResult.numericBonus > 0 ? "text-emerald" :
+                                      saveResult.numericBonus < 0 ? "text-crimson" : "text-foreground"
+                                    )
                                   )}>
-                                    {stat.label}
-                                  </div>
-                                  <div className="font-medium text-muted-foreground/70 text-[10px]">
-                                    ({stat.value ?? "-"})
-                                  </div>
-                                  <div className={cn(
-                                    "text-sm font-bold",
-                                    saveResult.numericBonus === null ? "text-muted-foreground" :
-                                    saveResult.numericBonus > 0 ? "text-emerald" :
-                                    saveResult.numericBonus < 0 ? "text-crimson" : "text-foreground"
-                                  )}>
-                                    {saveResult.bonus}
-                                  </div>
-                                </div>
+                                    {stat.label} {saveResult.bonus}
+                                  </span>
+                                  {idx < 5 && <span className="text-muted-foreground/50 mx-0.5">|</span>}
+                                </span>
                               )
                             })}
                           </div>

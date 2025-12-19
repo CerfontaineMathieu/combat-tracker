@@ -808,6 +808,7 @@ function CombatTrackerContent() {
           intelligence: campaignChar?.intelligence,
           wisdom: campaignChar?.wisdom,
           charisma: campaignChar?.charisma,
+          savingThrowProficiencies: campaignChar?.savingThrowProficiencies,
           // Spell slots from campaign characters (Notion) and socket state
           maxSpellSlots: campaignChar?.maxSpellSlots,
           spellSlots: char.spellSlots ?? campaignChar?.spellSlots ?? campaignChar?.maxSpellSlots,
