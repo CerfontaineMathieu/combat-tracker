@@ -145,7 +145,7 @@ export function SpellPickerDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-purple-400">
             <Sparkles className="w-5 h-5" />
@@ -154,8 +154,8 @@ export function SpellPickerDialog({
         </DialogHeader>
 
         {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[150px]">
+        <div className="space-y-2">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher un sort.."
@@ -164,30 +164,32 @@ export function SpellPickerDialog({
               className="pl-9"
             />
           </div>
-          <Select value={level} onValueChange={setLevel}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Niveau" />
-            </SelectTrigger>
-            <SelectContent>
-              {SPELL_LEVELS.map((l) => (
-                <SelectItem key={l.value} value={l.value}>
-                  {l.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={saveType} onValueChange={setSaveType}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="JdS" />
-            </SelectTrigger>
-            <SelectContent>
-              {SAVE_TYPES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select value={level} onValueChange={setLevel}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Niveau" />
+              </SelectTrigger>
+              <SelectContent>
+                {SPELL_LEVELS.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>
+                    {l.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={saveType} onValueChange={setSaveType}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="JdS" />
+              </SelectTrigger>
+              <SelectContent>
+                {SAVE_TYPES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Results count */}
