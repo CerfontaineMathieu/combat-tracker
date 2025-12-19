@@ -1368,8 +1368,8 @@ export async function upsertSpell(spell: CatalogSpellInput): Promise<CatalogSpel
   const result = await pool.query(
     `INSERT INTO spell_catalog (
       notion_id, name, level, school, classes, casting_time, range, duration,
-      components, material_details, concentration, description, higher_levels
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      components, material_details, concentration, description, higher_levels, saving_throw
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT (notion_id)
     DO UPDATE SET
       name = EXCLUDED.name,
@@ -1384,6 +1384,7 @@ export async function upsertSpell(spell: CatalogSpellInput): Promise<CatalogSpel
       concentration = EXCLUDED.concentration,
       description = EXCLUDED.description,
       higher_levels = EXCLUDED.higher_levels,
+      saving_throw = EXCLUDED.saving_throw,
       updated_at = CURRENT_TIMESTAMP
     RETURNING *`,
     [
@@ -1400,6 +1401,7 @@ export async function upsertSpell(spell: CatalogSpellInput): Promise<CatalogSpel
       spell.concentration,
       spell.description,
       spell.higher_levels,
+      spell.saving_throw,
     ]
   );
   return result.rows[0];
