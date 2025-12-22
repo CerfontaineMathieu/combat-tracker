@@ -128,9 +128,14 @@ export interface SocketState {
   // Notifications (toast queue)
   pendingNotification: NotificationData | null;
 
-  // DM disconnect tracking (for player overlay)
-  dmDisconnected: boolean;
-  dmDisconnectTime: number | null;
+  // Concentration check request (from player to DM)
+  pendingConcentrationRequest: {
+    participantId: string;
+    participantName: string;
+    participantType: 'player' | 'monster';
+    damage: number;
+    dc: number;
+  } | null;
 
   // XP Summary (shown when combat ends)
   xpSummary: {
@@ -200,9 +205,9 @@ export type SocketAction =
   | { type: 'SET_NOTIFICATION'; notification: NotificationData }
   | { type: 'CLEAR_NOTIFICATION' }
 
-  // DM disconnect/reconnect
-  | { type: 'DM_DISCONNECTED'; timestamp: number }
-  | { type: 'DM_RECONNECTED' }
+  // Concentration check request
+  | { type: 'CONCENTRATION_CHECK_REQUEST'; data: { participantId: string; participantName: string; participantType: 'player' | 'monster'; damage: number; dc: number } }
+  | { type: 'CLEAR_CONCENTRATION_REQUEST' }
 
   // XP Summary
   | { type: 'SET_XP_SUMMARY'; xpSummary: SocketState['xpSummary'] }
@@ -263,9 +268,8 @@ export const initialSocketState: SocketState = {
   // Notifications
   pendingNotification: null,
 
-  // DM disconnect tracking
-  dmDisconnected: false,
-  dmDisconnectTime: null,
+  // Concentration check request
+  pendingConcentrationRequest: null,
 
   // XP Summary
   xpSummary: null,

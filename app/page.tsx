@@ -21,7 +21,6 @@ import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
-import { DmDisconnectOverlay } from "@/components/dm-disconnect-overlay"
 import { XpSummaryModal } from "@/components/xp-summary-modal"
 import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
 import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
@@ -216,6 +215,23 @@ function CombatTrackerContent() {
   useEffect(() => {
     sessionStorage.setItem('dnd-ambientEffect', ambientEffect)
   }, [ambientEffect])
+
+  // Handle concentration check requests from players (DM only)
+  useEffect(() => {
+    if (mode === 'mj' && socketState.pendingConcentrationRequest) {
+      const req = socketState.pendingConcentrationRequest
+      setConcentrationCheck({
+        participantId: req.participantId,
+        participantName: req.participantName,
+        participantType: req.participantType,
+        damage: req.damage,
+        dc: req.dc,
+        pendingChange: 0, // HP already applied by player
+      })
+      // Clear the pending request
+      socketDispatch({ type: 'CLEAR_CONCENTRATION_REQUEST' })
+    }
+  }, [mode, socketState.pendingConcentrationRequest, socketDispatch])
 
   // Set default tab based on mode when mode changes (login)
   // Players should start on "players" tab (Mes Personnages), DM on "setup"
@@ -1268,6 +1284,23 @@ function CombatTrackerContent() {
       }
     }
 
+    // Player mode: notify DM if taking damage while concentrating
+    if (mode === 'joueur' && combatActive && change < 0 && !skipConcentrationCheck) {
+      const isConcentrated = player.conditions?.includes("concentre")
+      if (isConcentrated && socketState.socket) {
+        const damage = Math.abs(change)
+        const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)))
+        // Notify DM to handle concentration check (damage will still be applied below)
+        socketState.socket.emit('concentration-check-request', {
+          participantId: id,
+          participantName: player.name,
+          participantType: 'player' as const,
+          damage,
+          dc,
+        })
+      }
+    }
+
     // Handle temp HP absorption for damage (D&D 5e rules)
     let actualHpChange = change
     let newTempHp = player.tempHp ?? 0
@@ -1779,10 +1812,13 @@ function CombatTrackerContent() {
     const { participantId, participantName, participantType, pendingChange, dc } = concentrationCheck
 
     // Apply the pending damage with skipConcentrationCheck flag
-    if (participantType === 'player') {
-      await updatePlayerHp(participantId, pendingChange, true)
-    } else {
-      await updateMonsterHp(participantId, pendingChange, true)
+    // Skip if pendingChange is 0 (player already applied their own damage)
+    if (pendingChange !== 0) {
+      if (participantType === 'player') {
+        await updatePlayerHp(participantId, pendingChange, true)
+      } else {
+        await updateMonsterHp(participantId, pendingChange, true)
+      }
     }
 
     // If concentration check failed, remove the "concentre" condition
@@ -1827,10 +1863,13 @@ function CombatTrackerContent() {
     const { participantId, participantType, pendingChange } = concentrationCheck
 
     // Apply the pending damage with skipConcentrationCheck flag
-    if (participantType === 'player') {
-      await updatePlayerHp(participantId, pendingChange, true)
-    } else {
-      await updateMonsterHp(participantId, pendingChange, true)
+    // Skip if pendingChange is 0 (player already applied their own damage)
+    if (pendingChange !== 0) {
+      if (participantType === 'player') {
+        await updatePlayerHp(participantId, pendingChange, true)
+      } else {
+        await updateMonsterHp(participantId, pendingChange, true)
+      }
     }
 
     // Clear the concentration check state
@@ -2427,9 +2466,19 @@ function CombatTrackerContent() {
 
   // Update participant name (cosmetic, only in combat state)
   const updateParticipantName = (id: string, name: string) => {
-    setCombatParticipants(prev =>
-      prev.map(p => p.id === id ? { ...p, name } : p)
-    )
+    const updated = combatParticipants.map(p => p.id === id ? { ...p, name } : p)
+    setCombatParticipants(updated)
+
+    // Sync to Redis via WebSocket so name persists on refresh
+    if (combatActive) {
+      emitCombatUpdate({
+        type: 'state-sync',
+        combatActive: true,
+        currentTurn,
+        roundNumber,
+        participants: updated,
+      })
+    }
   }
 
   // Randomize all participant initiatives (1d20)
@@ -2527,24 +2576,10 @@ function CombatTrackerContent() {
     : undefined
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Ambient Effects Overlay */}
       <AmbientEffects effect={ambientEffect} onEffectEnd={handleEffectEnd} />
 
-      {/* DM Disconnect Overlay - Show for players when DM is disconnected */}
-      {socketState.dmDisconnected && mode === 'joueur' && socketState.dmDisconnectTime && (
-        <DmDisconnectOverlay
-          disconnectTime={socketState.dmDisconnectTime}
-          gracePeriodSeconds={60}
-          onTimeout={() => {
-            // Return to user selection
-            leaveCampaign()
-            setUserSelected(false)
-            localStorage.removeItem("combatTrackerMode")
-            localStorage.removeItem("combatTrackerCharacters")
-          }}
-        />
-      )}
 
       {/* Monster Drop Quantity Dialog */}
       <Dialog open={!!pendingDropMonster} onOpenChange={(open) => !open && setPendingDropMonster(null)}>
@@ -2796,7 +2831,7 @@ function CombatTrackerContent() {
               <div className="grid grid-cols-12 gap-4 h-full">
                 {/* Left Panel - Players (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <PlayerPanel
                       players={displayPlayers}
                       onUpdateHp={updatePlayerHp}
@@ -2818,7 +2853,7 @@ function CombatTrackerContent() {
 
                 {/* Left Panel - My Characters (player only during combat) */}
                 {mode === "joueur" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <MyCharactersPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onUpdateHp={updatePlayerHp}
@@ -2830,7 +2865,7 @@ function CombatTrackerContent() {
 
                 {/* Center-Left Panel - Spellbook (player only during combat) */}
                 {mode === "joueur" && (
-                  <div className="col-span-4 overflow-auto">
+                  <div className="col-span-4 h-full overflow-auto">
                     <SpellbookPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onSpellSlotChange={updatePlayerSpellSlot}
@@ -2841,7 +2876,7 @@ function CombatTrackerContent() {
                 )}
 
                 {/* Combat Panel (5 cols for players with spellbook, 6 cols for MJ) */}
-                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-5 overflow-auto"}>
+                <div className={mode === "mj" ? "col-span-6 h-full overflow-auto" : "col-span-5 h-full overflow-auto"}>
                   <CombatPanel
                     participants={combatParticipants}
                     combatActive={combatActive}
@@ -2882,7 +2917,7 @@ function CombatTrackerContent() {
 
                 {/* Right Panel - Monster Picker from DB (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <MonsterPickerPanel
                       onAddMonsters={addMonstersFromDb}
                       refreshKey={monsterRefreshKey}
@@ -2894,7 +2929,7 @@ function CombatTrackerContent() {
           ) : mode === "joueur" ? (
             /* Player waiting screen - show MyCharactersPanel with waiting message */
             <div className="grid grid-cols-12 gap-4 h-full">
-              <div className="col-span-4 overflow-auto">
+              <div className="col-span-4 h-full overflow-auto">
                 <MyCharactersPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onUpdateHp={updatePlayerHp}
@@ -2902,7 +2937,7 @@ function CombatTrackerContent() {
                   combatActive={false}
                 />
               </div>
-              <div className="col-span-4 overflow-auto">
+              <div className="col-span-4 h-full overflow-auto">
                 <SpellbookPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onSpellSlotChange={updatePlayerSpellSlot}
@@ -2943,7 +2978,7 @@ function CombatTrackerContent() {
               <div className="grid grid-cols-12 gap-4 h-full">
                 {/* Left Panel - Players (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <PlayerPanel
                       players={displayPlayers}
                       onUpdateHp={updatePlayerHp}
@@ -2964,7 +2999,7 @@ function CombatTrackerContent() {
                 )}
 
                 {/* Center Panel - Combat Setup */}
-                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-12 overflow-auto"}>
+                <div className={mode === "mj" ? "col-span-6 h-full overflow-auto" : "col-span-12 h-full overflow-auto"}>
                   <CombatSetupPanel
                     onStartCombat={startCombat}
                     onRemoveFromCombat={removeFromCombat}
@@ -2982,7 +3017,7 @@ function CombatTrackerContent() {
 
                 {/* Right Panel - Monster Picker from DB (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <MonsterPickerPanel
                       onAddMonsters={addMonstersFromDb}
                       refreshKey={monsterRefreshKey}

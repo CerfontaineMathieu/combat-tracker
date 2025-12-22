@@ -593,19 +593,17 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         pendingNotification: null,
       };
 
-    // ============ DM DISCONNECT/RECONNECT ============
-    case 'DM_DISCONNECTED':
+    // ============ CONCENTRATION CHECK REQUEST ============
+    case 'CONCENTRATION_CHECK_REQUEST':
       return {
         ...state,
-        dmDisconnected: true,
-        dmDisconnectTime: action.timestamp,
+        pendingConcentrationRequest: action.data,
       };
 
-    case 'DM_RECONNECTED':
+    case 'CLEAR_CONCENTRATION_REQUEST':
       return {
         ...state,
-        dmDisconnected: false,
-        dmDisconnectTime: null,
+        pendingConcentrationRequest: null,
       };
 
     // ============ INVENTORY ============
