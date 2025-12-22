@@ -593,6 +593,19 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         pendingNotification: null,
       };
 
+    // ============ CONCENTRATION CHECK REQUEST ============
+    case 'CONCENTRATION_CHECK_REQUEST':
+      return {
+        ...state,
+        pendingConcentrationRequest: action.data,
+      };
+
+    case 'CLEAR_CONCENTRATION_REQUEST':
+      return {
+        ...state,
+        pendingConcentrationRequest: null,
+      };
+
     // ============ INVENTORY ============
     case 'INVENTORY_UPDATE': {
       const { participantId, inventory } = action

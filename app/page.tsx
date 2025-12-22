@@ -216,6 +216,23 @@ function CombatTrackerContent() {
     sessionStorage.setItem('dnd-ambientEffect', ambientEffect)
   }, [ambientEffect])
 
+  // Handle concentration check requests from players (DM only)
+  useEffect(() => {
+    if (mode === 'mj' && socketState.pendingConcentrationRequest) {
+      const req = socketState.pendingConcentrationRequest
+      setConcentrationCheck({
+        participantId: req.participantId,
+        participantName: req.participantName,
+        participantType: req.participantType,
+        damage: req.damage,
+        dc: req.dc,
+        pendingChange: 0, // HP already applied by player
+      })
+      // Clear the pending request
+      socketDispatch({ type: 'CLEAR_CONCENTRATION_REQUEST' })
+    }
+  }, [mode, socketState.pendingConcentrationRequest, socketDispatch])
+
   // Set default tab based on mode when mode changes (login)
   // Players should start on "players" tab (Mes Personnages), DM on "setup"
   useEffect(() => {
@@ -1267,6 +1284,23 @@ function CombatTrackerContent() {
       }
     }
 
+    // Player mode: notify DM if taking damage while concentrating
+    if (mode === 'joueur' && combatActive && change < 0 && !skipConcentrationCheck) {
+      const isConcentrated = player.conditions?.includes("concentre")
+      if (isConcentrated && socketState.socket) {
+        const damage = Math.abs(change)
+        const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)))
+        // Notify DM to handle concentration check (damage will still be applied below)
+        socketState.socket.emit('concentration-check-request', {
+          participantId: id,
+          participantName: player.name,
+          participantType: 'player' as const,
+          damage,
+          dc,
+        })
+      }
+    }
+
     // Handle temp HP absorption for damage (D&D 5e rules)
     let actualHpChange = change
     let newTempHp = player.tempHp ?? 0
@@ -1778,10 +1812,13 @@ function CombatTrackerContent() {
     const { participantId, participantName, participantType, pendingChange, dc } = concentrationCheck
 
     // Apply the pending damage with skipConcentrationCheck flag
-    if (participantType === 'player') {
-      await updatePlayerHp(participantId, pendingChange, true)
-    } else {
-      await updateMonsterHp(participantId, pendingChange, true)
+    // Skip if pendingChange is 0 (player already applied their own damage)
+    if (pendingChange !== 0) {
+      if (participantType === 'player') {
+        await updatePlayerHp(participantId, pendingChange, true)
+      } else {
+        await updateMonsterHp(participantId, pendingChange, true)
+      }
     }
 
     // If concentration check failed, remove the "concentre" condition
@@ -1826,10 +1863,13 @@ function CombatTrackerContent() {
     const { participantId, participantType, pendingChange } = concentrationCheck
 
     // Apply the pending damage with skipConcentrationCheck flag
-    if (participantType === 'player') {
-      await updatePlayerHp(participantId, pendingChange, true)
-    } else {
-      await updateMonsterHp(participantId, pendingChange, true)
+    // Skip if pendingChange is 0 (player already applied their own damage)
+    if (pendingChange !== 0) {
+      if (participantType === 'player') {
+        await updatePlayerHp(participantId, pendingChange, true)
+      } else {
+        await updateMonsterHp(participantId, pendingChange, true)
+      }
     }
 
     // Clear the concentration check state

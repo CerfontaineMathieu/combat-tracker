@@ -128,6 +128,15 @@ export interface SocketState {
   // Notifications (toast queue)
   pendingNotification: NotificationData | null;
 
+  // Concentration check request (from player to DM)
+  pendingConcentrationRequest: {
+    participantId: string;
+    participantName: string;
+    participantType: 'player' | 'monster';
+    damage: number;
+    dc: number;
+  } | null;
+
   // XP Summary (shown when combat ends)
   xpSummary: {
     totalXp: number;
@@ -196,6 +205,10 @@ export type SocketAction =
   | { type: 'SET_NOTIFICATION'; notification: NotificationData }
   | { type: 'CLEAR_NOTIFICATION' }
 
+  // Concentration check request
+  | { type: 'CONCENTRATION_CHECK_REQUEST'; data: { participantId: string; participantName: string; participantType: 'player' | 'monster'; damage: number; dc: number } }
+  | { type: 'CLEAR_CONCENTRATION_REQUEST' }
+
   // XP Summary
   | { type: 'SET_XP_SUMMARY'; xpSummary: SocketState['xpSummary'] }
   | { type: 'CLEAR_XP_SUMMARY' }
@@ -254,6 +267,9 @@ export const initialSocketState: SocketState = {
 
   // Notifications
   pendingNotification: null,
+
+  // Concentration check request
+  pendingConcentrationRequest: null,
 
   // XP Summary
   xpSummary: null,

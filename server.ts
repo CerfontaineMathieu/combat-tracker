@@ -856,6 +856,16 @@ app.prepare().then(() => {
       }
     });
 
+    // Concentration check request (player took damage while concentrating, notify DM)
+    socket.on('concentration-check-request', (data: { participantId: string; participantName: string; participantType: 'player' | 'monster'; damage: number; dc: number }) => {
+      if (socket.data.campaignId && socket.data.role === 'player') {
+        const room = `campaign-${socket.data.campaignId}`;
+        // Relay to DM (and other clients in the room)
+        socket.to(room).emit('concentration-check-request', data);
+        console.log(`[Socket.io] Concentration check request for ${data.participantName} (DD ${data.dc}) in ${room}`);
+      }
+    });
+
     // ============ LOOT DISTRIBUTION EVENTS ============
 
     // Create loot session (DM only)

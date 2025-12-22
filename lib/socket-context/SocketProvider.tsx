@@ -255,6 +255,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
       dispatch({ type: 'SET_NOTIFICATION', notification: data });
     });
 
+    // ============ CONCENTRATION CHECK REQUEST ============
+    socket.on('concentration-check-request', (data) => {
+      dispatch({ type: 'CONCENTRATION_CHECK_REQUEST', data });
+    });
+
     // ============ INVENTORY EVENTS ============
     socket.on('inventory-update', (data) => {
       dispatch({
@@ -410,6 +415,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('player-positions');
       socket.off('request-player-positions');
       socket.off('notification');
+      socket.off('concentration-check-request');
       socket.off('inventory-update');
       socket.off('spell-slot-change');
       // Loot events

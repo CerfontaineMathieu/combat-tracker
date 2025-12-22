@@ -207,6 +207,15 @@ export interface PlayerPositionsData {
   positions: PlayerPositionData[];
 }
 
+// Concentration check request (player to DM)
+export interface ConcentrationCheckRequestData {
+  participantId: string;
+  participantName: string;
+  participantType: 'player' | 'monster';
+  damage: number;
+  dc: number;
+}
+
 // Inventory update event
 export interface InventoryUpdateData {
   participantId: string;
@@ -471,6 +480,8 @@ export interface ServerToClientEvents {
   'request-player-positions': () => void;
   // Join error event
   'join-error': (data: { error: string; message: string }) => void;
+  // Concentration check request (from player, relayed to DM)
+  'concentration-check-request': (data: ConcentrationCheckRequestData) => void;
   // Inventory events
   'inventory-update': (data: InventoryUpdateData) => void;
   // Spell slot events
@@ -525,6 +536,8 @@ export interface ClientToServerEvents {
   'spell-slot-change': (data: SpellSlotChangeData) => void;
   // Prepared spells events
   'prepared-spells-change': (data: PreparedSpellsChangeData) => void;
+  // Concentration check request (player sends when taking damage while concentrating)
+  'concentration-check-request': (data: ConcentrationCheckRequestData) => void;
   // Loot distribution events (client to server)
   'loot-create-session': (data: LootCreateSessionData) => void;
   'loot-add-item': (data: LootAddItemData) => void;
