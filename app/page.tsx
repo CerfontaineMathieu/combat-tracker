@@ -2427,9 +2427,19 @@ function CombatTrackerContent() {
 
   // Update participant name (cosmetic, only in combat state)
   const updateParticipantName = (id: string, name: string) => {
-    setCombatParticipants(prev =>
-      prev.map(p => p.id === id ? { ...p, name } : p)
-    )
+    const updated = combatParticipants.map(p => p.id === id ? { ...p, name } : p)
+    setCombatParticipants(updated)
+
+    // Sync to Redis via WebSocket so name persists on refresh
+    if (combatActive) {
+      emitCombatUpdate({
+        type: 'state-sync',
+        combatActive: true,
+        currentTurn,
+        roundNumber,
+        participants: updated,
+      })
+    }
   }
 
   // Randomize all participant initiatives (1d20)
