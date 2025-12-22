@@ -1,7 +1,7 @@
 # Architecture Map - D&D Combat Tracker
 
 > **Purpose**: Quick reference for Claude sessions to understand the codebase without re-exploring.
-> **Last updated**: 2025-12-15
+> **Last updated**: 2025-12-22
 
 ---
 
@@ -47,6 +47,8 @@
 | Notion Sync | `components/notion-sync-dialog.tsx` |
 | QR Code Join | `components/qr-code-dialog.tsx` |
 | Spell Reference (DM) | `components/spell-reference-dialog.tsx` |
+| Equipment Silhouette | `components/equipment-silhouette.tsx` |
+| Slot Picker | `components/slot-picker-dialog.tsx` |
 
 ### Loot System
 | Component | File |
@@ -91,10 +93,12 @@ lib/socket-context/
 - `CombatParticipant` - Unified player/monster in combat
 
 ### Inventory
-- `EquipmentItem` - Weapons, armor (with attunement)
+- `EquipmentItem` - Weapons, armor (with attunement, slot, slotTypes)
 - `ConsumableItem` - Potions, scrolls (with linked spells)
 - `MiscItem` - General items with quantity
 - `CurrencyInventory` - PP, GP, EP, SP, CP
+- `EquipmentSlot` - 7 slots: armor, shield, main-hand, off-hand, ring-1, ring-2, amulet
+- `getSlotTypesFromCatalog()` - Auto-detect compatible slots from Notion catalog
 
 ### Combat
 - `ActiveCondition` - Condition with duration tracking
@@ -214,6 +218,13 @@ hooks/                    # Custom React hooks
 ---
 
 ## Recent Work
+
+- **2025-12-22**: Visual inventory with equipment silhouette (`feature/visual-inventory` branch)
+  - Character silhouette showing 7 equipment slots (armor, shield, main-hand, off-hand, 2 rings, amulet)
+  - Click on slot to equip/unequip items via dialog
+  - Auto-detect equipment slot type from Notion database Type field
+  - "Équiper" button for one-click auto-equipping to first available slot
+  - Files: `components/equipment-silhouette.tsx`, `components/slot-picker-dialog.tsx`, `components/inventory-manager.tsx`, `lib/types.ts`, `lib/notion-items.ts`
 
 - **2025-12-15**: DM Spell Reference dialog (`feat/mj-spellbook` branch)
   - Added BookOpen icon in DM header to open spell catalog

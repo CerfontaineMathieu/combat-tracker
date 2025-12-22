@@ -35,6 +35,10 @@ import { ItemPickerDialog } from "@/components/item-picker-dialog"
 import { ScrollSpellDialog } from "@/components/scroll-spell-dialog"
 import { ResistanceTypeDialog } from "@/components/resistance-type-dialog"
 import { SpellDetail } from "@/components/spell-detail"
+import { EquipmentSilhouette } from "@/components/equipment-silhouette"
+import { SlotPickerDialog } from "@/components/slot-picker-dialog"
+import type { EquipmentSlot } from "@/lib/types"
+import { SLOT_NAMES, getSlotTypesFromCatalog } from "@/lib/types"
 
 // Rarity color mapping (D&D style)
 function getRarityStyle(rarity: string | null | undefined): string {
@@ -149,6 +153,10 @@ export function InventoryManager({
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("equipment")
 
+  // Slot picker state
+  const [slotPickerOpen, setSlotPickerOpen] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState<EquipmentSlot | null>(null)
+
   // Local inventory state to prevent staleness
   const [localInventory, setLocalInventory] = useState(inventory)
 
@@ -262,10 +270,14 @@ export function InventoryManager({
 
   // Add equipment directly from catalog item selection
   const addEquipmentFromCatalog = (item: CatalogItem) => {
+    // Get compatible slot types from catalog properties
+    const slotTypes = getSlotTypesFromCatalog(item)
+
     const newItem: EquipmentItem = {
       id: `eq-${Date.now()}`,
       name: item.name,
       equipped: false,
+      slotTypes: slotTypes.length > 0 ? slotTypes : undefined,
       requiresAttunement: checkRequiresAttunement(item.properties),
       description: item.description || undefined,
       rarity: item.rarity || undefined,
@@ -300,11 +312,79 @@ export function InventoryManager({
     const updatedInventory = {
       ...localInventory,
       equipment: localInventory.equipment.map(i =>
-        i.id === id ? { ...i, equipped: !i.equipped } : i
+        i.id === id ? { ...i, equipped: !i.equipped, slot: i.equipped ? null : i.slot } : i
       ),
     }
     setLocalInventory(updatedInventory)
     onInventoryChange(updatedInventory)
+  }
+
+  // Slot picker handlers
+  const handleSlotClick = (slot: EquipmentSlot) => {
+    setSelectedSlot(slot)
+    setSlotPickerOpen(true)
+  }
+
+  const handleSlotSelect = (slot: EquipmentSlot, itemId: string | null) => {
+    const itemToEquip = itemId ? localInventory.equipment.find(i => i.id === itemId) : null
+
+    // Check attunement limit
+    if (itemToEquip?.requiresAttunement && !itemToEquip.equipped) {
+      const currentlyAttuned = localInventory.equipment.filter(i => i.equipped && i.requiresAttunement && i.id !== itemId).length
+      if (currentlyAttuned >= 3) {
+        toast.warning("Vous avez déjà 3 objets harmonisés équipés", {
+          description: "Déséquipez un objet harmonisé avant d'en équiper un autre."
+        })
+        return
+      }
+    }
+
+    const updatedInventory = {
+      ...localInventory,
+      equipment: localInventory.equipment.map(item => {
+        // Unequip the item currently in this slot
+        if (item.slot === slot && item.id !== itemId) {
+          return { ...item, equipped: false, slot: null }
+        }
+        // Equip the selected item in this slot
+        if (item.id === itemId) {
+          return { ...item, equipped: true, slot }
+        }
+        return item
+      }),
+    }
+    setLocalInventory(updatedInventory)
+    onInventoryChange(updatedInventory)
+  }
+
+  // Auto-equip item to the first available compatible slot
+  const handleAutoEquip = (item: EquipmentItem) => {
+    if (!item.slotTypes || item.slotTypes.length === 0) {
+      toast.info("Type d'équipement inconnu", { description: "Équipez manuellement via la silhouette" })
+      return
+    }
+
+    // Check attunement limit before auto-equipping
+    if (item.requiresAttunement && attunedCount >= 3) {
+      toast.warning("Vous avez déjà 3 objets harmonisés équipés", {
+        description: "Déséquipez un objet harmonisé avant d'en équiper un autre."
+      })
+      return
+    }
+
+    // Find the first available slot
+    for (const slotType of item.slotTypes) {
+      const occupied = localInventory.equipment.find(e => e.slot === slotType)
+      if (!occupied) {
+        handleSlotSelect(slotType, item.id)
+        toast.success(`${item.name} équipé`, { description: SLOT_NAMES[slotType] })
+        return
+      }
+    }
+
+    // All compatible slots are occupied
+    const slotNames = item.slotTypes.map(s => SLOT_NAMES[s]).join(', ')
+    toast.warning(`Aucun emplacement libre`, { description: `Emplacements compatibles: ${slotNames}` })
   }
 
   const removeEquipment = (id: string) => {
@@ -568,7 +648,7 @@ export function InventoryManager({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh]">
+      <DialogContent className="bg-card border-border w-[98vw] !max-w-[1400px] sm:!max-w-[1400px] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-gold flex items-center gap-2">
             <Backpack className="w-5 h-5" />
@@ -576,23 +656,40 @@ export function InventoryManager({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto">
-            <TabsTrigger value="equipment" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
-              <Package className="w-4 h-4" />
-              <span className="hidden sm:inline">Équipement</span>
-              <span className="sm:hidden">Équip.</span>
-            </TabsTrigger>
-            <TabsTrigger value="consumables" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
-              <Pill className="w-4 h-4" />
-              <span className="hidden sm:inline">Consommables</span>
-              <span className="sm:hidden">Conso.</span>
-            </TabsTrigger>
-            <TabsTrigger value="currency" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
-              <Coins className="w-4 h-4" />
-              <span>Monnaie</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Two-column layout: Silhouette on left, Tabs on right */}
+        <div className="flex gap-4 overflow-hidden">
+          {/* Left column: Equipment Silhouette */}
+          <div className="hidden lg:flex flex-col border-r border-border pr-4 w-[280px] shrink-0">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2 text-center">Équipement actif</h3>
+            <EquipmentSilhouette
+              equipment={localInventory.equipment}
+              onSlotClick={handleSlotClick}
+              disabled={readonly}
+            />
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Cliquez sur un emplacement pour équiper
+            </p>
+          </div>
+
+          {/* Right column: Tabs */}
+          <div className="flex-1 overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="equipment" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
+                  <Package className="w-4 h-4" />
+                  <span className="hidden sm:inline">Équipement</span>
+                  <span className="sm:hidden">Équip.</span>
+                </TabsTrigger>
+                <TabsTrigger value="consumables" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
+                  <Pill className="w-4 h-4" />
+                  <span className="hidden sm:inline">Consommables</span>
+                  <span className="sm:hidden">Conso.</span>
+                </TabsTrigger>
+                <TabsTrigger value="currency" className="gap-1 text-xs sm:text-sm flex-col sm:flex-row py-2 sm:py-1.5">
+                  <Coins className="w-4 h-4" />
+                  <span>Monnaie</span>
+                </TabsTrigger>
+              </TabsList>
 
           {/* EQUIPMENT TAB */}
           <TabsContent value="equipment" className="space-y-3">
@@ -712,21 +809,44 @@ export function InventoryManager({
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "h-8 px-2",
-                              item.equipped && "text-emerald"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleEquipped(item.id)
-                            }}
-                            disabled={readonly}
-                          >
-                            {item.equipped ? "Équipé" : "Non équipé"}
-                          </Button>
+                          {/* Auto-equip button for items with known slot types */}
+                          {!item.equipped && !readonly && item.slotTypes && item.slotTypes.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2 text-emerald border-emerald/50 hover:bg-emerald/10"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAutoEquip(item)
+                              }}
+                            >
+                              Équiper
+                            </Button>
+                          )}
+                          {/* Show slot name if equipped via slot system */}
+                          {item.equipped && item.slot && (
+                            <Badge variant="outline" className="text-emerald border-emerald/50">
+                              {SLOT_NAMES[item.slot]}
+                            </Badge>
+                          )}
+                          {/* Legacy toggle for items without slot types (unknown equipment) */}
+                          {(!item.slotTypes || item.slotTypes.length === 0) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-8 px-2",
+                                item.equipped && "text-emerald"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleEquipped(item.id)
+                              }}
+                              disabled={readonly}
+                            >
+                              {item.equipped ? "Équipé" : "Non équipé"}
+                            </Button>
+                          )}
                           {!readonly && (
                             <Button
                               variant="ghost"
@@ -971,7 +1091,9 @@ export function InventoryManager({
             </div>
           </TabsContent>
 
-          </Tabs>
+            </Tabs>
+          </div>
+        </div>
 
         {readonly && (
           <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border/50">
@@ -979,6 +1101,15 @@ export function InventoryManager({
           </div>
         )}
       </DialogContent>
+
+      {/* Slot Picker Dialog */}
+      <SlotPickerDialog
+        open={slotPickerOpen}
+        onOpenChange={setSlotPickerOpen}
+        slot={selectedSlot}
+        equipment={localInventory.equipment}
+        onSelectItem={handleSlotSelect}
+      />
 
       {/* Item Detail Dialog */}
       <Dialog open={!!detailItem} onOpenChange={(open) => !open && setDetailItem(null)}>
