@@ -27,13 +27,6 @@ const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 const DEFAULT_DM_PASSWORD = process.env.DM_PASSWORD || 'defaultpassword';
 
-// Grace period before notifying players of DM disconnect (ms)
-// 30 seconds to handle page refreshes (especially in dev mode with recompilation)
-const DM_DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
-
-// Store disconnect timers locally (not in Redis - they're ephemeral)
-const disconnectTimers = new Map<number, NodeJS.Timeout>();
-
 // Get effective password: DB first, then .env fallback
 async function getEffectivePassword(campaignId: number): Promise<string> {
   try {
@@ -336,28 +329,15 @@ app.prepare().then(() => {
         // Check if DM already connected (from Redis)
         const existingDM = await getDmSession(campaignId);
 
-        // Check if there's a pending disconnect timer (DM is reconnecting)
-        const pendingTimer = disconnectTimers.get(campaignId);
-
         if (existingDM && existingDM.socketId !== socket.id) {
           // Check if the existing DM socket is still actually connected
           const existingSocket = io.sockets.sockets.get(existingDM.socketId);
           const isStaleSession = !existingSocket || !existingSocket.connected;
 
-          if (pendingTimer) {
-            // DM is reconnecting within grace period - clear timer
-            clearTimeout(pendingTimer);
-            disconnectTimers.delete(campaignId);
-            console.log(`[Socket.io] DM reconnecting within grace period for campaign ${campaignId}`);
-
-            // Notify players that DM is back
-            io.to(room).emit('dm-reconnected');
-          } else if (isStaleSession) {
+          if (isStaleSession) {
             // Stale session (server restarted or socket died) - allow takeover
             console.log(`[Socket.io] Stale DM session detected for campaign ${campaignId}, allowing takeover`);
             await deleteDmSession(campaignId);
-            // Also clear stale player data since they're likely disconnected too
-            // (optional: could keep players if we want to preserve state)
           } else {
             // Another active DM - reject
             console.log(`[Socket.io] DM login failed for ${socket.id}: DM already connected (${existingDM.socketId})`);
@@ -499,16 +479,6 @@ app.prepare().then(() => {
       // If player joins, request state sync from DM and send DM status
       if (role === 'player') {
         socket.to(room).emit('request-state-sync');
-
-        // Check if DM is connected and notify the player
-        const dmSession = await getDmSession(campaignId);
-        if (dmSession) {
-          const dmSocket = io.sockets.sockets.get(dmSession.socketId);
-          if (dmSocket?.connected) {
-            // DM is connected, clear any disconnect overlay on the player
-            socket.emit('dm-reconnected');
-          }
-        }
       }
 
       // If DM joins, send them the connected players list and restore combat state
@@ -1660,43 +1630,23 @@ app.prepare().then(() => {
       }
     });
 
-    // Disconnect handling with grace period for DM
+    // Disconnect handling
     socket.on('disconnect', async () => {
       if (socket.data.campaignId) {
         const campaignId = socket.data.campaignId;
         const room = `campaign-${campaignId}`;
 
-        // Handle DM disconnect with grace period
+        // Handle DM disconnect (immediate cleanup)
         if (socket.data.role === 'dm') {
           const currentDM = await getDmSession(campaignId);
-
           // Only process if this socket's token matches (prevents race condition)
           if (currentDM && currentDM.sessionToken === socket.data.dmSessionToken) {
-            console.log(`[Socket.io] DM disconnected, starting ${DM_DISCONNECT_GRACE_PERIOD}ms grace period for campaign ${campaignId}`);
-
-            // Start grace period timer
-            const disconnectTimer = setTimeout(async () => {
-              // Double-check token still matches after timeout
-              const dm = await getDmSession(campaignId);
-              if (dm && dm.sessionToken === socket.data.dmSessionToken) {
-                // Grace period expired, DM didn't reconnect
-                await deleteDmSession(campaignId);
-                disconnectTimers.delete(campaignId);
-
-                // Notify players that DM is truly gone
-                io.to(room).emit('dm-disconnected', { timestamp: Date.now() });
-                console.log(`[Socket.io] DM grace period expired for campaign ${campaignId}, notifying players`);
-              }
-            }, DM_DISCONNECT_GRACE_PERIOD);
-
-            // Store timer for potential cancellation
-            disconnectTimers.set(campaignId, disconnectTimer);
-          } else {
-            console.log(`[Socket.io] DM disconnect ignored (stale socket) for campaign ${campaignId}`);
+            await deleteDmSession(campaignId);
+            console.log(`[Socket.io] DM disconnected from campaign ${campaignId}`);
           }
         }
 
-        // Handle player disconnect (immediate, no grace period)
+        // Handle player disconnect
         if (socket.data.role === 'player') {
           const player = await removeConnectedPlayer(campaignId, socket.id);
           if (player) {

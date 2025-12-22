@@ -255,15 +255,6 @@ export function SocketProvider({ children }: SocketProviderProps) {
       dispatch({ type: 'SET_NOTIFICATION', notification: data });
     });
 
-    // ============ DM DISCONNECT/RECONNECT EVENTS ============
-    socket.on('dm-disconnected', (data) => {
-      dispatch({ type: 'DM_DISCONNECTED', timestamp: data.timestamp });
-    });
-
-    socket.on('dm-reconnected', () => {
-      dispatch({ type: 'DM_RECONNECTED' });
-    });
-
     // ============ INVENTORY EVENTS ============
     socket.on('inventory-update', (data) => {
       dispatch({
@@ -419,8 +410,6 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('player-positions');
       socket.off('request-player-positions');
       socket.off('notification');
-      socket.off('dm-disconnected');
-      socket.off('dm-reconnected');
       socket.off('inventory-update');
       socket.off('spell-slot-change');
       // Loot events

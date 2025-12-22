@@ -207,11 +207,6 @@ export interface PlayerPositionsData {
   positions: PlayerPositionData[];
 }
 
-// DM disconnect/reconnect events
-export interface DmDisconnectedData {
-  timestamp: number;
-}
-
 // Inventory update event
 export interface InventoryUpdateData {
   participantId: string;
@@ -476,9 +471,6 @@ export interface ServerToClientEvents {
   'request-player-positions': () => void;
   // Join error event
   'join-error': (data: { error: string; message: string }) => void;
-  // DM disconnect/reconnect events
-  'dm-disconnected': (data: DmDisconnectedData) => void;
-  'dm-reconnected': () => void;
   // Inventory events
   'inventory-update': (data: InventoryUpdateData) => void;
   // Spell slot events
