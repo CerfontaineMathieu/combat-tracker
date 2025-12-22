@@ -2576,7 +2576,7 @@ function CombatTrackerContent() {
     : undefined
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Ambient Effects Overlay */}
       <AmbientEffects effect={ambientEffect} onEffectEnd={handleEffectEnd} />
 
@@ -2831,7 +2831,7 @@ function CombatTrackerContent() {
               <div className="grid grid-cols-12 gap-4 h-full">
                 {/* Left Panel - Players (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <PlayerPanel
                       players={displayPlayers}
                       onUpdateHp={updatePlayerHp}
@@ -2853,7 +2853,7 @@ function CombatTrackerContent() {
 
                 {/* Left Panel - My Characters (player only during combat) */}
                 {mode === "joueur" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <MyCharactersPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onUpdateHp={updatePlayerHp}
@@ -2865,7 +2865,7 @@ function CombatTrackerContent() {
 
                 {/* Center-Left Panel - Spellbook (player only during combat) */}
                 {mode === "joueur" && (
-                  <div className="col-span-4 overflow-auto">
+                  <div className="col-span-4 h-full overflow-auto">
                     <SpellbookPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onSpellSlotChange={updatePlayerSpellSlot}
@@ -2876,7 +2876,7 @@ function CombatTrackerContent() {
                 )}
 
                 {/* Combat Panel (5 cols for players with spellbook, 6 cols for MJ) */}
-                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-5 overflow-auto"}>
+                <div className={mode === "mj" ? "col-span-6 h-full overflow-auto" : "col-span-5 h-full overflow-auto"}>
                   <CombatPanel
                     participants={combatParticipants}
                     combatActive={combatActive}
@@ -2917,7 +2917,7 @@ function CombatTrackerContent() {
 
                 {/* Right Panel - Monster Picker from DB (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <MonsterPickerPanel
                       onAddMonsters={addMonstersFromDb}
                       refreshKey={monsterRefreshKey}
@@ -2929,7 +2929,7 @@ function CombatTrackerContent() {
           ) : mode === "joueur" ? (
             /* Player waiting screen - show MyCharactersPanel with waiting message */
             <div className="grid grid-cols-12 gap-4 h-full">
-              <div className="col-span-4 overflow-auto">
+              <div className="col-span-4 h-full overflow-auto">
                 <MyCharactersPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onUpdateHp={updatePlayerHp}
@@ -2937,7 +2937,7 @@ function CombatTrackerContent() {
                   combatActive={false}
                 />
               </div>
-              <div className="col-span-4 overflow-auto">
+              <div className="col-span-4 h-full overflow-auto">
                 <SpellbookPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onSpellSlotChange={updatePlayerSpellSlot}
@@ -2978,7 +2978,7 @@ function CombatTrackerContent() {
               <div className="grid grid-cols-12 gap-4 h-full">
                 {/* Left Panel - Players (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <PlayerPanel
                       players={displayPlayers}
                       onUpdateHp={updatePlayerHp}
@@ -2999,7 +2999,7 @@ function CombatTrackerContent() {
                 )}
 
                 {/* Center Panel - Combat Setup */}
-                <div className={mode === "mj" ? "col-span-6 overflow-auto" : "col-span-12 overflow-auto"}>
+                <div className={mode === "mj" ? "col-span-6 h-full overflow-auto" : "col-span-12 h-full overflow-auto"}>
                   <CombatSetupPanel
                     onStartCombat={startCombat}
                     onRemoveFromCombat={removeFromCombat}
@@ -3017,7 +3017,7 @@ function CombatTrackerContent() {
 
                 {/* Right Panel - Monster Picker from DB (MJ only) */}
                 {mode === "mj" && (
-                  <div className="col-span-3 overflow-auto">
+                  <div className="col-span-3 h-full overflow-auto">
                     <MonsterPickerPanel
                       onAddMonsters={addMonstersFromDb}
                       refreshKey={monsterRefreshKey}
