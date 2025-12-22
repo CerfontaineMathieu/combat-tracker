@@ -260,6 +260,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                       {(player.conditions.length > 0 || player.exhaustionLevel > 0) && (
                                         <ConditionList
                                           conditions={player.conditions}
+                                          conditionDurations={player.conditionDurations}
                                           exhaustionLevel={player.exhaustionLevel}
                                           size="sm"
                                         />
