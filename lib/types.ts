@@ -1,8 +1,34 @@
+// Equipment Slot Types
+export const EQUIPMENT_SLOTS = [
+  'armor',
+  'shield',
+  'main-hand',
+  'off-hand',
+  'ring-1',
+  'ring-2',
+  'amulet',
+] as const
+
+export type EquipmentSlot = typeof EQUIPMENT_SLOTS[number]
+
+// Slot display names (French)
+export const SLOT_NAMES: Record<EquipmentSlot, string> = {
+  'armor': 'Armure',
+  'shield': 'Bouclier',
+  'main-hand': 'Arme principale',
+  'off-hand': 'Arme secondaire',
+  'ring-1': 'Anneau 1',
+  'ring-2': 'Anneau 2',
+  'amulet': 'Amulette',
+}
+
 // Inventory Item Types
 export interface EquipmentItem {
   id: string
   name: string
   equipped: boolean
+  slot?: EquipmentSlot | null  // Assigned slot (null = unequipped)
+  slotTypes?: EquipmentSlot[]  // Compatible slots for this item (from catalog)
   requiresAttunement?: boolean  // From Notion catalog - if true, counts toward 3-item attunement limit when equipped
   description?: string
   rarity?: string
@@ -691,6 +717,31 @@ export interface CatalogItem {
 
 // For creating/updating items (without id and timestamps)
 export type CatalogItemInput = Omit<CatalogItem, 'id' | 'created_at' | 'updated_at'>;
+
+/**
+ * Get compatible equipment slots from a catalog item's properties.
+ * The equipment_slot is set during Notion sync based on source_database and Type field.
+ */
+export function getSlotTypesFromCatalog(catalogItem: CatalogItem): EquipmentSlot[] {
+  const slot = catalogItem.properties?.equipment_slot as string | undefined;
+
+  if (!slot) return [];
+
+  switch (slot) {
+    case 'weapon':
+      return ['main-hand', 'off-hand'];
+    case 'armor':
+      return ['armor'];
+    case 'shield':
+      return ['shield'];
+    case 'ring':
+      return ['ring-1', 'ring-2'];
+    case 'amulet':
+      return ['amulet'];
+    default:
+      return [];
+  }
+}
 
 export interface ItemSyncPreview {
   toAdd: CatalogItemInput[];

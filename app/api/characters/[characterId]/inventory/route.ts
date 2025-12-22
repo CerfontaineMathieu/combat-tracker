@@ -38,18 +38,21 @@ export async function PUT(
 ) {
   try {
     const { characterId } = await params;
-    const inventory: CharacterInventory = await request.json();
+    const body = await request.json();
+    const inventory: CharacterInventory = body.inventory || body;
+    const campaignId: number | null = body.campaignId || null;
 
     // Upsert: insert or update if exists
     const result = await pool.query(
       `INSERT INTO character_inventories (character_id, campaign_id, inventory, updated_at)
-       VALUES ($1, 1, $2, CURRENT_TIMESTAMP)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
        ON CONFLICT (character_id)
        DO UPDATE SET
-         inventory = $2,
+         inventory = $3,
+         campaign_id = COALESCE($2, character_inventories.campaign_id),
          updated_at = CURRENT_TIMESTAMP
        RETURNING inventory`,
-      [characterId, JSON.stringify(inventory)]
+      [characterId, campaignId, JSON.stringify(inventory)]
     );
 
     return NextResponse.json(result.rows[0].inventory);

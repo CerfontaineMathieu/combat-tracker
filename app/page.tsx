@@ -1525,15 +1525,15 @@ function CombatTrackerContent() {
       setCombatParticipants((prev) =>
         prev.map((p) => (p.id === id ? { ...p, conditions, conditionDurations } : p))
       )
-
-      // Emit condition change to sync with other clients
-      emitConditionChange({
-        participantId: id,
-        participantType: 'player',
-        conditions,
-        conditionDurations,
-      })
     }
+
+    // Emit condition change to sync with other clients (even outside combat)
+    emitConditionChange({
+      participantId: id,
+      participantType: 'player',
+      conditions,
+      conditionDurations,
+    })
 
     // Persist conditions and conditionDurations to database
     try {
@@ -1554,14 +1554,14 @@ function CombatTrackerContent() {
       setCombatParticipants((prev) =>
         prev.map((p) => (p.id === id ? { ...p, exhaustionLevel } : p))
       )
-
-      // Emit exhaustion change to sync with other clients
-      emitExhaustionChange({
-        participantId: id,
-        participantType: 'player',
-        exhaustionLevel,
-      })
     }
+
+    // Emit exhaustion change to sync with other clients (even outside combat)
+    emitExhaustionChange({
+      participantId: id,
+      participantType: 'player',
+      exhaustionLevel,
+    })
 
     // Persist exhaustion to database
     try {
@@ -2024,14 +2024,14 @@ function CombatTrackerContent() {
       setCombatParticipants((prev) =>
         prev.map((p) => (p.id === id ? { ...p, buffs } : p))
       )
-
-      // Emit buff change to sync with other clients
-      emitBuffChange({
-        participantId: id,
-        participantType: 'player',
-        buffs,
-      })
     }
+
+    // Emit buff change to sync with other clients (even outside combat)
+    emitBuffChange({
+      participantId: id,
+      participantType: 'player',
+      buffs,
+    })
 
     // Persist buffs to database
     try {
@@ -2716,6 +2716,7 @@ function CombatTrackerContent() {
                   onUpdateInitiative={updatePlayerInitiative}
                   onUpdateConditions={updatePlayerConditions}
                   onUpdateExhaustion={updatePlayerExhaustion}
+                  onUpdateBuffs={updatePlayerBuffs}
                   onUpdateInventory={updatePlayerInventory}
                   onSpellSlotChange={updatePlayerSpellSlot}
                   onShortRest={handleShortRest}
@@ -2838,6 +2839,7 @@ function CombatTrackerContent() {
                       onUpdateInitiative={updatePlayerInitiative}
                       onUpdateConditions={updatePlayerConditions}
                       onUpdateExhaustion={updatePlayerExhaustion}
+                      onUpdateBuffs={updatePlayerBuffs}
                       onUpdateInventory={updatePlayerInventory}
                       onSpellSlotChange={updatePlayerSpellSlot}
                       onShortRest={handleShortRest}
@@ -2985,6 +2987,7 @@ function CombatTrackerContent() {
                       onUpdateInitiative={updatePlayerInitiative}
                       onUpdateConditions={updatePlayerConditions}
                       onUpdateExhaustion={updatePlayerExhaustion}
+                      onUpdateBuffs={updatePlayerBuffs}
                       onUpdateInventory={updatePlayerInventory}
                       onSpellSlotChange={updatePlayerSpellSlot}
                       onShortRest={handleShortRest}

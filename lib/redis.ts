@@ -53,7 +53,15 @@ export interface ConnectedPlayer {
     ac: number;
     initiative: number;
     conditions: string[];
+    conditionDurations?: Record<string, number>;
     exhaustionLevel?: number;
+    buffs?: Array<{
+      buffId: string;
+      remainingTurns?: number | null;
+      customName?: string;
+      customEffect?: string;
+      customType?: string;
+    }>;
     inventory?: CharacterInventory;
   }>;
 }

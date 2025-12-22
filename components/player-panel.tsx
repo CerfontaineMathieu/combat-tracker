@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Backpack, Eye, BookOpen } from "lucide-react"
+import { Users, ChevronDown, ChevronUp, Minus, Plus, GripVertical, Zap, UserPlus, Check, WifiOff, Wifi, HeartPulse, Backpack, Eye, BookOpen, Sparkles } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,12 +15,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import type { Character, CombatParticipant, CharacterInventory } from "@/lib/types"
+import type { Character, CombatParticipant, CharacterInventory, ActiveBuff, BuffType } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import { DraggablePlayerCard } from "@/components/draggable-card"
 import { ConditionList } from "@/components/condition-badge"
 import { ConditionManager } from "@/components/condition-manager"
 import { BuffList } from "@/components/buff-badge"
+import { BuffManager } from "@/components/buff-manager"
 import { InventoryManager } from "@/components/inventory-manager"
 import { SpellSlotManager } from "@/components/spell-slot-manager"
 
@@ -75,8 +76,9 @@ interface PlayerPanelProps {
   players: Character[]
   onUpdateHp: (id: string, change: number) => void
   onUpdateInitiative: (id: string, initiative: number) => void
-  onUpdateConditions?: (id: string, conditions: string[]) => void
+  onUpdateConditions?: (id: string, conditions: string[], conditionDurations?: Record<string, number>) => void
   onUpdateExhaustion?: (id: string, level: number) => void
+  onUpdateBuffs?: (id: string, buffs: ActiveBuff[]) => void
   onUpdateInventory?: (id: string, inventory: CharacterInventory) => void
   onSpellSlotChange?: (id: string, level: number, delta: number) => void
   onShortRest?: (id: string) => void
@@ -88,7 +90,7 @@ interface PlayerPanelProps {
   onAddToCombat?: (player: Character) => void // For mobile tap-to-add
 }
 
-export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onUpdateInventory, onSpellSlotChange, onShortRest, onLongRest, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
+export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateConditions, onUpdateExhaustion, onUpdateBuffs, onUpdateInventory, onSpellSlotChange, onShortRest, onLongRest, mode, combatActive = false, combatParticipants = [], ownCharacterIds = [], onAddToCombat }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [hpChange, setHpChange] = useState<Record<string, string>>({})
   const [playerToAdd, setPlayerToAdd] = useState<Character | null>(null)
@@ -163,58 +165,228 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       {characters.map((player) => {
                         const inCombat = isPlayerInCombat(player.id)
 
-                        // Mobile: tap-to-add cards
+                        // Mobile: tap-to-add cards with expandable panel
                         if (onAddToCombat) {
                           const isDisconnected = !player.isConnected
                           const canAdd = !inCombat
+                          const isExpanded = expandedPlayer === player.id
 
                           return (
                             <div
                               key={player.id}
                               className={cn(
-                                "p-[var(--card-padding-mobile)] rounded-lg border transition-smooth",
+                                "rounded-lg border transition-smooth overflow-hidden",
                                 isDisconnected
                                   ? "bg-muted/30 border-border/30"
                                   : inCombat
                                     ? "bg-gold/10 border-gold/30"
-                                    : "bg-secondary/30 border-border/50 active:bg-secondary/50"
+                                    : "bg-secondary/30 border-border/50"
                               )}
                             >
-                              {/* Two-row layout for guaranteed fit on all screen widths */}
-                              <div className="flex flex-col gap-1.5">
-                                {/* Row 1: Name + Status Badge */}
-                                <div className="flex items-center gap-2">
-                                  <h3 className={cn(
-                                    "font-semibold truncate",
-                                    isDisconnected ? "text-muted-foreground" : "text-foreground"
-                                  )}>
-                                    {player.name}
-                                  </h3>
-                                  {isDisconnected ? (
-                                    <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-xs shrink-0">
-                                      <WifiOff className="w-3 h-3 mr-1" />
-                                      Hors ligne
-                                    </Badge>
-                                  ) : inCombat ? (
-                                    <Badge variant="outline" className="border-gold/50 text-gold text-xs shrink-0">
-                                      <Check className="w-3 h-3 mr-1" />
-                                      Ajouté
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="border-emerald/50 text-emerald text-xs shrink-0">
-                                      <Wifi className="w-3 h-3 mr-1" />
-                                      En ligne
-                                    </Badge>
-                                  )}
-                                </div>
-                                {/* Row 2: Stats + Action Buttons */}
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                              {/* Main Row - Clickable to expand */}
+                              <div
+                                className={cn(
+                                  "p-[var(--card-padding-mobile)] cursor-pointer transition-smooth",
+                                  "hover:bg-secondary/50 active:bg-secondary/60"
+                                )}
+                                onClick={() => setExpandedPlayer(isExpanded ? null : player.id)}
+                              >
+                                <div className="flex flex-col gap-1.5">
+                                  {/* Row 1: Name + Status Badge + Expand Icon */}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <h3 className={cn(
+                                        "font-semibold truncate",
+                                        isDisconnected ? "text-muted-foreground" : "text-foreground"
+                                      )}>
+                                        {player.name}
+                                      </h3>
+                                      {isDisconnected ? (
+                                        <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground text-xs shrink-0">
+                                          <WifiOff className="w-3 h-3 mr-1" />
+                                          Hors ligne
+                                        </Badge>
+                                      ) : inCombat ? (
+                                        <Badge variant="outline" className="border-gold/50 text-gold text-xs shrink-0">
+                                          <Check className="w-3 h-3 mr-1" />
+                                          Ajouté
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="border-emerald/50 text-emerald text-xs shrink-0">
+                                          <Wifi className="w-3 h-3 mr-1" />
+                                          En ligne
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <Button
+                                        size="icon"
+                                        variant={canAdd ? "default" : "ghost"}
+                                        className={cn(
+                                          "h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)]",
+                                          canAdd
+                                            ? isDisconnected
+                                              ? "bg-amber-600 hover:bg-amber-600/80 text-white"
+                                              : "bg-gold hover:bg-gold/80 text-background"
+                                            : "text-muted-foreground"
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          canAdd && setPlayerToAdd(player)
+                                        }}
+                                        disabled={!canAdd}
+                                      >
+                                        {inCombat ? (
+                                          <Check className="w-5 h-5" />
+                                        ) : (
+                                          <UserPlus className="w-5 h-5" />
+                                        )}
+                                      </Button>
+                                      {isExpanded ? (
+                                        <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                  </div>
+                                  {/* Row 2: Stats */}
+                                  <p className="text-xs text-muted-foreground">
                                     {player.class} Niv. {player.level} • CA {player.ac}
                                     {player.passivePerception && ` • PP ${player.passivePerception}`}
                                   </p>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    {onSpellSlotChange && onShortRest && onLongRest && player.maxSpellSlots && Object.keys(player.maxSpellSlots).length > 0 && (
+                                  {/* Row 3: Conditions & Buffs display */}
+                                  {(player.conditions.length > 0 || player.exhaustionLevel > 0 || (player.buffs && player.buffs.length > 0)) && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {(player.conditions.length > 0 || player.exhaustionLevel > 0) && (
+                                        <ConditionList
+                                          conditions={player.conditions}
+                                          conditionDurations={player.conditionDurations}
+                                          exhaustionLevel={player.exhaustionLevel}
+                                          size="sm"
+                                        />
+                                      )}
+                                      {player.buffs && player.buffs.length > 0 && (
+                                        <BuffList buffs={player.buffs} size="sm" />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Expanded Panel */}
+                              {isExpanded && (
+                                <div className="px-[var(--card-padding-mobile)] pb-[var(--card-padding-mobile)] pt-2 border-t border-border/50 bg-secondary/20 animate-slide-down">
+                                  {/* Condition Manager */}
+                                  {onUpdateConditions && onUpdateExhaustion && (
+                                    <div className="mb-3">
+                                      <ConditionManager
+                                        targetName={player.name}
+                                        currentConditions={player.conditions}
+                                        conditionDurations={player.conditionDurations}
+                                        exhaustionLevel={player.exhaustionLevel}
+                                        onToggleCondition={(conditionId, duration) => {
+                                          const isRemoving = player.conditions.includes(conditionId)
+                                          const newConditions = isRemoving
+                                            ? player.conditions.filter(c => c !== conditionId)
+                                            : [...player.conditions, conditionId]
+                                          const newDurations = { ...(player.conditionDurations || {}) }
+                                          if (isRemoving) {
+                                            delete newDurations[conditionId]
+                                          } else if (duration) {
+                                            newDurations[conditionId] = duration
+                                          }
+                                          onUpdateConditions(player.id, newConditions, newDurations)
+                                        }}
+                                        onSetExhaustion={(level) => {
+                                          onUpdateExhaustion(player.id, level)
+                                        }}
+                                        trigger={
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full min-h-[40px] border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/10 text-purple-500"
+                                          >
+                                            <Zap className="w-4 h-4 mr-2" />
+                                            Gérer les états
+                                          </Button>
+                                        }
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Buff Manager */}
+                                  {onUpdateBuffs && (
+                                    <div className="mb-3">
+                                      <BuffManager
+                                        targetName={player.name}
+                                        currentBuffs={player.buffs || []}
+                                        onToggleBuff={(buffId, duration) => {
+                                          const currentBuffs = player.buffs || []
+                                          const existingIndex = currentBuffs.findIndex(b => b.buffId === buffId)
+                                          let newBuffs: ActiveBuff[]
+                                          if (existingIndex >= 0) {
+                                            newBuffs = currentBuffs.filter(b => b.buffId !== buffId)
+                                          } else {
+                                            newBuffs = [...currentBuffs, { buffId, remainingTurns: duration ?? null }]
+                                          }
+                                          onUpdateBuffs(player.id, newBuffs)
+                                        }}
+                                        onAddCustomBuff={(name, effect, type, duration) => {
+                                          const currentBuffs = player.buffs || []
+                                          const customBuff: ActiveBuff = {
+                                            buffId: `custom-${Date.now()}`,
+                                            remainingTurns: duration ?? null,
+                                            customName: name,
+                                            customEffect: effect,
+                                            customType: type as BuffType,
+                                          }
+                                          onUpdateBuffs(player.id, [...currentBuffs, customBuff])
+                                        }}
+                                        onRemoveBuff={(buffId, customName) => {
+                                          const currentBuffs = player.buffs || []
+                                          const newBuffs = customName
+                                            ? currentBuffs.filter(b => b.customName !== customName)
+                                            : currentBuffs.filter(b => b.buffId !== buffId)
+                                          onUpdateBuffs(player.id, newBuffs)
+                                        }}
+                                        trigger={
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full min-h-[40px] border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/10 text-emerald-500"
+                                          >
+                                            <Sparkles className="w-4 h-4 mr-2" />
+                                            Gérer les buffs
+                                          </Button>
+                                        }
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Inventory Manager */}
+                                  {onUpdateInventory && (
+                                    <div className="mb-3">
+                                      <InventoryManager
+                                        characterName={player.name}
+                                        inventory={player.inventory || DEFAULT_INVENTORY}
+                                        onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
+                                        trigger={
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full min-h-[40px] border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/10 text-blue-500"
+                                          >
+                                            <Backpack className="w-4 h-4 mr-2" />
+                                            Gérer l'inventaire
+                                          </Button>
+                                        }
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Spell Slot Manager */}
+                                  {onSpellSlotChange && onShortRest && onLongRest && player.maxSpellSlots && Object.keys(player.maxSpellSlots).length > 0 && (
+                                    <div className="mb-3">
                                       <SpellSlotManager
                                         characterName={player.name}
                                         spellSlots={player.spellSlots || {}}
@@ -225,59 +397,37 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                         onLongRest={() => onLongRest(player.id)}
                                         trigger={
                                           <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-purple-500 hover:bg-purple-500/10"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full min-h-[40px] border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/10 text-purple-500"
                                           >
-                                            <BookOpen className="w-5 h-5" />
+                                            <BookOpen className="w-4 h-4 mr-2" />
+                                            Gérer les emplacements
                                           </Button>
                                         }
                                       />
-                                    )}
-                                    {onUpdateInventory && (
-                                      <InventoryManager
-                                        characterName={player.name}
-                                        inventory={player.inventory || DEFAULT_INVENTORY}
-                                        onInventoryChange={(inventory) => onUpdateInventory(player.id, inventory)}
-                                        trigger={
-                                          <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)] text-blue-500 hover:bg-blue-500/10"
-                                          >
-                                            <Backpack className="w-5 h-5" />
-                                          </Button>
-                                        }
-                                      />
-                                    )}
-                                    <Button
-                                      size="icon"
-                                      variant={canAdd ? "default" : "ghost"}
-                                      className={cn(
-                                        "h-[var(--btn-size-mobile)] w-[var(--btn-size-mobile)]",
-                                        canAdd
-                                          ? isDisconnected
-                                            ? "bg-amber-600 hover:bg-amber-600/80 text-white"
-                                            : "bg-gold hover:bg-gold/80 text-background"
-                                          : "text-muted-foreground"
-                                      )}
-                                      onClick={() => canAdd && setPlayerToAdd(player)}
-                                      disabled={!canAdd}
-                                    >
-                                      {inCombat ? (
-                                        <Check className="w-5 h-5" />
-                                      ) : (
-                                        <UserPlus className="w-5 h-5" />
-                                      )}
-                                    </Button>
+                                    </div>
+                                  )}
+
+                                  {/* Initiative */}
+                                  <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Initiative</label>
+                                    <Input
+                                      type="number"
+                                      value={player.initiative || ""}
+                                      onChange={(e) => onUpdateInitiative(player.id, Number.parseInt(e.target.value) || 0)}
+                                      className="min-h-[40px] text-sm bg-background"
+                                      placeholder="0"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
                                   </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           )
                         }
 
-                        // Desktop: draggable cards
+                        // Desktop: draggable cards (simpler - expand for details is in combat view)
                         return (
                           <DraggablePlayerCard
                             key={player.id}
@@ -585,12 +735,20 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                           <ConditionManager
                             targetName={player.name}
                             currentConditions={player.conditions}
+                            conditionDurations={player.conditionDurations}
                             exhaustionLevel={player.exhaustionLevel}
-                            onToggleCondition={(conditionId) => {
-                              const newConditions = player.conditions.includes(conditionId)
+                            onToggleCondition={(conditionId, duration) => {
+                              const isRemoving = player.conditions.includes(conditionId)
+                              const newConditions = isRemoving
                                 ? player.conditions.filter(c => c !== conditionId)
                                 : [...player.conditions, conditionId]
-                              onUpdateConditions(player.id, newConditions)
+                              const newDurations = { ...(player.conditionDurations || {}) }
+                              if (isRemoving) {
+                                delete newDurations[conditionId]
+                              } else if (duration) {
+                                newDurations[conditionId] = duration
+                              }
+                              onUpdateConditions(player.id, newConditions, newDurations)
                             }}
                             onSetExhaustion={(level) => {
                               onUpdateExhaustion(player.id, level)

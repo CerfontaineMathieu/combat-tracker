@@ -71,6 +71,30 @@ function extractMultiSelect(multiSelectProp: any): string {
 }
 
 /**
+ * Helper function to extract relation property (fetches related page title)
+ * Returns the title of the first related page, or empty string
+ */
+async function extractRelation(notion: Client, relationProp: any): Promise<string> {
+  if (!relationProp || relationProp.type !== 'relation') return '';
+  if (!relationProp.relation || !Array.isArray(relationProp.relation) || relationProp.relation.length === 0) return '';
+
+  try {
+    const relatedPageId = relationProp.relation[0].id;
+    const relatedPage = await notion.pages.retrieve({ page_id: relatedPageId }) as any;
+
+    // Get the title from the related page
+    const titleProp = relatedPage.properties?.Nom || relatedPage.properties?.Name || relatedPage.properties?.title;
+    if (titleProp?.title) {
+      return extractText(titleProp.title);
+    }
+    return '';
+  } catch (error) {
+    console.error('Error fetching related page:', error);
+    return '';
+  }
+}
+
+/**
  * Helper function to extract title property
  */
 function extractTitle(titleProp: any): string {
@@ -224,6 +248,7 @@ async function fetchAllPagesFromDatabase(databaseId: string): Promise<any[]> {
  * Uses dynamic property detection based on common French field names
  */
 async function mapNotionPageToCatalogItem(
+  notion: Client,
   page: any,
   sourceDatabase: string,
   defaultCategory: ItemCategory,
@@ -270,9 +295,14 @@ async function mapNotionPageToCatalogItem(
     // Extract rarity (common names: Rareté, Rarity)
     const rarity = extractSelect(props.Rareté) || extractSelect(props.Rarity) || null;
 
-    // Extract type for subcategory determination (for Objets database)
-    // Type can be either select or multi_select depending on the database
-    const type = extractSelect(props.Type) || extractMultiSelect(props.Type) || '';
+    // Extract type for subcategory determination
+    // Type can be select, multi_select, or relation depending on the database
+    let type = extractSelect(props.Type) || extractMultiSelect(props.Type) || '';
+
+    // If Type is a relation (e.g., in armures database), fetch the related page title
+    if (!type && props.Type?.type === 'relation') {
+      type = await extractRelation(notion, props.Type);
+    }
 
     // Determine category and subcategory based on type
     let category = defaultCategory;
@@ -295,6 +325,33 @@ async function mapNotionPageToCatalogItem(
         category = 'equipment';
         subcategory = 'objet_magique';
       }
+    }
+
+    // Determine equipment_slot based on source_database and type
+    // This allows auto-equipping items to the correct slot
+    let equipmentSlot: string | null = null;
+
+    if (sourceDatabase === 'armes') {
+      // All weapons go to main-hand or off-hand
+      equipmentSlot = 'weapon';
+    } else if (sourceDatabase === 'armures') {
+      const typeLower = type.toLowerCase();
+      // Shields have specific type in Notion
+      if (typeLower.includes('bouclier') || typeLower === 'shield') {
+        equipmentSlot = 'shield';
+      } else {
+        // All other items from armures are armor
+        equipmentSlot = 'armor';
+      }
+    } else if (sourceDatabase === 'objets' && category === 'equipment') {
+      const typeLower = type.toLowerCase();
+      // Rings and amulets have specific types
+      if (typeLower.includes('anneau') || typeLower === 'ring') {
+        equipmentSlot = 'ring';
+      } else if (typeLower.includes('amulette') || typeLower === 'amulet' || typeLower.includes('collier')) {
+        equipmentSlot = 'amulet';
+      }
+      // Other magic objects (like capes, boots, etc.) don't have a slot yet
     }
 
     // Extract image URL from cover
@@ -325,6 +382,11 @@ async function mapNotionPageToCatalogItem(
       }
     }
 
+    // Store equipment_slot in properties for auto-equipping
+    if (equipmentSlot) {
+      properties.equipment_slot = equipmentSlot;
+    }
+
     return {
       notion_id: page.id,
       name,
@@ -351,11 +413,12 @@ export async function fetchArmesFromNotion(fetchContent: boolean = true): Promis
     return [];
   }
 
+  const notion = getNotionClient();
   const pages = await fetchAllPagesFromDatabase(ARMES_DATABASE_ID);
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = await mapNotionPageToCatalogItem(page, 'armes', 'equipment', 'weapon', fetchContent);
+    const item = await mapNotionPageToCatalogItem(notion, page, 'armes', 'equipment', 'weapon', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -373,12 +436,13 @@ export async function fetchObjetsFromNotion(fetchContent: boolean = true): Promi
     return [];
   }
 
+  const notion = getNotionClient();
   const pages = await fetchAllPagesFromDatabase(OBJETS_DATABASE_ID);
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
     // Magic objects are equipment (can be equipped and may require attunement)
-    const item = await mapNotionPageToCatalogItem(page, 'objets', 'equipment', 'objet_magique', fetchContent);
+    const item = await mapNotionPageToCatalogItem(notion, page, 'objets', 'equipment', 'objet_magique', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -396,11 +460,12 @@ export async function fetchPlantesFromNotion(fetchContent: boolean = true): Prom
     return [];
   }
 
+  const notion = getNotionClient();
   const pages = await fetchAllPagesFromDatabase(PLANTES_DATABASE_ID);
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = await mapNotionPageToCatalogItem(page, 'plantes', 'misc', 'plante', fetchContent);
+    const item = await mapNotionPageToCatalogItem(notion, page, 'plantes', 'misc', 'plante', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -418,11 +483,12 @@ export async function fetchPoisonsFromNotion(fetchContent: boolean = true): Prom
     return [];
   }
 
+  const notion = getNotionClient();
   const pages = await fetchAllPagesFromDatabase(POISONS_DATABASE_ID);
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = await mapNotionPageToCatalogItem(page, 'poisons', 'misc', 'poison', fetchContent);
+    const item = await mapNotionPageToCatalogItem(notion, page, 'poisons', 'misc', 'poison', fetchContent);
     if (item) {
       items.push(item);
     }
@@ -440,11 +506,12 @@ export async function fetchArmuresFromNotion(fetchContent: boolean = true): Prom
     return [];
   }
 
+  const notion = getNotionClient();
   const pages = await fetchAllPagesFromDatabase(ARMURES_DATABASE_ID);
   const items: CatalogItemInput[] = [];
 
   for (const page of pages) {
-    const item = await mapNotionPageToCatalogItem(page, 'armures', 'equipment', 'other', fetchContent);
+    const item = await mapNotionPageToCatalogItem(notion, page, 'armures', 'equipment', 'other', fetchContent);
     if (item) {
       items.push(item);
     }

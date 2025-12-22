@@ -738,7 +738,7 @@ app.prepare().then(() => {
         io.to(room).emit('condition-change', data);
         console.log(`[Socket.io] Condition change in ${room}:`, data.participantId);
 
-        // Persist to Redis combat state (like HP changes)
+        // Persist to Redis combat state (if combat is active)
         const combatState = await getCombatState(campaignId);
         if (combatState && combatState.participants) {
           const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; conditions?: string[]; conditionDurations?: Record<string, number> }>).map(p =>
@@ -750,7 +750,28 @@ app.prepare().then(() => {
             ...combatState,
             participants: updatedParticipants,
           });
-          console.log(`[Socket.io] Persisted conditions for ${data.participantId}`);
+          console.log(`[Socket.io] Persisted conditions to combat state for ${data.participantId}`);
+        }
+
+        // Also update connected player data in Redis (for out-of-combat state)
+        if (data.participantType === 'player') {
+          const players = await getConnectedPlayers(campaignId);
+          for (const player of players) {
+            let updated = false;
+            for (const char of player.characters) {
+              if (String(char.odNumber) === data.participantId) {
+                char.conditions = data.conditions || [];
+                char.conditionDurations = data.conditionDurations;
+                updated = true;
+                break;
+              }
+            }
+            if (updated) {
+              await addConnectedPlayer(campaignId, player);
+              console.log(`[Socket.io] Persisted conditions to connected player for ${data.participantId}`);
+              break;
+            }
+          }
         }
       }
     });
@@ -764,7 +785,7 @@ app.prepare().then(() => {
         io.to(room).emit('exhaustion-change', data);
         console.log(`[Socket.io] Exhaustion change in ${room}:`, data.participantId);
 
-        // Persist to Redis combat state (like HP and condition changes)
+        // Persist to Redis combat state (if combat is active)
         const combatState = await getCombatState(campaignId);
         if (combatState && combatState.participants) {
           const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; exhaustionLevel?: number }>).map(p =>
@@ -776,7 +797,27 @@ app.prepare().then(() => {
             ...combatState,
             participants: updatedParticipants,
           });
-          console.log(`[Socket.io] Persisted exhaustion for ${data.participantId}: ${data.exhaustionLevel}`);
+          console.log(`[Socket.io] Persisted exhaustion to combat state for ${data.participantId}: ${data.exhaustionLevel}`);
+        }
+
+        // Also update connected player data in Redis (for out-of-combat state)
+        if (data.participantType === 'player') {
+          const players = await getConnectedPlayers(campaignId);
+          for (const player of players) {
+            let updated = false;
+            for (const char of player.characters) {
+              if (String(char.odNumber) === data.participantId) {
+                char.exhaustionLevel = data.exhaustionLevel;
+                updated = true;
+                break;
+              }
+            }
+            if (updated) {
+              await addConnectedPlayer(campaignId, player);
+              console.log(`[Socket.io] Persisted exhaustion to connected player for ${data.participantId}`);
+              break;
+            }
+          }
         }
       }
     });
@@ -790,7 +831,7 @@ app.prepare().then(() => {
         io.to(room).emit('buff-change', data);
         console.log(`[Socket.io] Buff change in ${room}:`, data.participantId);
 
-        // Persist to Redis combat state (like condition changes)
+        // Persist to Redis combat state (if combat is active)
         const combatState = await getCombatState(campaignId);
         if (combatState && combatState.participants) {
           const updatedParticipants = (combatState.participants as Array<{ id: string; type: string; buffs?: import('@/lib/types').ActiveBuff[] }>).map(p =>
@@ -802,7 +843,27 @@ app.prepare().then(() => {
             ...combatState,
             participants: updatedParticipants,
           });
-          console.log(`[Socket.io] Persisted buffs for ${data.participantId}`);
+          console.log(`[Socket.io] Persisted buffs to combat state for ${data.participantId}`);
+        }
+
+        // Also update connected player data in Redis (for out-of-combat state)
+        if (data.participantType === 'player') {
+          const players = await getConnectedPlayers(campaignId);
+          for (const player of players) {
+            let updated = false;
+            for (const char of player.characters) {
+              if (String(char.odNumber) === data.participantId) {
+                char.buffs = data.buffs;
+                updated = true;
+                break;
+              }
+            }
+            if (updated) {
+              await addConnectedPlayer(campaignId, player);
+              console.log(`[Socket.io] Persisted buffs to connected player for ${data.participantId}`);
+              break;
+            }
+          }
         }
       }
     });
