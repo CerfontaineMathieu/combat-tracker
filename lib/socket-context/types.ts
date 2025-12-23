@@ -36,6 +36,12 @@ import type {
   LootUpdateCurrencyData,
   LootFinalizeData,
   LootCancelData,
+  // Group save events
+  GroupSaveRequestData,
+  GroupSaveResultData,
+  GroupSaveResultsUpdateData,
+  GroupSaveCancelData,
+  GroupSaveParticipantResult,
 } from '../socket-events';
 import type {
   Character,
@@ -47,6 +53,7 @@ import type {
   LootClaim,
   RollOffResult,
   LootDistribution,
+  SavingThrowType,
 } from '../types';
 
 // Re-export types from socket-events for convenience
@@ -86,6 +93,12 @@ export type {
   LootUpdateCurrencyData,
   LootFinalizeData,
   LootCancelData,
+  // Group save types
+  GroupSaveRequestData,
+  GroupSaveResultData,
+  GroupSaveResultsUpdateData,
+  GroupSaveCancelData,
+  GroupSaveParticipantResult,
 };
 
 // Typed socket
@@ -155,6 +168,15 @@ export interface SocketState {
   rollOffResult: RollOffResult | null;
   lootDistributions: LootDistribution[] | null;
   lootError: { error: string; code: string } | null;
+
+  // Group Saving Throw
+  pendingGroupSave: {
+    saveId: string;
+    saveType: SavingThrowType;
+    dc: number;
+    results: GroupSaveParticipantResult[];
+    isComplete: boolean;
+  } | null;
 }
 
 // Action types
@@ -229,7 +251,12 @@ export type SocketAction =
   | { type: 'LOOT_CLEAR_ROLLOFF' }
   | { type: 'LOOT_FINALIZED'; distributions: LootDistribution[] }
   | { type: 'LOOT_CLEAR_SESSION' }
-  | { type: 'LOOT_ERROR'; error: string; code: string };
+  | { type: 'LOOT_ERROR'; error: string; code: string }
+
+  // Group Saving Throw
+  | { type: 'GROUP_SAVE_REQUEST'; data: { saveId: string; saveType: SavingThrowType; dc: number; results: GroupSaveParticipantResult[] } }
+  | { type: 'GROUP_SAVE_RESULTS_UPDATE'; data: { saveId: string; saveType: SavingThrowType; dc: number; results: GroupSaveParticipantResult[]; isComplete: boolean } }
+  | { type: 'GROUP_SAVE_CLEAR' };
 
 // Initial state
 export const initialSocketState: SocketState = {
@@ -280,6 +307,9 @@ export const initialSocketState: SocketState = {
   rollOffResult: null,
   lootDistributions: null,
   lootError: null,
+
+  // Group Saving Throw
+  pendingGroupSave: null,
 };
 
 // Join campaign data
@@ -352,4 +382,10 @@ export interface SocketContextType {
   requestLootSession: () => void;
   clearRollOffResult: () => void;
   clearLootSession: () => void;
+
+  // Group Saving Throw actions
+  initiateGroupSave: (data: Omit<GroupSaveRequestData, 'saveId' | 'campaignId'>) => void;
+  submitGroupSaveResult: (data: Omit<GroupSaveResultData, 'saveId'>) => void;
+  cancelGroupSave: () => void;
+  clearGroupSave: () => void;
 }

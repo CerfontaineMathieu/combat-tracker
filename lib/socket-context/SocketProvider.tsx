@@ -27,6 +27,9 @@ import type {
   LootUnclaimItemData,
   LootAssignItemData,
   LootUpdateCurrencyData,
+  // Group save types
+  GroupSaveRequestData,
+  GroupSaveResultData,
 } from './types';
 import { initialSocketState } from './types';
 
@@ -392,6 +395,44 @@ export function SocketProvider({ children }: SocketProviderProps) {
       dispatch({ type: 'LOOT_ERROR', error: data.error, code: data.code });
     });
 
+    // ============ GROUP SAVING THROW EVENTS ============
+    socket.on('group-save-request', (data) => {
+      // Convert participants to results format (all null initially)
+      const results = data.participants.map((p) => ({
+        participantId: p.participantId,
+        participantType: p.participantType,
+        participantName: p.participantName,
+        rollResult: null,
+        success: null,
+      }));
+      dispatch({
+        type: 'GROUP_SAVE_REQUEST',
+        data: {
+          saveId: data.saveId,
+          saveType: data.saveType,
+          dc: data.dc,
+          results,
+        },
+      });
+    });
+
+    socket.on('group-save-results-update', (data) => {
+      dispatch({
+        type: 'GROUP_SAVE_RESULTS_UPDATE',
+        data: {
+          saveId: data.saveId,
+          saveType: data.saveType,
+          dc: data.dc,
+          results: data.results,
+          isComplete: data.isComplete,
+        },
+      });
+    });
+
+    socket.on('group-save-cancelled', () => {
+      dispatch({ type: 'GROUP_SAVE_CLEAR' });
+    });
+
     // Connect the socket
     socket.connect();
 
@@ -434,6 +475,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socket.off('loot-finalized');
       socket.off('loot-cancelled');
       socket.off('loot-error');
+      // Group save events
+      socket.off('group-save-request');
+      socket.off('group-save-results-update');
+      socket.off('group-save-cancelled');
 
       socket.disconnect();
       socketRef.current = null;
@@ -807,6 +852,50 @@ export function SocketProvider({ children }: SocketProviderProps) {
     dispatch({ type: 'LOOT_CLEAR_SESSION' });
   }, []);
 
+  // ============ GROUP SAVING THROW ACTIONS ============
+
+  const initiateGroupSave = useCallback((data: Omit<GroupSaveRequestData, 'saveId' | 'campaignId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    // Generate unique saveId
+    const saveId = `save-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    socket.emit('group-save-request', {
+      ...data,
+      saveId,
+      campaignId: stateRef.current.campaignId,
+    });
+  }, []);
+
+  const submitGroupSaveResult = useCallback((data: Omit<GroupSaveResultData, 'saveId'>) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const saveId = stateRef.current.pendingGroupSave?.saveId;
+    if (!saveId) return;
+
+    socket.emit('group-save-result', {
+      ...data,
+      saveId,
+    });
+  }, []);
+
+  const cancelGroupSave = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const saveId = stateRef.current.pendingGroupSave?.saveId;
+    if (!saveId) return;
+
+    socket.emit('group-save-cancel', { saveId });
+    dispatch({ type: 'GROUP_SAVE_CLEAR' });
+  }, []);
+
+  const clearGroupSave = useCallback(() => {
+    dispatch({ type: 'GROUP_SAVE_CLEAR' });
+  }, []);
+
   // Context value - memoized to ensure proper React re-renders when state changes
   const value: SocketContextType = useMemo(() => ({
     state,
@@ -841,6 +930,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
     requestLootSession,
     clearRollOffResult,
     clearLootSession,
+    // Group saving throw
+    initiateGroupSave,
+    submitGroupSaveResult,
+    cancelGroupSave,
+    clearGroupSave,
   }), [
     state,
     dispatch,
@@ -874,6 +968,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
     requestLootSession,
     clearRollOffResult,
     clearLootSession,
+    // Group saving throw
+    initiateGroupSave,
+    submitGroupSaveResult,
+    cancelGroupSave,
+    clearGroupSave,
   ]);
 
   return (

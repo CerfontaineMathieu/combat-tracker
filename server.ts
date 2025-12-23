@@ -243,6 +243,32 @@ interface LootDistribution {
 // TODO: Move to Redis for persistence across server restarts
 const activeLootSessions = new Map<number, LootSession>();
 
+// Group saving throw types and storage
+interface GroupSaveParticipant {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  participantName: string;
+}
+
+interface GroupSaveResult {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  participantName: string;
+  rollResult: number | null;
+  success: boolean | null;
+}
+
+interface ActiveGroupSave {
+  saveId: string;
+  campaignId: number;
+  saveType: 'FOR' | 'DEX' | 'CON' | 'INT' | 'SAG' | 'CHA';
+  dc: number;
+  results: GroupSaveResult[];
+}
+
+// In-memory group save storage (per campaign - only one active at a time)
+const activeGroupSaves = new Map<number, ActiveGroupSave>();
+
 // Helper to generate UUIDs
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -1659,6 +1685,127 @@ app.prepare().then(() => {
       } else {
         console.log(`[Loot] No active session for campaign ${data.campaignId}`);
       }
+    });
+
+    // ============ GROUP SAVING THROW EVENTS ============
+
+    // Initiate group save (DM only)
+    socket.on('group-save-request', (data: {
+      saveId: string;
+      campaignId: number;
+      saveType: 'FOR' | 'DEX' | 'CON' | 'INT' | 'SAG' | 'CHA';
+      dc: number;
+      participants: GroupSaveParticipant[];
+    }) => {
+      if (socket.data.role !== 'dm') {
+        console.log(`[GroupSave] Rejected: not a DM`);
+        return;
+      }
+
+      const campaignId = data.campaignId;
+      const room = `campaign-${campaignId}`;
+
+      // Convert participants to results format (null = pending)
+      const results: GroupSaveResult[] = data.participants.map(p => ({
+        participantId: p.participantId,
+        participantType: p.participantType,
+        participantName: p.participantName,
+        rollResult: null,
+        success: null,
+      }));
+
+      const groupSave: ActiveGroupSave = {
+        saveId: data.saveId,
+        campaignId,
+        saveType: data.saveType,
+        dc: data.dc,
+        results,
+      };
+
+      // Store (replaces any existing save for this campaign)
+      activeGroupSaves.set(campaignId, groupSave);
+
+      // Broadcast to all clients in room
+      io.to(room).emit('group-save-request', {
+        saveId: data.saveId,
+        saveType: data.saveType,
+        dc: data.dc,
+        participants: data.participants,
+      });
+
+      console.log(`[GroupSave] Started: ${data.saveType} DD ${data.dc} for ${data.participants.length} participants`);
+    });
+
+    // Submit group save result (player or DM for monsters)
+    socket.on('group-save-result', (data: {
+      saveId: string;
+      participantId: string;
+      rollResult: number;
+      success: boolean;
+    }) => {
+      if (!socket.data.campaignId) return;
+
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const groupSave = activeGroupSaves.get(campaignId);
+
+      if (!groupSave || groupSave.saveId !== data.saveId) {
+        console.log(`[GroupSave] Result rejected: no matching save`);
+        return;
+      }
+
+      // Find and update the participant's result
+      const result = groupSave.results.find(r => r.participantId === data.participantId);
+      if (!result) {
+        console.log(`[GroupSave] Result rejected: participant not found`);
+        return;
+      }
+
+      // Only allow updating if not already submitted
+      if (result.rollResult !== null) {
+        console.log(`[GroupSave] Result rejected: already submitted`);
+        return;
+      }
+
+      result.rollResult = data.rollResult;
+      result.success = data.success;
+
+      // Check if all results are in
+      const isComplete = groupSave.results.every(r => r.rollResult !== null);
+
+      // Broadcast updated results
+      io.to(room).emit('group-save-results-update', {
+        saveId: groupSave.saveId,
+        saveType: groupSave.saveType,
+        dc: groupSave.dc,
+        results: groupSave.results,
+        isComplete,
+      });
+
+      console.log(`[GroupSave] Result received: ${result.participantName} rolled ${data.rollResult} (${data.success ? 'success' : 'failure'})`);
+
+      if (isComplete) {
+        console.log(`[GroupSave] All results received for save ${groupSave.saveId}`);
+      }
+    });
+
+    // Cancel group save (DM only)
+    socket.on('group-save-cancel', (data: { saveId: string }) => {
+      if (socket.data.role !== 'dm' || !socket.data.campaignId) return;
+
+      const campaignId = socket.data.campaignId;
+      const room = `campaign-${campaignId}`;
+      const groupSave = activeGroupSaves.get(campaignId);
+
+      if (!groupSave || groupSave.saveId !== data.saveId) return;
+
+      // Remove from storage
+      activeGroupSaves.delete(campaignId);
+
+      // Broadcast cancellation
+      io.to(room).emit('group-save-cancelled');
+
+      console.log(`[GroupSave] Cancelled: ${data.saveId}`);
     });
 
     // Notification broadcast (sent to all other clients in the room)
