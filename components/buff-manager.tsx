@@ -86,6 +86,8 @@ interface BuffManagerProps {
   onAddCustomBuff: (name: string, effect: string, type: BuffType, duration?: number | null) => void
   onRemoveBuff: (buffId: string, customName?: string) => void
   trigger?: React.ReactNode
+  externalOpen?: boolean
+  onExternalOpenChange?: (open: boolean) => void
 }
 
 export function BuffManager({
@@ -95,8 +97,20 @@ export function BuffManager({
   onAddCustomBuff,
   onRemoveBuff,
   trigger,
+  externalOpen,
+  onExternalOpenChange,
 }: BuffManagerProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+
+  // Use external control if provided, otherwise use internal state
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = (value: boolean) => {
+    if (onExternalOpenChange) {
+      onExternalOpenChange(value)
+    } else {
+      setInternalOpen(value)
+    }
+  }
   const [selectedBuff, setSelectedBuff] = useState<string | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null)
 

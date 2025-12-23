@@ -51,6 +51,13 @@ interface CombatPanelProps {
   onAddPet?: (ownerId: string, pet: Omit<CombatParticipant, 'id'>) => void
   mode: "mj" | "joueur"
   ownCharacterIds?: string[] // IDs of characters owned by the current player
+  // Keyboard shortcut control for dialogs
+  externalConditionDialogOpen?: boolean
+  onExternalConditionDialogChange?: (open: boolean) => void
+  externalBuffDialogOpen?: boolean
+  onExternalBuffDialogChange?: (open: boolean) => void
+  externalHpDialogOpen?: boolean
+  onExternalHpDialogChange?: (open: boolean) => void
 }
 
 export function CombatPanel({
@@ -73,6 +80,12 @@ export function CombatPanel({
   onAddPet,
   mode,
   ownCharacterIds = [],
+  externalConditionDialogOpen,
+  onExternalConditionDialogChange,
+  externalBuffDialogOpen,
+  onExternalBuffDialogChange,
+  externalHpDialogOpen,
+  onExternalHpDialogChange,
 }: CombatPanelProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
   const [petDialogOwner, setPetDialogOwner] = useState<CombatParticipant | null>(null)
@@ -480,6 +493,8 @@ export function CombatPanel({
                                     <Zap className="w-5 h-5" />
                                   </Button>
                                 }
+                                externalOpen={index === currentTurn ? externalConditionDialogOpen : undefined}
+                                onExternalOpenChange={index === currentTurn ? onExternalConditionDialogChange : undefined}
                               />
                             )}
                             {onUpdateBuffs && (
@@ -515,6 +530,8 @@ export function CombatPanel({
                                     : currentBuffs.filter(b => b.buffId !== buffId)
                                   onUpdateBuffs(participant.id, newBuffs, participant.type)
                                 }}
+                                externalOpen={index === currentTurn ? externalBuffDialogOpen : undefined}
+                                onExternalOpenChange={index === currentTurn ? onExternalBuffDialogChange : undefined}
                               />
                             )}
                             {/* Add Pet button - only for non-pets and DM mode */}
@@ -529,7 +546,15 @@ export function CombatPanel({
                                 <Dog className="w-5 h-5" />
                               </Button>
                             )}
-                            <Dialog>
+                            <Dialog
+                              open={selectedParticipant?.id === participant.id || (index === currentTurn && externalHpDialogOpen)}
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  setSelectedParticipant(null)
+                                  onExternalHpDialogChange?.(false)
+                                }
+                              }}
+                            >
                               <DialogTrigger asChild>
                                 <Button
                                   size="icon"
@@ -1042,6 +1067,8 @@ export function CombatPanel({
                                 <Zap className="w-4 h-4" />
                               </Button>
                             }
+                            externalOpen={index === currentTurn ? externalConditionDialogOpen : undefined}
+                            onExternalOpenChange={index === currentTurn ? onExternalConditionDialogChange : undefined}
                           />
                         )}
                         {onUpdateBuffs && (
@@ -1086,6 +1113,8 @@ export function CombatPanel({
                                 <Wand2 className="w-4 h-4" />
                               </Button>
                             }
+                            externalOpen={index === currentTurn ? externalBuffDialogOpen : undefined}
+                            onExternalOpenChange={index === currentTurn ? onExternalBuffDialogChange : undefined}
                           />
                         )}
                         {/* Add Pet button - desktop layout */}
@@ -1100,7 +1129,15 @@ export function CombatPanel({
                             <Dog className="w-4 h-4" />
                           </Button>
                         )}
-                        <Dialog>
+                        <Dialog
+                          open={selectedParticipant?.id === participant.id || (index === currentTurn && externalHpDialogOpen)}
+                          onOpenChange={(open) => {
+                            if (!open) {
+                              setSelectedParticipant(null)
+                              onExternalHpDialogChange?.(false)
+                            }
+                          }}
+                        >
                           <DialogTrigger asChild>
                             <Button
                               size="sm"

@@ -70,6 +70,8 @@ interface ConditionManagerProps {
   onToggleCondition: (conditionId: string, duration?: number) => void
   onSetExhaustion: (level: number) => void
   trigger?: React.ReactNode
+  externalOpen?: boolean
+  onExternalOpenChange?: (open: boolean) => void
 }
 
 export function ConditionManager({
@@ -80,8 +82,20 @@ export function ConditionManager({
   onToggleCondition,
   onSetExhaustion,
   trigger,
+  externalOpen,
+  onExternalOpenChange,
 }: ConditionManagerProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+
+  // Use external control if provided, otherwise use internal state
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = (value: boolean) => {
+    if (onExternalOpenChange) {
+      onExternalOpenChange(value)
+    } else {
+      setInternalOpen(value)
+    }
+  }
   const [selectedCondition, setSelectedCondition] = useState<string | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null)
 

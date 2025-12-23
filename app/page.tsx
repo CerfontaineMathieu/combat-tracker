@@ -125,6 +125,10 @@ function CombatTrackerContent() {
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  // Keyboard shortcut dialog control
+  const [keyboardConditionDialogOpen, setKeyboardConditionDialogOpen] = useState(false)
+  const [keyboardBuffDialogOpen, setKeyboardBuffDialogOpen] = useState(false)
+  const [keyboardHpDialogOpen, setKeyboardHpDialogOpen] = useState(false)
   const [sessionNotes, setSessionNotes] = useState<Note[]>([])
   const [isSyncingNotes, setIsSyncingNotes] = useState(false)
   const [combatHistory, setCombatHistory] = useState<HistoryEntry[]>([])
@@ -2573,16 +2577,16 @@ function CombatTrackerContent() {
       toast(`${current.name}: ${action} PV`, { duration: 1500 })
     },
     openHpDialog: () => {
-      // TODO: Implement HP dialog opening from keyboard
-      toast("Raccourci H: bientôt disponible", { duration: 1500 })
+      if (!combatActive || combatParticipants.length === 0) return
+      setKeyboardHpDialogOpen(true)
     },
     openConditionManager: () => {
-      // TODO: Implement condition manager opening from keyboard
-      toast("Raccourci C: bientôt disponible", { duration: 1500 })
+      if (!combatActive || combatParticipants.length === 0) return
+      setKeyboardConditionDialogOpen(true)
     },
     openBuffManager: () => {
-      // TODO: Implement buff manager opening from keyboard
-      toast("Raccourci B: bientôt disponible", { duration: 1500 })
+      if (!combatActive || combatParticipants.length === 0) return
+      setKeyboardBuffDialogOpen(true)
     },
     openSettings: () => setShowSettings(true),
     openNotes: () => setShowNotes(true),
@@ -2841,6 +2845,12 @@ function CombatTrackerContent() {
                   onAddPet={mode === "mj" ? addPetToOwner : undefined}
                   mode={mode}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                  externalConditionDialogOpen={keyboardConditionDialogOpen}
+                  onExternalConditionDialogChange={setKeyboardConditionDialogOpen}
+                  externalBuffDialogOpen={keyboardBuffDialogOpen}
+                  onExternalBuffDialogChange={setKeyboardBuffDialogOpen}
+                  externalHpDialogOpen={keyboardHpDialogOpen}
+                  onExternalHpDialogChange={setKeyboardHpDialogOpen}
                 />
               )}
               {activeTab === "setup" && mode === "mj" && (
@@ -2975,6 +2985,12 @@ function CombatTrackerContent() {
                     onAddPet={mode === "mj" ? addPetToOwner : undefined}
                     mode={mode}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
+                    externalConditionDialogOpen={keyboardConditionDialogOpen}
+                    onExternalConditionDialogChange={setKeyboardConditionDialogOpen}
+                    externalBuffDialogOpen={keyboardBuffDialogOpen}
+                    onExternalBuffDialogChange={setKeyboardBuffDialogOpen}
+                    externalHpDialogOpen={keyboardHpDialogOpen}
+                    onExternalHpDialogChange={setKeyboardHpDialogOpen}
                   />
                 </div>
 
