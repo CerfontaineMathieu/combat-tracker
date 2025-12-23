@@ -7,6 +7,8 @@ export const EQUIPMENT_SLOTS = [
   'ring-1',
   'ring-2',
   'amulet',
+  'gloves',
+  'boots',
 ] as const
 
 export type EquipmentSlot = typeof EQUIPMENT_SLOTS[number]
@@ -20,6 +22,8 @@ export const SLOT_NAMES: Record<EquipmentSlot, string> = {
   'ring-1': 'Anneau 1',
   'ring-2': 'Anneau 2',
   'amulet': 'Amulette',
+  'gloves': 'Gants',
+  'boots': 'Bottes',
 }
 
 // Inventory Item Types
@@ -738,6 +742,10 @@ export function getSlotTypesFromCatalog(catalogItem: CatalogItem): EquipmentSlot
       return ['ring-1', 'ring-2'];
     case 'amulet':
       return ['amulet'];
+    case 'gloves':
+      return ['gloves'];
+    case 'boots':
+      return ['boots'];
     default:
       return [];
   }

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { EquipmentItem, EquipmentSlot, SLOT_NAMES } from "@/lib/types"
-import { Shield, Sword, Gem, Shirt, CircleDot } from "lucide-react"
+import { Shield, Sword, Gem, Shirt, CircleDot, Hand, Footprints } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -19,6 +19,8 @@ const SLOT_ICONS: Record<EquipmentSlot, React.ComponentType<{ className?: string
   'ring-1': CircleDot,
   'ring-2': CircleDot,
   'amulet': Gem,
+  'gloves': Hand,
+  'boots': Footprints,
 }
 
 // Rarity colors for equipped items
@@ -157,7 +159,7 @@ export function EquipmentSilhouette({ equipment, onSlotClick, disabled }: Equipm
         </div>
       </div>
 
-      {/* Bottom row: Armor + Shield */}
+      {/* Middle row: Armor + Shield + Gloves */}
       <div className="flex gap-4 justify-center">
         <EquipmentSlotButton
           slot="armor"
@@ -168,6 +170,22 @@ export function EquipmentSilhouette({ equipment, onSlotClick, disabled }: Equipm
         <EquipmentSlotButton
           slot="shield"
           item={getEquippedItem('shield')}
+          onClick={onSlotClick}
+          disabled={disabled}
+        />
+        <EquipmentSlotButton
+          slot="gloves"
+          item={getEquippedItem('gloves')}
+          onClick={onSlotClick}
+          disabled={disabled}
+        />
+      </div>
+
+      {/* Bottom row: Boots */}
+      <div className="flex justify-center">
+        <EquipmentSlotButton
+          slot="boots"
+          item={getEquippedItem('boots')}
           onClick={onSlotClick}
           disabled={disabled}
         />
