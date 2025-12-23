@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Plus, Minus, NotebookPen } from "lucide-react"
+import { KeyboardProvider } from "@/lib/keyboard"
+import type { KeyboardActions } from "@/lib/keyboard"
 
 // Default campaign ID (single session)
 const DEFAULT_CAMPAIGN_ID = 1
@@ -2551,6 +2553,64 @@ function CombatTrackerContent() {
     }
   }
 
+  // Keyboard shortcuts actions
+  const keyboardActions: KeyboardActions = useMemo(() => ({
+    startCombat,
+    nextTurn,
+    stopCombat,
+    randomizeInitiatives,
+    updateCurrentParticipantHp: (change: number) => {
+      if (!combatActive || combatParticipants.length === 0) return
+      const current = combatParticipants[currentTurn]
+      if (!current) return
+      if (current.type === 'player') {
+        updatePlayerHp(current.id, change)
+      } else {
+        updateMonsterHp(current.id, change)
+      }
+      // Visual feedback
+      const action = change > 0 ? `+${change}` : `${change}`
+      toast(`${current.name}: ${action} PV`, { duration: 1500 })
+    },
+    openHpDialog: () => {
+      // TODO: Implement HP dialog opening from keyboard
+      toast("Raccourci H: bientôt disponible", { duration: 1500 })
+    },
+    openConditionManager: () => {
+      // TODO: Implement condition manager opening from keyboard
+      toast("Raccourci C: bientôt disponible", { duration: 1500 })
+    },
+    openBuffManager: () => {
+      // TODO: Implement buff manager opening from keyboard
+      toast("Raccourci B: bientôt disponible", { duration: 1500 })
+    },
+    openSettings: () => setShowSettings(true),
+    openNotes: () => setShowNotes(true),
+    setActiveTab: (tab: string) => setActiveTab(tab as MobileTab),
+    openInventory: () => {
+      // For player mode - switch to players tab
+      setActiveTab('players')
+    },
+    openSpellbook: () => {
+      // For player mode - switch to spellbook tab
+      setActiveTab('spellbook')
+    },
+    endPlayerTurn: () => {
+      // TODO: Implement end turn for player
+      toast("Fin de tour signalée", { duration: 1500 })
+    },
+  }), [
+    combatActive,
+    combatParticipants,
+    currentTurn,
+    startCombat,
+    nextTurn,
+    stopCombat,
+    randomizeInitiatives,
+    updatePlayerHp,
+    updateMonsterHp,
+  ])
+
   if (loading) {
     return <LoadingSkeleton />
   }
@@ -2576,6 +2636,7 @@ function CombatTrackerContent() {
     : undefined
 
   return (
+    <KeyboardProvider actions={keyboardActions} mode={mode} combatActive={combatActive}>
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Ambient Effects Overlay */}
       <AmbientEffects effect={ambientEffect} onEffectEnd={handleEffectEnd} />
@@ -3133,6 +3194,7 @@ function CombatTrackerContent() {
         </Button>
       )}
     </div>
+    </KeyboardProvider>
   )
 }
 

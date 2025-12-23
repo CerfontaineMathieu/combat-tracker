@@ -49,6 +49,7 @@
 | Spell Reference (DM) | `components/spell-reference-dialog.tsx` |
 | Equipment Silhouette | `components/equipment-silhouette.tsx` |
 | Slot Picker | `components/slot-picker-dialog.tsx` |
+| Keyboard Help | `components/keyboard-help-dialog.tsx` |
 
 ### Loot System
 | Component | File |
@@ -199,6 +200,11 @@ lib/
 ├── db.ts                 # PostgreSQL queries
 ├── socket-events.ts      # Socket.io events
 ├── loot-utils.ts         # Loot utilities
+├── keyboard/             # Keyboard shortcuts system
+│   ├── types.ts          # Shortcut types
+│   ├── shortcuts.ts      # Shortcut definitions
+│   ├── KeyboardProvider.tsx  # Provider + hooks
+│   └── index.ts          # Exports
 └── notion*.ts            # Notion integration
 
 migrations/               # Database migrations (24 files)
@@ -218,6 +224,15 @@ hooks/                    # Custom React hooks
 ---
 
 ## Recent Work
+
+- **2025-12-23**: Keyboard shortcuts system (`feat/keyboard-shortcuts` branch)
+  - Global keyboard shortcuts for DM and player modes
+  - Combat: Alt+S (start), Space (next turn), Alt+X (stop), Alt+R (roll initiatives)
+  - HP: 1/3/5/0 for damage, Shift+1/3/5/0 for healing on current participant
+  - Dialogs: C (conditions), B (buffs), Alt+N (notes), Alt+, (settings)
+  - Navigation: Alt+1-4 for tabs, I (inventory), S (spellbook)
+  - Help dialog (?) showing all available shortcuts
+  - Files: `lib/keyboard/`, `components/keyboard-help-dialog.tsx`, `components/header.tsx`
 
 - **2025-12-22**: Visual inventory with equipment silhouette (`feature/visual-inventory` branch)
   - Character silhouette showing 7 equipment slots (armor, shield, main-hand, off-hand, 2 rings, amulet)
