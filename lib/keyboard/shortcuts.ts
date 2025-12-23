@@ -70,7 +70,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
   },
   {
     id: 'heal-1',
-    keys: 'shift+1',
+    keys: 'alt+1',
     description: '+1 PV au participant actuel',
     category: 'hp',
     dmOnly: true,
@@ -78,7 +78,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
   },
   {
     id: 'heal-3',
-    keys: 'shift+3',
+    keys: 'alt+3',
     description: '+3 PV au participant actuel',
     category: 'hp',
     dmOnly: true,
@@ -86,7 +86,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
   },
   {
     id: 'heal-5',
-    keys: 'shift+5',
+    keys: 'alt+5',
     description: '+5 PV au participant actuel',
     category: 'hp',
     dmOnly: true,
@@ -94,7 +94,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
   },
   {
     id: 'heal-10',
-    keys: 'shift+0',
+    keys: 'alt+0',
     description: '+10 PV au participant actuel',
     category: 'hp',
     dmOnly: true,

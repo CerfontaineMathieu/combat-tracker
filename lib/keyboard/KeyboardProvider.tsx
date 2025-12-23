@@ -159,11 +159,12 @@ export function KeyboardProvider({ children, actions, mode, combatActive }: Keyb
     [mode, combatActive, actions]
   )
 
-  // Heal shortcuts
+  // Heal shortcuts (Alt+number)
   useHotkeys(
-    'shift+1',
-    () => {
+    'alt+1',
+    (e) => {
       if (mode === 'mj' && combatActive && !isInputFocused()) {
+        e.preventDefault()
         actions.updateCurrentParticipantHp(1)
       }
     },
@@ -172,9 +173,10 @@ export function KeyboardProvider({ children, actions, mode, combatActive }: Keyb
   )
 
   useHotkeys(
-    'shift+3',
-    () => {
+    'alt+3',
+    (e) => {
       if (mode === 'mj' && combatActive && !isInputFocused()) {
+        e.preventDefault()
         actions.updateCurrentParticipantHp(3)
       }
     },
@@ -183,9 +185,10 @@ export function KeyboardProvider({ children, actions, mode, combatActive }: Keyb
   )
 
   useHotkeys(
-    'shift+5',
-    () => {
+    'alt+5',
+    (e) => {
       if (mode === 'mj' && combatActive && !isInputFocused()) {
+        e.preventDefault()
         actions.updateCurrentParticipantHp(5)
       }
     },
@@ -194,9 +197,10 @@ export function KeyboardProvider({ children, actions, mode, combatActive }: Keyb
   )
 
   useHotkeys(
-    'shift+0',
-    () => {
+    'alt+0',
+    (e) => {
       if (mode === 'mj' && combatActive && !isInputFocused()) {
+        e.preventDefault()
         actions.updateCurrentParticipantHp(10)
       }
     },
@@ -281,18 +285,22 @@ export function KeyboardProvider({ children, actions, mode, combatActive }: Keyb
   )
 
   // === NAVIGATION SHORTCUTS ===
+  // Note: Alt+1/3/5/0 are used for healing during combat (DM), so navigation
+  // for these keys only works outside combat or in player mode
 
-  // Combat/Setup (Alt+1)
+  // Combat/Setup (Alt+1) - skip during DM combat (heal takes priority)
   useHotkeys(
     'alt+1',
     (e) => {
+      // During combat as DM, alt+1 is for healing, not navigation
+      if (mode === 'mj' && combatActive) return
       if (!isInputFocused()) {
         e.preventDefault()
         actions.setActiveTab(combatActive ? 'combat' : 'setup')
       }
     },
     { enableOnFormTags: false },
-    [combatActive, actions]
+    [mode, combatActive, actions]
   )
 
   // Bestiary (Alt+2) - DM only
@@ -308,17 +316,19 @@ export function KeyboardProvider({ children, actions, mode, combatActive }: Keyb
     [mode, actions]
   )
 
-  // Players/Group (Alt+3)
+  // Players/Group (Alt+3) - skip during DM combat (heal takes priority)
   useHotkeys(
     'alt+3',
     (e) => {
+      // During combat as DM, alt+3 is for healing, not navigation
+      if (mode === 'mj' && combatActive) return
       if (!isInputFocused()) {
         e.preventDefault()
         actions.setActiveTab('players')
       }
     },
     { enableOnFormTags: false },
-    [actions]
+    [mode, combatActive, actions]
   )
 
   // Loot (Alt+4)
