@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield, Wand2, Dog, Link } from "lucide-react"
+import { Swords, Play, Square, SkipForward, Minus, Plus, Crown, Zap, X, Trash2, Skull, Heart, Check, XCircle, HeartPulse, Eye, Shield, Wand2, Dog, Link, Dices } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,6 +58,8 @@ interface CombatPanelProps {
   onExternalBuffDialogChange?: (open: boolean) => void
   externalHpDialogOpen?: boolean
   onExternalHpDialogChange?: (open: boolean) => void
+  // Group saving throw
+  onGroupSave?: () => void
 }
 
 export function CombatPanel({
@@ -86,6 +88,7 @@ export function CombatPanel({
   onExternalBuffDialogChange,
   externalHpDialogOpen,
   onExternalHpDialogChange,
+  onGroupSave,
 }: CombatPanelProps) {
   const [selectedParticipant, setSelectedParticipant] = useState<CombatParticipant | null>(null)
   const [petDialogOwner, setPetDialogOwner] = useState<CombatParticipant | null>(null)
@@ -201,6 +204,18 @@ export function CombatPanel({
               <Badge className="bg-crimson/20 text-crimson border-crimson/30 animate-pulse">
                 Round {roundNumber}
               </Badge>
+            )}
+            {/* Group Save button - DM only, when combat is active */}
+            {mode === "mj" && combatActive && onGroupSave && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onGroupSave}
+                className="h-7 px-2 border-amber-500/30 hover:border-amber-500 hover:bg-amber-500/10 text-amber-400"
+                title="Jet de sauvegarde groupé"
+              >
+                <Dices className="w-4 h-4" />
+              </Button>
             )}
           </div>
         </div>

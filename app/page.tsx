@@ -24,6 +24,9 @@ import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects
 import { XpSummaryModal } from "@/components/xp-summary-modal"
 import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
 import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
+import { GroupSaveDialog } from "@/components/group-save-dialog"
+import { GroupSaveResultsDialog } from "@/components/group-save-results-dialog"
+import { GroupSavePlayerDialog } from "@/components/group-save-player-dialog"
 import { SpellbookPanel } from "@/components/spellbook-panel"
 import { NotesPanel } from "@/components/notes-panel"
 import { AIAssistantPanel } from "@/components/ai-assistant-panel"
@@ -88,6 +91,11 @@ function CombatTrackerContent() {
     emitAmbientEffect,
     createLootSession,
     clearLootSession,
+    // Group saving throws
+    initiateGroupSave,
+    submitGroupSaveResult,
+    cancelGroupSave,
+    clearGroupSave,
   } = useSocketContext()
 
   // User selection state - null means not selected yet
@@ -179,6 +187,9 @@ function CombatTrackerContent() {
 
   // State for loot distribution summary dialog
   const [showLootSummary, setShowLootSummary] = useState(false)
+
+  // State for group save config dialog (DM only)
+  const [showGroupSaveConfig, setShowGroupSaveConfig] = useState(false)
 
   // Track if we've done the initial loot tab restore (to avoid forcing user back to loot)
   const lootTabRestoredRef = useRef(false)
@@ -2737,6 +2748,60 @@ function CombatTrackerContent() {
         onCancel={handleConcentrationCancel}
       />
 
+      {/* Group Save Config Dialog (DM only) */}
+      <GroupSaveDialog
+        open={showGroupSaveConfig}
+        onOpenChange={setShowGroupSaveConfig}
+        participants={combatParticipants}
+        onInitiate={(data) => {
+          initiateGroupSave(data)
+          setShowGroupSaveConfig(false)
+        }}
+      />
+
+      {/* Group Save Results Dialog (DM only, when save is active) */}
+      {mode === "mj" && socketState.pendingGroupSave && (
+        <GroupSaveResultsDialog
+          open={true}
+          saveType={socketState.pendingGroupSave.saveType}
+          dc={socketState.pendingGroupSave.dc}
+          results={socketState.pendingGroupSave.results}
+          isComplete={socketState.pendingGroupSave.isComplete}
+          onSubmitResult={(participantId, rollResult, success) => {
+            submitGroupSaveResult({ participantId, rollResult, success })
+          }}
+          onClose={() => {
+            cancelGroupSave()
+          }}
+        />
+      )}
+
+      {/* Group Save Player Dialog (player only, when save is active and they have a character in it) */}
+      {mode === "joueur" && socketState.pendingGroupSave && (() => {
+        // Find if any of player's characters is in the pending save and hasn't submitted yet
+        const pendingResult = socketState.pendingGroupSave.results.find(r =>
+          r.participantType === 'player' &&
+          r.rollResult === null &&
+          selectedCharacters.some(sc => String(sc.id) === r.participantId)
+        )
+        if (!pendingResult) return null
+        return (
+          <GroupSavePlayerDialog
+            open={true}
+            saveType={socketState.pendingGroupSave.saveType}
+            dc={socketState.pendingGroupSave.dc}
+            characterName={pendingResult.participantName}
+            onSubmit={(rollResult, success) => {
+              submitGroupSaveResult({
+                participantId: pendingResult.participantId,
+                rollResult,
+                success,
+              })
+            }}
+          />
+        )
+      })()}
+
       <Header
         mode={mode}
         campaignName={campaignName}
@@ -2851,6 +2916,7 @@ function CombatTrackerContent() {
                   onExternalBuffDialogChange={setKeyboardBuffDialogOpen}
                   externalHpDialogOpen={keyboardHpDialogOpen}
                   onExternalHpDialogChange={setKeyboardHpDialogOpen}
+                  onGroupSave={mode === "mj" ? () => setShowGroupSaveConfig(true) : undefined}
                 />
               )}
               {activeTab === "setup" && mode === "mj" && (
@@ -2991,6 +3057,7 @@ function CombatTrackerContent() {
                     onExternalBuffDialogChange={setKeyboardBuffDialogOpen}
                     externalHpDialogOpen={keyboardHpDialogOpen}
                     onExternalHpDialogChange={setKeyboardHpDialogOpen}
+                    onGroupSave={mode === "mj" ? () => setShowGroupSaveConfig(true) : undefined}
                   />
                 </div>
 

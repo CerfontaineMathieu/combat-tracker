@@ -14,6 +14,7 @@ import type {
   LootDistribution,
   CurrencySplitMethod,
   ResistanceType,
+  SavingThrowType,
 } from './types';
 
 export interface JoinCampaignData {
@@ -452,6 +453,57 @@ export interface LootRequestSessionData {
   campaignId: number;
 }
 
+// ============================================
+// Group Saving Throw Events
+// ============================================
+
+// Participant in a group save
+export interface GroupSaveParticipant {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  participantName: string;
+}
+
+// Result for a single participant
+export interface GroupSaveParticipantResult {
+  participantId: string;
+  participantType: 'player' | 'monster';
+  participantName: string;
+  rollResult: number | null;  // null = not yet submitted
+  success: boolean | null;    // null = not yet determined
+}
+
+// DM initiates group save
+export interface GroupSaveRequestData {
+  saveId: string;
+  campaignId: number;
+  saveType: SavingThrowType;
+  dc: number;
+  participants: GroupSaveParticipant[];
+}
+
+// Player/DM submits a result
+export interface GroupSaveResultData {
+  saveId: string;
+  participantId: string;
+  rollResult: number;
+  success: boolean;
+}
+
+// Full results update (broadcast to all)
+export interface GroupSaveResultsUpdateData {
+  saveId: string;
+  saveType: SavingThrowType;
+  dc: number;
+  results: GroupSaveParticipantResult[];
+  isComplete: boolean;
+}
+
+// DM cancels/closes the save session
+export interface GroupSaveCancelData {
+  saveId: string;
+}
+
 // Server to client events
 export interface ServerToClientEvents {
   'combat-update': (data: CombatUpdateData) => void;
@@ -506,6 +558,10 @@ export interface ServerToClientEvents {
   'loot-finalized': (data: LootFinalizedData) => void;
   'loot-cancelled': () => void;
   'loot-error': (data: LootErrorData) => void;
+  // Group saving throw events
+  'group-save-request': (data: GroupSaveRequestData) => void;
+  'group-save-results-update': (data: GroupSaveResultsUpdateData) => void;
+  'group-save-cancelled': (data: GroupSaveCancelData) => void;
 }
 
 // Client to server events
@@ -551,4 +607,8 @@ export interface ClientToServerEvents {
   'loot-finalize': (data: LootFinalizeData) => void;
   'loot-cancel': (data: LootCancelData) => void;
   'loot-request-session': (data: LootRequestSessionData) => void;
+  // Group saving throw events
+  'group-save-request': (data: GroupSaveRequestData) => void;
+  'group-save-result': (data: GroupSaveResultData) => void;
+  'group-save-cancel': (data: GroupSaveCancelData) => void;
 }

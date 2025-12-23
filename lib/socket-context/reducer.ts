@@ -910,6 +910,39 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
         lootError: { error: action.error, code: action.code },
       };
 
+    // ============ GROUP SAVING THROW ============
+    case 'GROUP_SAVE_REQUEST':
+      return {
+        ...state,
+        pendingGroupSave: {
+          saveId: action.data.saveId,
+          saveType: action.data.saveType,
+          dc: action.data.dc,
+          results: action.data.results,
+          isComplete: false,
+        },
+      };
+
+    case 'GROUP_SAVE_RESULTS_UPDATE':
+      return {
+        ...state,
+        pendingGroupSave: state.pendingGroupSave?.saveId === action.data.saveId
+          ? {
+              saveId: action.data.saveId,
+              saveType: action.data.saveType,
+              dc: action.data.dc,
+              results: action.data.results,
+              isComplete: action.data.isComplete,
+            }
+          : state.pendingGroupSave,
+      };
+
+    case 'GROUP_SAVE_CLEAR':
+      return {
+        ...state,
+        pendingGroupSave: null,
+      };
+
     default:
       return state;
   }

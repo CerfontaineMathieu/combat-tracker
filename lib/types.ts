@@ -918,6 +918,21 @@ export interface RollOffResult {
   winnerName: string;
 }
 
+// ============================================
+// Saving Throw Types (for group saves)
+// ============================================
+
+export const SAVING_THROW_TYPES = {
+  FOR: { label: 'Force', abbr: 'FOR' },
+  DEX: { label: 'Dextérité', abbr: 'DEX' },
+  CON: { label: 'Constitution', abbr: 'CON' },
+  INT: { label: 'Intelligence', abbr: 'INT' },
+  SAG: { label: 'Sagesse', abbr: 'SAG' },
+  CHA: { label: 'Charisme', abbr: 'CHA' },
+} as const;
+
+export type SavingThrowType = keyof typeof SAVING_THROW_TYPES;
+
 // Loot item type display info (French labels)
 export const LOOT_ITEM_TYPES: Record<LootItemType, { label: string; icon: string }> = {
   weapon: { label: 'Arme', icon: 'sword' },
