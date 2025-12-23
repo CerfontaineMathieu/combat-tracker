@@ -350,8 +350,12 @@ async function mapNotionPageToCatalogItem(
         equipmentSlot = 'ring';
       } else if (typeLower.includes('amulette') || typeLower === 'amulet' || typeLower.includes('collier')) {
         equipmentSlot = 'amulet';
+      } else if (typeLower.includes('botte') || typeLower === 'boots') {
+        equipmentSlot = 'boots';
+      } else if (typeLower.includes('gant') || typeLower === 'gloves') {
+        equipmentSlot = 'gloves';
       }
-      // Other magic objects (like capes, boots, etc.) don't have a slot yet
+      // Other magic objects (like capes, etc.) don't have a slot yet
     }
 
     // Extract image URL from cover
