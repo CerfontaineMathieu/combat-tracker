@@ -300,19 +300,56 @@ export function InventoryManager({
 
   const toggleEquipped = (id: string) => {
     const item = localInventory.equipment.find(i => i.id === id)
+    if (!item) return
+
+    // If unequipping, just toggle off
+    if (item.equipped) {
+      const updatedInventory = {
+        ...localInventory,
+        equipment: localInventory.equipment.map(i =>
+          i.id === id ? { ...i, equipped: false, slot: null } : i
+        ),
+      }
+      setLocalInventory(updatedInventory)
+      onInventoryChange(updatedInventory)
+      return
+    }
 
     // If trying to equip an item that requires attunement, check limit
-    if (!item?.equipped && item?.requiresAttunement && attunedCount >= 3) {
+    if (item.requiresAttunement && attunedCount >= 3) {
       toast.warning("Vous avez déjà 3 objets harmonisés équipés", {
         description: "Déséquipez un objet harmonisé avant d'en équiper un autre."
       })
       return
     }
 
+    // If item has slotTypes, find first available slot and unequip existing item in that slot
+    if (item.slotTypes && item.slotTypes.length > 0) {
+      const targetSlot = item.slotTypes[0] // Use first compatible slot
+      const updatedInventory = {
+        ...localInventory,
+        equipment: localInventory.equipment.map(i => {
+          // Unequip the item currently in this slot
+          if (i.slot === targetSlot && i.id !== id) {
+            return { ...i, equipped: false, slot: null }
+          }
+          // Equip the selected item in this slot
+          if (i.id === id) {
+            return { ...i, equipped: true, slot: targetSlot }
+          }
+          return i
+        }),
+      }
+      setLocalInventory(updatedInventory)
+      onInventoryChange(updatedInventory)
+      return
+    }
+
+    // For items without slotTypes, just toggle equipped status
     const updatedInventory = {
       ...localInventory,
       equipment: localInventory.equipment.map(i =>
-        i.id === id ? { ...i, equipped: !i.equipped, slot: i.equipped ? null : i.slot } : i
+        i.id === id ? { ...i, equipped: true } : i
       ),
     }
     setLocalInventory(updatedInventory)
