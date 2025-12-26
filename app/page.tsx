@@ -1447,6 +1447,38 @@ function CombatTrackerContent() {
     }
   }
 
+  const updateMonsterTempHp = async (id: string, newTempHp: number) => {
+    const monster = monsters.find(m => m.id === id)
+    const participant = combatParticipants.find(p => p.id === id && p.type === 'monster')
+    if (!monster && !participant) return
+
+    // Temp HP cannot be negative
+    const finalTempHp = Math.max(0, newTempHp) || undefined
+    const currentHp = monster?.hp ?? participant?.currentHp ?? 0
+
+    // Update local monsters state
+    setMonsters((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, tempHp: finalTempHp } : m))
+    )
+
+    // Update combat participants if in combat
+    if (combatActive) {
+      setCombatParticipants((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, tempHp: finalTempHp } : p))
+      )
+    }
+
+    // Emit to sync with other clients
+    emitHpChange({
+      participantId: id,
+      participantType: 'monster',
+      newHp: currentHp,
+      tempHp: finalTempHp,
+      change: 0,
+      source: 'dm',
+    })
+  }
+
   const updateMonsterHp = async (id: string, change: number, skipConcentrationCheck = false) => {
     // Try to find in monsters array first, then fall back to combat participants
     const monster = monsters.find(m => m.id === id)
@@ -2890,7 +2922,7 @@ function CombatTrackerContent() {
                   } : undefined}
                   onUpdateTempHp={mode === "mj" ? (id, tempHp, type) => {
                     if (type === "player") updatePlayerTempHp(id, tempHp)
-                    // Note: monsters don't have temp HP in this implementation
+                    else updateMonsterTempHp(id, tempHp)
                   } : undefined}
                   onUpdateConditions={mode === "mj" ? (id, conditions, type, conditionDurations) => {
                     if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)
@@ -3031,7 +3063,7 @@ function CombatTrackerContent() {
                     } : undefined}
                     onUpdateTempHp={mode === "mj" ? (id, tempHp, type) => {
                       if (type === "player") updatePlayerTempHp(id, tempHp)
-                      // Note: monsters don't have temp HP in this implementation
+                      else updateMonsterTempHp(id, tempHp)
                     } : undefined}
                     onUpdateConditions={mode === "mj" ? (id, conditions, type, conditionDurations) => {
                       if (type === "player") updatePlayerConditions(id, conditions, conditionDurations)
