@@ -1491,6 +1491,7 @@ function CombatTrackerContent() {
     const maxHp = monster?.maxHp ?? participant?.maxHp ?? currentHp
     const name = monster?.name ?? participant?.name ?? 'Monster'
     const conditions = monster?.conditions ?? participant?.conditions ?? []
+    const currentTempHp = monster?.tempHp ?? participant?.tempHp ?? 0
 
     // Check for concentration when taking damage (DM only, during combat)
     if (mode === 'mj' && combatActive && change < 0 && !skipConcentrationCheck) {
@@ -1510,7 +1511,32 @@ function CombatTrackerContent() {
       }
     }
 
-    const newHp = Math.max(0, Math.min(maxHp, currentHp + change))
+    // Handle temp HP absorption for damage (D&D 5e rules)
+    let actualHpChange = change
+    let newTempHp = currentTempHp
+
+    console.log('[DEBUG Monster HP] Input:', { id, name, currentHp, maxHp, currentTempHp, change })
+
+    if (change < 0 && newTempHp > 0) {
+      // Damage is dealt and monster has temp HP
+      const damage = Math.abs(change)
+      console.log('[DEBUG Monster HP] Damage with tempHP:', { damage, tempHpBefore: newTempHp })
+      if (damage <= newTempHp) {
+        // Temp HP absorbs all damage
+        newTempHp -= damage
+        actualHpChange = 0 // No damage to regular HP
+      } else {
+        // Temp HP absorbs part of damage, rest goes to regular HP
+        actualHpChange = -(damage - newTempHp) // Remaining damage as negative
+        newTempHp = 0 // Temp HP depleted
+      }
+      console.log('[DEBUG Monster HP] After absorption:', { newTempHp, actualHpChange })
+    }
+
+    // Use 0 instead of undefined so it serializes over socket and clears temp HP
+    const finalTempHp = newTempHp > 0 ? newTempHp : 0
+    const newHp = Math.max(0, Math.min(maxHp, currentHp + actualHpChange))
+    console.log('[DEBUG Monster HP] Final:', { newHp, finalTempHp })
 
     // Add history entry for damage/heal
     if (combatActive && change !== 0) {
@@ -1524,17 +1550,20 @@ function CombatTrackerContent() {
       }
     }
 
+    // For local state, use undefined when tempHp is 0 (cleaner display)
+    const localTempHp = finalTempHp > 0 ? finalTempHp : undefined
+
     // Update monsters array if monster exists there
     if (monster) {
       setMonsters((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, hp: newHp } : m)),
+        prev.map((m) => (m.id === id ? { ...m, hp: newHp, tempHp: localTempHp } : m)),
       )
     }
 
     // Always update combat participants during combat
     if (combatActive) {
       setCombatParticipants((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, currentHp: newHp } : p)),
+        prev.map((p) => (p.id === id ? { ...p, currentHp: newHp, tempHp: localTempHp } : p)),
       )
 
       // Emit HP change to sync with other clients
@@ -1542,6 +1571,7 @@ function CombatTrackerContent() {
         participantId: id,
         participantType: 'monster',
         newHp,
+        tempHp: finalTempHp,
         change,
         source: mode === 'mj' ? 'dm' : 'player',
       })
