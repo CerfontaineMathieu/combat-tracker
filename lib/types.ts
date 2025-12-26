@@ -158,6 +158,7 @@ export interface Monster {
   conditions: string[]
   exhaustionLevel: number
   buffs?: ActiveBuff[]
+  tempHp?: number // Temporary hit points
 }
 
 export interface CombatParticipant {

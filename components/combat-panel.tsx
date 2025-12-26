@@ -657,8 +657,8 @@ export function CombatPanel({
                                       </Button>
                                     </div>
                                   </div>
-                                  {/* Temp HP Section - Players only */}
-                                  {participant.type === "player" && onUpdateTempHp && (
+                                  {/* Temp HP Section */}
+                                  {onUpdateTempHp && (
                                     <div className="border-t border-border pt-4">
                                       <label className="text-sm text-blue-400 mb-2 block font-medium">
                                         <Shield className="w-4 h-4 inline mr-1" />
@@ -1240,8 +1240,8 @@ export function CombatPanel({
                                   </Button>
                                 </div>
                               </div>
-                              {/* Temp HP Section - Players only (Desktop view) */}
-                              {participant.type === "player" && onUpdateTempHp && (
+                              {/* Temp HP Section (Desktop view) */}
+                              {onUpdateTempHp && (
                                 <div className="border-t border-border pt-4">
                                   <label className="text-sm text-blue-400 mb-2 block font-medium">
                                     <Shield className="w-4 h-4 inline mr-1" />
