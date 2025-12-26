@@ -354,8 +354,10 @@ async function mapNotionPageToCatalogItem(
         equipmentSlot = 'boots';
       } else if (typeLower.includes('gant') || typeLower === 'gloves') {
         equipmentSlot = 'gloves';
+      } else if (typeLower.includes('vêtement') || typeLower.includes('vetement')) {
+        // Vêtement/Vêtements (robes) are armor for spellcasters
+        equipmentSlot = 'armor';
       }
-      // Other magic objects (like capes, etc.) don't have a slot yet
     }
 
     // Extract image URL from cover
