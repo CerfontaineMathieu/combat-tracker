@@ -1515,9 +1515,12 @@ function CombatTrackerContent() {
     let actualHpChange = change
     let newTempHp = currentTempHp
 
+    console.log('[DEBUG Monster HP] Input:', { id, name, currentHp, maxHp, currentTempHp, change })
+
     if (change < 0 && newTempHp > 0) {
       // Damage is dealt and monster has temp HP
       const damage = Math.abs(change)
+      console.log('[DEBUG Monster HP] Damage with tempHP:', { damage, tempHpBefore: newTempHp })
       if (damage <= newTempHp) {
         // Temp HP absorbs all damage
         newTempHp -= damage
@@ -1527,10 +1530,13 @@ function CombatTrackerContent() {
         actualHpChange = -(damage - newTempHp) // Remaining damage as negative
         newTempHp = 0 // Temp HP depleted
       }
+      console.log('[DEBUG Monster HP] After absorption:', { newTempHp, actualHpChange })
     }
 
-    const finalTempHp = newTempHp > 0 ? newTempHp : undefined
+    // Use 0 instead of undefined so it serializes over socket and clears temp HP
+    const finalTempHp = newTempHp > 0 ? newTempHp : 0
     const newHp = Math.max(0, Math.min(maxHp, currentHp + actualHpChange))
+    console.log('[DEBUG Monster HP] Final:', { newHp, finalTempHp })
 
     // Add history entry for damage/heal
     if (combatActive && change !== 0) {
@@ -1544,17 +1550,20 @@ function CombatTrackerContent() {
       }
     }
 
+    // For local state, use undefined when tempHp is 0 (cleaner display)
+    const localTempHp = finalTempHp > 0 ? finalTempHp : undefined
+
     // Update monsters array if monster exists there
     if (monster) {
       setMonsters((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, hp: newHp, tempHp: finalTempHp } : m)),
+        prev.map((m) => (m.id === id ? { ...m, hp: newHp, tempHp: localTempHp } : m)),
       )
     }
 
     // Always update combat participants during combat
     if (combatActive) {
       setCombatParticipants((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, currentHp: newHp, tempHp: finalTempHp } : p)),
+        prev.map((p) => (p.id === id ? { ...p, currentHp: newHp, tempHp: localTempHp } : p)),
       )
 
       // Emit HP change to sync with other clients

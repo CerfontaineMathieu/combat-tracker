@@ -376,11 +376,16 @@ export function socketReducer(state: SocketState, action: SocketAction): SocketS
           ),
         }));
       } else {
+        // tempHp: 0 means clear temp HP, undefined means don't change
+        const monsterNewTempHp = tempHp !== undefined ? (tempHp > 0 ? tempHp : undefined) : undefined;
+        const shouldUpdateMonsterTempHp = tempHp !== undefined;
+
         monsters = state.monsters.map((m) =>
           m.id === participantId
             ? {
                 ...m,
                 hp: Math.max(0, Math.min(m.maxHp, newHp)),
+                tempHp: shouldUpdateMonsterTempHp ? monsterNewTempHp : m.tempHp,
                 status: newHp <= 0 ? ('mort' as const) : m.status,
               }
             : m
