@@ -50,6 +50,7 @@ interface CombatPanelProps {
   onRemoveFromCombat?: (id: string) => void
   onAddPet?: (ownerId: string, pet: Omit<CombatParticipant, 'id'>) => void
   mode: "mj" | "joueur"
+  isMobile?: boolean // Whether we're in mobile tab layout (vs tablet/desktop side-by-side)
   ownCharacterIds?: string[] // IDs of characters owned by the current player
   // Keyboard shortcut control for dialogs
   externalConditionDialogOpen?: boolean
@@ -81,6 +82,7 @@ export function CombatPanel({
   onRemoveFromCombat,
   onAddPet,
   mode,
+  isMobile = false,
   ownCharacterIds = [],
   externalConditionDialogOpen,
   onExternalConditionDialogChange,
@@ -407,8 +409,8 @@ export function CombatPanel({
                       </div>
                     )}
 
-                    {/* Row 2: HP Bar + Action Buttons - Only visible to MJ (players see HP in MyCharactersPanel) */}
-                    {mode === "mj" && (
+                    {/* Row 2: HP Bar + Action Buttons - MJ always, players only on mobile (tablet has side panel) */}
+                    {(mode === "mj" || (isMobile && ownCharacterIds.includes(participant.id))) && (
                       <div className="flex items-center gap-2">
                         {/* HP Bar */}
                         <div className="flex-1 min-w-0">
@@ -890,8 +892,8 @@ export function CombatPanel({
                         </div>
                       )}
 
-                      {/* HP Bar - Only visible to MJ (players see HP in MyCharactersPanel) */}
-                      {mode === "mj" && (
+                      {/* HP Bar - MJ always, players only on mobile (tablet has side panel) */}
+                      {(mode === "mj" || (isMobile && ownCharacterIds.includes(participant.id))) && (
                         <div className="mt-1.5">
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-muted-foreground">PV</span>

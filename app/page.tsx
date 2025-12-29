@@ -2971,6 +2971,7 @@ function CombatTrackerContent() {
                   onRemoveFromCombat={mode === "mj" ? removeFromCombat : undefined}
                   onAddPet={mode === "mj" ? addPetToOwner : undefined}
                   mode={mode}
+                  isMobile={true}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   externalConditionDialogOpen={keyboardConditionDialogOpen}
                   onExternalConditionDialogChange={setKeyboardConditionDialogOpen}
