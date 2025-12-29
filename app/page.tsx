@@ -3055,7 +3055,7 @@ function CombatTrackerContent() {
 
                 {/* Left Panel - My Characters (player only during combat) */}
                 {mode === "joueur" && (
-                  <div className="col-span-3 h-full overflow-auto">
+                  <div className="col-span-4 h-full overflow-auto">
                     <MyCharactersPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onUpdateHp={updatePlayerHp}
@@ -3067,7 +3067,7 @@ function CombatTrackerContent() {
 
                 {/* Center-Left Panel - Spellbook (player only during combat) */}
                 {mode === "joueur" && (
-                  <div className="col-span-4 h-full overflow-auto">
+                  <div className="col-span-5 h-full overflow-auto">
                     <SpellbookPanel
                       characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                       onSpellSlotChange={updatePlayerSpellSlot}
@@ -3077,8 +3077,8 @@ function CombatTrackerContent() {
                   </div>
                 )}
 
-                {/* Combat Panel (5 cols for players with spellbook, 6 cols for MJ) */}
-                <div className={mode === "mj" ? "col-span-6 h-full overflow-auto" : "col-span-5 h-full overflow-auto"}>
+                {/* Combat Panel (3 cols for players, 6 cols for MJ) */}
+                <div className={mode === "mj" ? "col-span-6 h-full overflow-auto" : "col-span-3 h-full overflow-auto"}>
                   <CombatPanel
                     participants={combatParticipants}
                     combatActive={combatActive}
