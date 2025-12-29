@@ -781,7 +781,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                           )}
 
                           {/* Ability Scores Grid - Shows ability modifiers */}
-                          <div className="grid grid-cols-6 gap-1 text-center text-xs mb-2">
+                          <div className="grid grid-cols-3 min-[360px]:grid-cols-6 gap-1 text-center text-xs mb-2">
                             {[
                               { label: "FOR", value: player.strength },
                               { label: "DEX", value: player.dexterity },
@@ -922,7 +922,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                       </Button>
 
                       {/* Quick HP Buttons */}
-                      <div className="grid grid-cols-4 gap-1 mb-1">
+                      <div className="grid grid-cols-2 min-[360px]:grid-cols-4 gap-1 mb-1">
                         {QUICK_HP_VALUES.map((value) => (
                           <Button
                             key={`damage-${value}`}
@@ -935,7 +935,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                           </Button>
                         ))}
                       </div>
-                      <div className="grid grid-cols-4 gap-1 mb-2">
+                      <div className="grid grid-cols-2 min-[360px]:grid-cols-4 gap-1 mb-2">
                         {QUICK_HP_VALUES.map((value) => (
                           <Button
                             key={`heal-${value}`}
