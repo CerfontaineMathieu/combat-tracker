@@ -26,7 +26,8 @@ export enum SyncAction {
   ADD = 'add',           // Monster in Notion, not in DB
   UPDATE = 'update',     // Monster in both, with differences
   DELETE = 'delete',     // Monster in DB with notion_id, not in Notion
-  NO_CHANGE = 'no_change' // Monster in both, identical
+  NO_CHANGE = 'no_change', // Monster in both, identical
+  DUPLICATE = 'duplicate'  // Multiple monsters with same name in Notion
 }
 
 /**
@@ -40,6 +41,7 @@ export interface SyncPreviewItem {
   notionMonster?: Partial<Monster>; // New Notion monster data
   comparison?: MonsterComparison;   // Field-by-field comparison (for updates)
   notionId?: string;          // Notion page ID
+  duplicateNotionIds?: string[]; // All Notion IDs for duplicates
 }
 
 /**
@@ -198,7 +200,7 @@ export function compareMonsters(
 
 /**
  * Build a complete sync preview by comparing Notion and DB monsters
- * Categorizes each monster into ADD, UPDATE, DELETE, or NO_CHANGE
+ * Categorizes each monster into ADD, UPDATE, DELETE, NO_CHANGE, or DUPLICATE
  *
  * @param dbMonsters - All monsters currently in the database
  * @param notionMonsters - All monsters from Notion with their IDs
@@ -214,16 +216,44 @@ export function buildSyncPreview(
   const dbMap = new Map<string, Monster>();
   dbMonsters.forEach(m => dbMap.set(m.name.toLowerCase(), m));
 
-  const notionMap = new Map<string, { data: Partial<Monster>; notionId: string }>();
+  // Detect duplicates in Notion by grouping by name
+  const notionByName = new Map<string, Array<{ data: Partial<Monster>; notionId: string }>>();
   notionMonsters.forEach(m => {
     if (m.data.name) {
+      const key = m.data.name.toLowerCase();
+      if (!notionByName.has(key)) {
+        notionByName.set(key, []);
+      }
+      notionByName.get(key)!.push(m);
+    }
+  });
+
+  // Find duplicates and create DUPLICATE items
+  const duplicateNames = new Set<string>();
+  notionByName.forEach((monsters, nameKey) => {
+    if (monsters.length > 1) {
+      duplicateNames.add(nameKey);
+      items.push({
+        action: SyncAction.DUPLICATE,
+        monsterName: monsters[0].data.name!,
+        duplicateNotionIds: monsters.map(m => m.notionId),
+        notionId: monsters[0].notionId,
+      });
+    }
+  });
+
+  // Build notionMap excluding duplicates (for DELETE detection)
+  const notionMap = new Map<string, { data: Partial<Monster>; notionId: string }>();
+  notionMonsters.forEach(m => {
+    if (m.data.name && !duplicateNames.has(m.data.name.toLowerCase())) {
       notionMap.set(m.data.name.toLowerCase(), m);
     }
   });
 
-  // 1. Process Notion monsters: find ADD and UPDATE items
+  // 1. Process Notion monsters: find ADD and UPDATE items (skip duplicates)
   notionMonsters.forEach(({ data, notionId }) => {
     if (!data.name) return; // Skip monsters without names
+    if (duplicateNames.has(data.name.toLowerCase())) return; // Skip duplicates
 
     const dbMonster = dbMap.get(data.name.toLowerCase());
 
