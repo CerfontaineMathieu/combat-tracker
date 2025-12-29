@@ -101,7 +101,8 @@ export async function fetchMonstersFromNotion(): Promise<NotionMonster[]> {
  */
 function extractText(richText: any[]): string {
   if (!richText || !Array.isArray(richText)) return '';
-  return richText.map((rt) => rt.plain_text || '').join('');
+  // Normalize Unicode to NFC form for consistent comparison
+  return richText.map((rt) => rt.plain_text || '').join('').normalize('NFC');
 }
 
 /**

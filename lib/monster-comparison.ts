@@ -72,19 +72,32 @@ export const FIELD_LABELS: Record<string, string> = {
 };
 
 /**
+ * Normalize text content for consistent comparison
+ * - Normalize Unicode (NFC form)
+ * - Collapse multiple whitespace to single space
+ * - Trim leading/trailing whitespace
+ */
+function normalizeText(text: string): string {
+  return text
+    .normalize('NFC')           // Unicode normalization
+    .replace(/\s+/g, ' ')       // Collapse whitespace
+    .trim();
+}
+
+/**
  * Normalize a value for comparison
  * - null, undefined, and empty string all become null
- * - strings are trimmed
+ * - strings are normalized (unicode, whitespace, trimmed)
  */
 function normalizeValue(value: any): any {
   if (value === null || value === undefined || value === '') return null;
-  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'string') return normalizeText(value);
   return value;
 }
 
 /**
  * Deep compare for JSONB fields using JSON.stringify
- * Sorts object keys to handle different key ordering
+ * Sorts object keys and normalizes text content for consistent comparison
  */
 function areJsonEqual(a: any, b: any): boolean {
   const normalizedA = normalizeValue(a);
@@ -93,22 +106,23 @@ function areJsonEqual(a: any, b: any): boolean {
   if (normalizedA === null && normalizedB === null) return true;
   if (normalizedA === null || normalizedB === null) return false;
 
-  // Recursively sort object keys for consistent comparison
-  const sortKeys = (obj: any): any => {
+  // Recursively sort object keys and normalize text content
+  const deepNormalize = (obj: any): any => {
     if (obj === null || obj === undefined) return obj;
-    if (Array.isArray(obj)) return obj.map(sortKeys);
+    if (typeof obj === 'string') return normalizeText(obj);
+    if (Array.isArray(obj)) return obj.map(deepNormalize);
     if (typeof obj === 'object') {
       return Object.keys(obj)
         .sort()
         .reduce((result: any, key) => {
-          result[key] = sortKeys(obj[key]);
+          result[key] = deepNormalize(obj[key]);
           return result;
         }, {});
     }
     return obj;
   };
 
-  return JSON.stringify(sortKeys(normalizedA)) === JSON.stringify(sortKeys(normalizedB));
+  return JSON.stringify(deepNormalize(normalizedA)) === JSON.stringify(deepNormalize(normalizedB));
 }
 
 /**
