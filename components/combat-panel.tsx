@@ -407,8 +407,8 @@ export function CombatPanel({
                       </div>
                     )}
 
-                    {/* Row 2: HP Bar + Action Buttons */}
-                    {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
+                    {/* Row 2: HP Bar + Action Buttons - Only visible to MJ (players see HP in MyCharactersPanel) */}
+                    {mode === "mj" && (
                       <div className="flex items-center gap-2">
                         {/* HP Bar */}
                         <div className="flex-1 min-w-0">
@@ -890,8 +890,8 @@ export function CombatPanel({
                         </div>
                       )}
 
-                      {/* HP Bar */}
-                      {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
+                      {/* HP Bar - Only visible to MJ (players see HP in MyCharactersPanel) */}
+                      {mode === "mj" && (
                         <div className="mt-1.5">
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-muted-foreground">PV</span>
