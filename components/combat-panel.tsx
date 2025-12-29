@@ -31,6 +31,30 @@ import { AddPetDialog } from "@/components/add-pet-dialog"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
+/**
+ * Get abbreviated name for display in player mode on narrow screens
+ * - Players: first 3 letters (e.g., "Elario" → "Ela")
+ * - Monsters: initials + number (e.g., "Abattis de troll 1" → "AdT 1")
+ */
+function getAbbreviatedName(name: string, type: "player" | "monster"): string {
+  if (type === "player") {
+    return name.slice(0, 3)
+  }
+  // Monster: extract initials + trailing number
+  const match = name.match(/^(.+?)(\s+\d+)?$/)
+  if (!match) return name.slice(0, 3)
+
+  const baseName = match[1]
+  const number = match[2] || ""
+
+  const initials = baseName
+    .split(/\s+/)
+    .map(word => word[0]?.toUpperCase() || "")
+    .join("")
+
+  return initials + number.trim()
+}
+
 interface CombatPanelProps {
   participants: CombatParticipant[]
   combatActive: boolean
@@ -365,9 +389,11 @@ export function CombatPanel({
                                 : participant.type === "monster" ? "text-crimson" : "text-foreground",
                               mode === "mj" && participant.type === "monster" && onUpdateName && "cursor-pointer hover:underline hover:decoration-dotted"
                             )}
-                            title={mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined}
+                            title={mode === "joueur" ? participant.name : (mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined)}
                           >
-                            {participant.name}
+                            {mode === "joueur" && !isMobile
+                              ? getAbbreviatedName(participant.name, participant.type)
+                              : participant.name}
                           </h3>
                         )}
                         {/* AC Badge for monsters - hidden from players */}
@@ -851,9 +877,11 @@ export function CombatPanel({
                                 : participant.type === "monster" ? "text-crimson" : "text-foreground",
                               mode === "mj" && participant.type === "monster" && onUpdateName && "cursor-pointer hover:underline hover:decoration-dotted"
                             )}
-                            title={mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined}
+                            title={mode === "joueur" ? participant.name : (mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined)}
                           >
-                            {participant.name}
+                            {mode === "joueur" && !isMobile
+                              ? getAbbreviatedName(participant.name, participant.type)
+                              : participant.name}
                           </h3>
                         )}
                         {/* AC Badge for monsters - hidden from players */}
