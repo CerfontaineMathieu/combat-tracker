@@ -3138,7 +3138,7 @@ function CombatTrackerContent() {
           ) : mode === "joueur" ? (
             /* Player waiting screen - show MyCharactersPanel with waiting message */
             <div className="grid grid-cols-12 gap-4 h-full">
-              <div className="col-span-4 h-full overflow-auto">
+              <div className="col-span-5 h-full overflow-auto">
                 <MyCharactersPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onUpdateHp={updatePlayerHp}
@@ -3146,7 +3146,7 @@ function CombatTrackerContent() {
                   combatActive={false}
                 />
               </div>
-              <div className="col-span-4 h-full overflow-auto">
+              <div className="col-span-5 h-full overflow-auto">
                 <SpellbookPanel
                   characters={displayPlayers.filter(p => selectedCharacters.some(sc => String(sc.id) === p.id))}
                   onSpellSlotChange={updatePlayerSpellSlot}
@@ -3154,16 +3154,15 @@ function CombatTrackerContent() {
                   onLongRest={handleLongRest}
                 />
               </div>
-              <div className="col-span-4 flex items-center justify-center">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gold/10 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gold animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="col-span-2 flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-gold/10 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-gold animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-xl font-semibold text-foreground">En attente du combat...</h2>
-                  <p className="text-muted-foreground max-w-md">
-                    Le Maître du Jeu prépare le combat. La bataille commencera bientôt !
+                  <p className="text-xs text-muted-foreground">
+                    En attente...
                   </p>
                 </div>
               </div>
