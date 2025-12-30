@@ -501,11 +501,11 @@ export function SpellbookPanel({
                     key={character.id}
                     className="bg-secondary/30 rounded-lg border border-border/50 p-4"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-foreground">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <h3 className="font-bold text-foreground flex-1 min-w-0 truncate">
                         {character.name}
                       </h3>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground shrink-0">
                         {character.class} Niv. {character.level}
                       </span>
                     </div>

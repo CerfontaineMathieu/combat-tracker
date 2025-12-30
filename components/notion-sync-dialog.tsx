@@ -76,6 +76,7 @@ export function NotionSyncDialog({
   const updateItems = items.filter(i => i.action === 'update');
   const deleteItems = items.filter(i => i.action === 'delete');
   const unchangedItems = items.filter(i => i.action === 'no_change');
+  const duplicateItems = items.filter(i => i.action === 'duplicate');
 
   // Selection helpers
   const toggleAdd = (name: string) => {
@@ -175,7 +176,32 @@ export function NotionSyncDialog({
             <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 font-semibold">{summary.toUpdate} à modifier</Badge>
             <Badge variant="outline" className="bg-red-50 text-red-800 border-red-300 font-semibold">{summary.toDelete} à supprimer</Badge>
             <Badge variant="secondary" className="font-semibold">{summary.unchanged} inchangés</Badge>
+            {duplicateItems.length > 0 && (
+              <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-300 font-semibold">{duplicateItems.length} doublon(s)</Badge>
+            )}
           </div>
+
+          {duplicateItems.length > 0 && (
+            <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex gap-2 items-start">
+                <AlertCircle className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-purple-900">
+                  <p className="font-medium mb-1">Doublons détectés dans Notion</p>
+                  <p className="text-purple-700">
+                    Les monstres suivants ont plusieurs entrées dans Notion avec le même nom.
+                    Supprimez les doublons dans Notion pour permettre la synchronisation :
+                  </p>
+                  <ul className="list-disc list-inside mt-1 text-purple-800">
+                    {duplicateItems.map(item => (
+                      <li key={item.notionId}>
+                        <strong>{item.monsterName}</strong> ({item.duplicateNotionIds?.length} entrées)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogHeader>
 
         <Tabs defaultValue="all" className="flex-1 flex flex-col min-h-0">
@@ -193,7 +219,7 @@ export function NotionSyncDialog({
               <div className="space-y-2 pr-4">
                 {addItems.map(item => (
                   <SyncItemCard
-                    key={item.monsterName}
+                    key={item.notionId || item.monsterName}
                     item={item}
                     selected={selectedAdd.has(item.monsterName)}
                     onToggleSelect={() => toggleAdd(item.monsterName)}
@@ -201,7 +227,7 @@ export function NotionSyncDialog({
                 ))}
                 {updateItems.map(item => (
                   <SyncItemCard
-                    key={item.monsterName}
+                    key={item.notionId || item.dbId || item.monsterName}
                     item={item}
                     selected={selectedUpdate.has(item.monsterName)}
                     selectedFields={updateFieldSelections.get(item.monsterName)}
@@ -211,7 +237,7 @@ export function NotionSyncDialog({
                 ))}
                 {deleteItems.map(item => (
                   <SyncItemCard
-                    key={item.monsterName}
+                    key={item.dbId || item.monsterName}
                     item={item}
                     selected={selectedDelete.has(item.monsterName)}
                     onToggleSelect={() => toggleDelete(item.monsterName)}
@@ -234,7 +260,7 @@ export function NotionSyncDialog({
                 ) : (
                   addItems.map(item => (
                     <SyncItemCard
-                      key={item.monsterName}
+                      key={item.notionId || item.monsterName}
                       item={item}
                       selected={selectedAdd.has(item.monsterName)}
                       onToggleSelect={() => toggleAdd(item.monsterName)}
@@ -253,7 +279,7 @@ export function NotionSyncDialog({
                 ) : (
                   updateItems.map(item => (
                     <SyncItemCard
-                      key={item.monsterName}
+                      key={item.notionId || item.dbId || item.monsterName}
                       item={item}
                       selected={selectedUpdate.has(item.monsterName)}
                       selectedFields={updateFieldSelections.get(item.monsterName)}
@@ -282,7 +308,7 @@ export function NotionSyncDialog({
                 ) : (
                   deleteItems.map(item => (
                     <SyncItemCard
-                      key={item.monsterName}
+                      key={item.dbId || item.monsterName}
                       item={item}
                       selected={selectedDelete.has(item.monsterName)}
                       onToggleSelect={() => toggleDelete(item.monsterName)}

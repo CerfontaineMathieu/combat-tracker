@@ -101,7 +101,8 @@ export async function fetchMonstersFromNotion(): Promise<NotionMonster[]> {
  */
 function extractText(richText: any[]): string {
   if (!richText || !Array.isArray(richText)) return '';
-  return richText.map((rt) => rt.plain_text || '').join('');
+  // Normalize Unicode to NFC form for consistent comparison
+  return richText.map((rt) => rt.plain_text || '').join('').normalize('NFC');
 }
 
 /**
@@ -392,6 +393,48 @@ function extractSelect(selectProp: any): string {
 }
 
 /**
+ * Normalize D&D size values to consistent format
+ * Maps various French size representations to abbreviated form
+ */
+function normalizeSize(size: string): string {
+  if (!size) return '';
+
+  const normalized = size.trim().toLowerCase();
+
+  // Map all variants to abbreviated format
+  const sizeMap: Record<string, string> = {
+    // Tiny
+    'tp': 'TP',
+    'très petite': 'TP',
+    'tres petite': 'TP',
+    'tiny': 'TP',
+    // Small
+    'p': 'P',
+    'petite': 'P',
+    'small': 'P',
+    // Medium
+    'm': 'M',
+    'moyenne': 'M',
+    'medium': 'M',
+    // Large
+    'g': 'G',
+    'grande': 'G',
+    'large': 'G',
+    // Huge
+    'tg': 'TG',
+    'très grande': 'TG',
+    'tres grande': 'TG',
+    'huge': 'TG',
+    // Gargantuan
+    'gig': 'Gig',
+    'gigantesque': 'Gig',
+    'gargantuan': 'Gig',
+  };
+
+  return sizeMap[normalized] || size;
+}
+
+/**
  * Parse comma-separated text into array of strings
  */
 function parseCommaSeparated(text: string): string[] {
@@ -471,7 +514,7 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
 
   // Other properties - handle both select and direct string
   const creature_type = extractSelect(props.Race) || extractStringProp(props.Race);
-  const size = extractSelect(props.Taille) || extractStringProp(props.Taille);
+  const size = normalizeSize(extractSelect(props.Taille) || extractStringProp(props.Taille));
 
   // Challenge rating XP - handle both number property and direct number
   const challenge_rating_xp = extractNumber(props.XP?.number) ?? (typeof props.XP === 'number' ? props.XP : null);

@@ -110,7 +110,7 @@ export function BestiaryPanel({ onAddMonsterToCombat, mode }: BestiaryPanelProps
           </div>
         ) : (
           // List view
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col min-h-0">
             {/* Search */}
             <div className="relative mb-3 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

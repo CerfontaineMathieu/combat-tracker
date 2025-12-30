@@ -31,6 +31,30 @@ import { AddPetDialog } from "@/components/add-pet-dialog"
 
 const QUICK_HP_VALUES = [1, 3, 5, 10]
 
+/**
+ * Get abbreviated name for display in player mode on narrow screens
+ * - Players: first 3 letters (e.g., "Elario" → "Ela")
+ * - Monsters: initials + number (e.g., "Abattis de troll 1" → "AdT 1")
+ */
+function getAbbreviatedName(name: string, type: "player" | "monster"): string {
+  if (type === "player") {
+    return name.slice(0, 3)
+  }
+  // Monster: extract initials + trailing number
+  const match = name.match(/^(.+?)(\s+\d+)?$/)
+  if (!match) return name.slice(0, 3)
+
+  const baseName = match[1]
+  const number = match[2] || ""
+
+  const initials = baseName
+    .split(/\s+/)
+    .map(word => word[0]?.toUpperCase() || "")
+    .join("")
+
+  return initials + number.trim()
+}
+
 interface CombatPanelProps {
   participants: CombatParticipant[]
   combatActive: boolean
@@ -50,6 +74,7 @@ interface CombatPanelProps {
   onRemoveFromCombat?: (id: string) => void
   onAddPet?: (ownerId: string, pet: Omit<CombatParticipant, 'id'>) => void
   mode: "mj" | "joueur"
+  isMobile?: boolean // Whether we're in mobile tab layout (vs tablet/desktop side-by-side)
   ownCharacterIds?: string[] // IDs of characters owned by the current player
   // Keyboard shortcut control for dialogs
   externalConditionDialogOpen?: boolean
@@ -81,6 +106,7 @@ export function CombatPanel({
   onRemoveFromCombat,
   onAddPet,
   mode,
+  isMobile = false,
   ownCharacterIds = [],
   externalConditionDialogOpen,
   onExternalConditionDialogChange,
@@ -363,9 +389,11 @@ export function CombatPanel({
                                 : participant.type === "monster" ? "text-crimson" : "text-foreground",
                               mode === "mj" && participant.type === "monster" && onUpdateName && "cursor-pointer hover:underline hover:decoration-dotted"
                             )}
-                            title={mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined}
+                            title={mode === "joueur" ? participant.name : (mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined)}
                           >
-                            {participant.name}
+                            {mode === "joueur" && !isMobile
+                              ? getAbbreviatedName(participant.name, participant.type)
+                              : participant.name}
                           </h3>
                         )}
                         {/* AC Badge for monsters - hidden from players */}
@@ -407,8 +435,8 @@ export function CombatPanel({
                       </div>
                     )}
 
-                    {/* Row 2: HP Bar + Action Buttons */}
-                    {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
+                    {/* Row 2: HP Bar + Action Buttons - MJ always, players only on mobile (tablet has side panel) */}
+                    {(mode === "mj" || (isMobile && ownCharacterIds.includes(participant.id))) && (
                       <div className="flex items-center gap-2">
                         {/* HP Bar */}
                         <div className="flex-1 min-w-0">
@@ -849,9 +877,11 @@ export function CombatPanel({
                                 : participant.type === "monster" ? "text-crimson" : "text-foreground",
                               mode === "mj" && participant.type === "monster" && onUpdateName && "cursor-pointer hover:underline hover:decoration-dotted"
                             )}
-                            title={mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined}
+                            title={mode === "joueur" ? participant.name : (mode === "mj" && participant.type === "monster" && onUpdateName ? "Cliquez pour renommer" : undefined)}
                           >
-                            {participant.name}
+                            {mode === "joueur" && !isMobile
+                              ? getAbbreviatedName(participant.name, participant.type)
+                              : participant.name}
                           </h3>
                         )}
                         {/* AC Badge for monsters - hidden from players */}
@@ -890,8 +920,8 @@ export function CombatPanel({
                         </div>
                       )}
 
-                      {/* HP Bar */}
-                      {(mode === "mj" || ownCharacterIds.includes(participant.id)) && (
+                      {/* HP Bar - MJ always, players only on mobile (tablet has side panel) */}
+                      {(mode === "mj" || (isMobile && ownCharacterIds.includes(participant.id))) && (
                         <div className="mt-1.5">
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-muted-foreground">PV</span>

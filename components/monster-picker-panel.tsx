@@ -309,7 +309,7 @@ export function MonsterPickerPanel({ onAddMonsters, refreshKey }: MonsterPickerP
             Bestiaire
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 overflow-hidden flex flex-col p-0 px-6 pb-6">
+        <CardContent className="flex-1 overflow-hidden flex flex-col min-h-0 p-0 px-6 pb-6">
           {/* Search */}
           <div className="relative mb-3 shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -337,7 +337,7 @@ export function MonsterPickerPanel({ onAddMonsters, refreshKey }: MonsterPickerP
           </p>
 
           {/* Monster list */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="space-y-1 pr-2">
               {filteredMonsters.map((monster) => (
                 <DraggableDbMonsterCard
