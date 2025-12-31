@@ -2840,22 +2840,31 @@ function CombatTrackerContent() {
 
       {/* Group Save Player Dialog (player only, when save is active and they have a character in it) */}
       {mode === "joueur" && socketState.pendingGroupSave && (() => {
-        // Find if any of player's characters is in the pending save and hasn't submitted yet
-        const pendingResult = socketState.pendingGroupSave.results.find(r =>
+        // Debug logging
+        console.log('[GroupSave] Player checking pending save. My IDs:', selectedCharacters.map(sc => String(sc.id)))
+        console.log('[GroupSave] Pending results:', socketState.pendingGroupSave.results.map(r => `${r.participantName} (${r.participantId}): ${r.rollResult ?? 'null'}`))
+
+        // Find player's characters that haven't submitted yet
+        const myPendingCharacters = socketState.pendingGroupSave.results.filter(r =>
           r.participantType === 'player' &&
           r.rollResult === null &&
           selectedCharacters.some(sc => String(sc.id) === r.participantId)
         )
-        if (!pendingResult) return null
+        console.log('[GroupSave] My pending characters:', myPendingCharacters.map(r => r.participantName))
+        if (myPendingCharacters.length === 0) return null
         return (
           <GroupSavePlayerDialog
             open={true}
             saveType={socketState.pendingGroupSave.saveType}
             dc={socketState.pendingGroupSave.dc}
-            characterName={pendingResult.participantName}
-            onSubmit={(rollResult, success) => {
+            myCharacters={myPendingCharacters.map(r => ({
+              participantId: r.participantId,
+              participantName: r.participantName,
+            }))}
+            onSubmit={(participantId, rollResult, success) => {
+              console.log('[GroupSave] Player submitting:', participantId, rollResult, success)
               submitGroupSaveResult({
-                participantId: pendingResult.participantId,
+                participantId,
                 rollResult,
                 success,
               })

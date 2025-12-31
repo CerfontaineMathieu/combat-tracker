@@ -397,6 +397,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     // ============ GROUP SAVING THROW EVENTS ============
     socket.on('group-save-request', (data) => {
+      console.log('[GroupSave] Received request:', data.saveType, 'DC', data.dc, 'participants:', data.participants.map((p: { participantId: string; participantName: string }) => `${p.participantName} (${p.participantId})`));
       // Convert participants to results format (all null initially)
       const results = data.participants.map((p) => ({
         participantId: p.participantId,
@@ -417,6 +418,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     });
 
     socket.on('group-save-results-update', (data) => {
+      console.log('[GroupSave] Received results update:', data.results.map((r: { participantName: string; rollResult: number | null }) => `${r.participantName}: ${r.rollResult ?? 'pending'}`));
       dispatch({
         type: 'GROUP_SAVE_RESULTS_UPDATE',
         data: {
@@ -870,11 +872,18 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
   const submitGroupSaveResult = useCallback((data: Omit<GroupSaveResultData, 'saveId'>) => {
     const socket = socketRef.current;
-    if (!socket?.connected) return;
+    if (!socket?.connected) {
+      console.log('[GroupSave] Cannot submit: socket not connected');
+      return;
+    }
 
     const saveId = stateRef.current.pendingGroupSave?.saveId;
-    if (!saveId) return;
+    if (!saveId) {
+      console.log('[GroupSave] Cannot submit: no pending save');
+      return;
+    }
 
+    console.log('[GroupSave] Submitting result:', { ...data, saveId });
     socket.emit('group-save-result', {
       ...data,
       saveId,
