@@ -860,11 +860,27 @@ export function InventoryManager({
                               Équiper
                             </Button>
                           )}
-                          {/* Show slot name if equipped via slot system */}
+                          {/* Show slot name if equipped via slot system, with unequip button */}
                           {item.equipped && item.slot && (
-                            <Badge variant="outline" className="text-emerald border-emerald/50">
-                              {SLOT_NAMES[item.slot]}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-emerald border-emerald/50">
+                                {SLOT_NAMES[item.slot]}
+                              </Badge>
+                              {!readonly && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleSlotSelect(item.slot!, null)
+                                  }}
+                                  title="Déséquiper"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
                           )}
                           {/* Legacy toggle for items without slot types (unknown equipment) */}
                           {(!item.slotTypes || item.slotTypes.length === 0) && (
