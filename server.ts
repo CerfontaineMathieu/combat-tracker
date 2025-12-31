@@ -497,6 +497,30 @@ app.prepare().then(() => {
         const allPlayers = await getConnectedPlayers(campaignId);
         console.log(`[Socket.io] Sending connected-players to new player ${socket.id}: ${allPlayers.length} players`);
         socket.emit('connected-players', { players: allPlayers });
+
+        // Send pending group save if one is active (for reconnecting players)
+        const pendingGroupSave = activeGroupSaves.get(campaignId);
+        if (pendingGroupSave) {
+          console.log(`[Socket.io] Sending pending group save to reconnecting player ${socket.id}`);
+          socket.emit('group-save-request', {
+            saveId: pendingGroupSave.saveId,
+            saveType: pendingGroupSave.saveType,
+            dc: pendingGroupSave.dc,
+            participants: pendingGroupSave.results.map(r => ({
+              participantId: r.participantId,
+              participantType: r.participantType,
+              participantName: r.participantName,
+            })),
+          });
+          // Also send current results so they see who already submitted
+          socket.emit('group-save-results-update', {
+            saveId: pendingGroupSave.saveId,
+            saveType: pendingGroupSave.saveType,
+            dc: pendingGroupSave.dc,
+            results: pendingGroupSave.results,
+            isComplete: pendingGroupSave.results.every(r => r.rollResult !== null),
+          });
+        }
       }
 
       // Notify others in the room
@@ -558,6 +582,30 @@ app.prepare().then(() => {
             currentTurn: combatState.currentTurn,
             roundNumber: combatState.roundNumber,
             participants: combatState.participants,
+          });
+        }
+
+        // Restore pending group save if one is active
+        const pendingGroupSave = activeGroupSaves.get(campaignId);
+        if (pendingGroupSave) {
+          console.log(`[Socket.io] Restoring pending group save for DM in campaign ${campaignId}`);
+          socket.emit('group-save-request', {
+            saveId: pendingGroupSave.saveId,
+            saveType: pendingGroupSave.saveType,
+            dc: pendingGroupSave.dc,
+            participants: pendingGroupSave.results.map(r => ({
+              participantId: r.participantId,
+              participantType: r.participantType,
+              participantName: r.participantName,
+            })),
+          });
+          // Send current results
+          socket.emit('group-save-results-update', {
+            saveId: pendingGroupSave.saveId,
+            saveType: pendingGroupSave.saveType,
+            dc: pendingGroupSave.dc,
+            results: pendingGroupSave.results,
+            isComplete: pendingGroupSave.results.every(r => r.rollResult !== null),
           });
         }
       }
