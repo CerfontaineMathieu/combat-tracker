@@ -2814,7 +2814,14 @@ function CombatTrackerContent() {
       <GroupSaveDialog
         open={showGroupSaveConfig}
         onOpenChange={setShowGroupSaveConfig}
-        participants={combatParticipants}
+        participants={combatActive ? combatParticipants : displayPlayers.map((p) => ({
+          ...p,
+          type: "player" as const,
+          conditions: p.conditions || [],
+          conditionDurations: p.conditionDurations || {},
+          exhaustionLevel: p.exhaustionLevel || 0,
+          buffs: p.buffs || [],
+        }))}
         onInitiate={(data) => {
           initiateGroupSave(data)
           setShowGroupSaveConfig(false)
@@ -3004,6 +3011,7 @@ function CombatTrackerContent() {
                   campaignId={campaignId}
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
+                  onGroupSave={() => setShowGroupSaveConfig(true)}
                 />
               )}
               {activeTab === "bestiary" && mode === "mj" && (
@@ -3230,6 +3238,7 @@ function CombatTrackerContent() {
                     campaignId={campaignId}
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                     connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
+                    onGroupSave={() => setShowGroupSaveConfig(true)}
                   />
                 </div>
 
