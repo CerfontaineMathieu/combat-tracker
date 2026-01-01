@@ -434,6 +434,7 @@ export interface ActiveBuff {
   customName?: string // For custom buffs
   customEffect?: string // For custom buffs
   customType?: BuffType // For custom buffs
+  customColor?: string // For custom buffs - color key from BUFF_COLORS
 }
 
 // D&D 5e Common Buffs and Debuffs - French

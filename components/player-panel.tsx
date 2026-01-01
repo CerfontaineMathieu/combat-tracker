@@ -331,7 +331,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                           }
                                           onUpdateBuffs(player.id, newBuffs)
                                         }}
-                                        onAddCustomBuff={(name, effect, type, duration) => {
+                                        onAddCustomBuff={(name, effect, type, duration, color) => {
                                           const currentBuffs = player.buffs || []
                                           const customBuff: ActiveBuff = {
                                             buffId: `custom-${Date.now()}`,
@@ -339,6 +339,7 @@ export function PlayerPanel({ players, onUpdateHp, onUpdateInitiative, onUpdateC
                                             customName: name,
                                             customEffect: effect,
                                             customType: type as BuffType,
+                                            customColor: color ?? undefined,
                                           }
                                           onUpdateBuffs(player.id, [...currentBuffs, customBuff])
                                         }}

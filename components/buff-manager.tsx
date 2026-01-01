@@ -83,7 +83,7 @@ interface BuffManagerProps {
   targetName: string
   currentBuffs: ActiveBuff[]
   onToggleBuff: (buffId: string, duration?: number | null) => void
-  onAddCustomBuff: (name: string, effect: string, type: BuffType, duration?: number | null) => void
+  onAddCustomBuff: (name: string, effect: string, type: BuffType, duration?: number | null, color?: string | null) => void
   onRemoveBuff: (buffId: string, customName?: string) => void
   trigger?: React.ReactNode
   externalOpen?: boolean
@@ -119,6 +119,7 @@ export function BuffManager({
   const [customEffect, setCustomEffect] = useState("")
   const [customType, setCustomType] = useState<BuffType>("buff")
   const [customDuration, setCustomDuration] = useState<number | null>(null)
+  const [customColor, setCustomColor] = useState<string | null>(null)
 
   const hasBuff = (id: string) => currentBuffs.some(b => b.buffId === id)
 
@@ -143,12 +144,13 @@ export function BuffManager({
 
   const handleAddCustomBuff = () => {
     if (customName.trim()) {
-      onAddCustomBuff(customName.trim(), customEffect.trim(), customType, customDuration)
+      onAddCustomBuff(customName.trim(), customEffect.trim(), customType, customDuration, customColor)
       // Reset form
       setCustomName("")
       setCustomEffect("")
       setCustomType("buff")
       setCustomDuration(null)
+      setCustomColor(null)
     }
   }
 
@@ -406,6 +408,31 @@ export function BuffManager({
                       Debuff
                     </Button>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Couleur</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(BUFF_COLORS).filter(c => c !== 'gray').map((colorKey) => {
+                      const colors = BUFF_COLORS[colorKey]
+                      return (
+                        <button
+                          key={colorKey}
+                          type="button"
+                          onClick={() => setCustomColor(customColor === colorKey ? null : colorKey)}
+                          className={cn(
+                            "w-6 h-6 rounded-full border-2 transition-all",
+                            colors.bg, colors.border,
+                            customColor === colorKey && "ring-2 ring-white ring-offset-2 ring-offset-background"
+                          )}
+                          title={colorKey}
+                        />
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {customColor ? `Couleur: ${customColor}` : "Par defaut selon le type"}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
