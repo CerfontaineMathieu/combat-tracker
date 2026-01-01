@@ -74,6 +74,7 @@ interface BuffBadgeProps {
   customName?: string
   customEffect?: string
   customType?: BuffType
+  customColor?: string
   onRemove?: () => void
 }
 
@@ -85,6 +86,7 @@ export function BuffBadge({
   customName,
   customEffect,
   customType,
+  customColor,
   onRemove
 }: BuffBadgeProps) {
   const buff = getBuffById(buffId)
@@ -95,7 +97,7 @@ export function BuffBadge({
   const displayEffect = customEffect || buff?.effect || ""
   const displayType = customType || buff?.type || "buff"
   const displayIcon = buff?.icon || "plus-circle"
-  const displayColor = buff?.color || (displayType === "buff" ? "emerald" : "purple")
+  const displayColor = customColor || buff?.color || (displayType === "buff" ? "emerald" : "purple")
 
   const IconComponent = BUFF_ICON_MAP[displayIcon]
   const colors = BUFF_COLORS[displayColor] || BUFF_COLORS.gray
@@ -176,6 +178,7 @@ export function BuffList({
           customName={activeBuff.customName}
           customEffect={activeBuff.customEffect}
           customType={activeBuff.customType}
+          customColor={activeBuff.customColor}
           onRemove={onRemoveBuff ? () => onRemoveBuff(activeBuff.buffId) : undefined}
         />
       ))}

@@ -555,14 +555,15 @@ export function CombatPanel({
                                   }
                                   onUpdateBuffs(participant.id, newBuffs, participant.type)
                                 }}
-                                onAddCustomBuff={(name, effect, type, duration) => {
+                                onAddCustomBuff={(name, effect, type, duration, color) => {
                                   const currentBuffs = participant.buffs || []
                                   const customBuff: ActiveBuff = {
-                                    buffId: "custom",
-                                    remainingTurns: duration,
+                                    buffId: `custom-${Date.now()}`,
+                                    remainingTurns: duration ?? null,
                                     customName: name,
                                     customEffect: effect,
                                     customType: type,
+                                    customColor: color ?? undefined,
                                   }
                                   onUpdateBuffs(participant.id, [...currentBuffs, customBuff], participant.type)
                                 }}
@@ -1131,7 +1132,7 @@ export function CombatPanel({
                               }
                               onUpdateBuffs(participant.id, newBuffs, participant.type)
                             }}
-                            onAddCustomBuff={(name, effect, type, duration) => {
+                            onAddCustomBuff={(name, effect, type, duration, color) => {
                               const currentBuffs = participant.buffs || []
                               const customBuff: ActiveBuff = {
                                 buffId: `custom-${Date.now()}`,
@@ -1139,6 +1140,7 @@ export function CombatPanel({
                                 customName: name,
                                 customEffect: effect,
                                 customType: type,
+                                customColor: color ?? undefined,
                               }
                               onUpdateBuffs(participant.id, [...currentBuffs, customBuff], participant.type)
                             }}
