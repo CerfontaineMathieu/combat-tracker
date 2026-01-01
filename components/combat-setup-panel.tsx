@@ -83,6 +83,7 @@ interface CombatSetupPanelProps {
   campaignId?: number
   ownCharacterIds?: string[] // IDs of characters owned by the current player
   connectedPlayerIds?: string[] // IDs of currently connected players
+  onGroupSave?: () => void // Callback to trigger group save dialog
 }
 
 export function CombatSetupPanel({
@@ -97,6 +98,7 @@ export function CombatSetupPanel({
   campaignId,
   ownCharacterIds = [],
   connectedPlayerIds = [],
+  onGroupSave,
 }: CombatSetupPanelProps) {
   const isMobile = useIsMobile()
   const { combatParticipants, isOverCombatZone } = useCombatDnd()
@@ -299,34 +301,47 @@ export function CombatSetupPanel({
   return (
     <Card className="bg-card border-border h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-3 shrink-0">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-gold">
             <Swords className="w-5 h-5 shrink-0" />
             <span className="hidden sm:inline">Préparation du Combat</span>
             <span className="sm:hidden">Préparation</span>
           </CardTitle>
-          {combatParticipants.length > 0 && (
-            <div className="flex gap-1 sm:gap-2 shrink-0 flex-wrap">
-              <Badge variant="outline" className="border-gold/30 text-gold text-xs">
-                <Users className="w-3 h-3 mr-1" />
-                {playerCount}
-              </Badge>
-              <Badge variant="outline" className="border-crimson/30 text-crimson text-xs">
-                <Skull className="w-3 h-3 mr-1" />
-                {monsterCount}
-              </Badge>
-              {totalXp > 0 && (
-                <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">
-                  {totalXp.toLocaleString()} XP
+          <div className="flex items-center gap-2">
+            {combatParticipants.length > 0 && (
+              <>
+                <Badge variant="outline" className="border-gold/30 text-gold text-xs">
+                  <Users className="w-3 h-3 mr-1" />
+                  {playerCount}
                 </Badge>
-              )}
-              {difficulty && (
-                <Badge variant="outline" className={cn("text-xs", DIFFICULTY_COLORS[difficulty])}>
-                  {DIFFICULTY_LABELS[difficulty]}
+                <Badge variant="outline" className="border-crimson/30 text-crimson text-xs">
+                  <Skull className="w-3 h-3 mr-1" />
+                  {monsterCount}
                 </Badge>
-              )}
-            </div>
-          )}
+                {totalXp > 0 && (
+                  <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">
+                    {totalXp.toLocaleString()} XP
+                  </Badge>
+                )}
+                {difficulty && (
+                  <Badge variant="outline" className={cn("text-xs", DIFFICULTY_COLORS[difficulty])}>
+                    {DIFFICULTY_LABELS[difficulty]}
+                  </Badge>
+                )}
+              </>
+            )}
+            {mode === "mj" && onGroupSave && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onGroupSave}
+                className="h-7 px-2 border-amber-500/30 hover:border-amber-500 hover:bg-amber-500/10 text-amber-400"
+                title="Jet de sauvegarde groupé"
+              >
+                <Dices className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col overflow-hidden">
