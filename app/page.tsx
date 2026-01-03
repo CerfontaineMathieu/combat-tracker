@@ -2893,6 +2893,15 @@ function CombatTrackerContent() {
           localStorage.removeItem("combatTrackerCharacters")
           sessionStorage.removeItem("selectedCharacters")
         }}
+        onLootClick={() => {
+          if (isMobile) {
+            setActiveTab("loot")
+          } else if (!socketState.lootSession) {
+            // Desktop: create a loot session if none exists
+            createLootSession({})
+          }
+          // If session exists on desktop, modal is already visible
+        }}
         hideActions={isMobile}
         ambientEffect={ambientEffect}
         onAmbientEffectChange={handleAmbientEffectChange}

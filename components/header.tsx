@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Sword, Settings, Skull, Crown, User, LogOut, Sparkles, Menu, QrCode, Volume2, VolumeX, BookOpen, Keyboard } from "lucide-react"
+import { Sword, Settings, Skull, Crown, User, LogOut, Sparkles, Menu, QrCode, Volume2, VolumeX, BookOpen, Keyboard, Trophy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -19,6 +19,7 @@ interface HeaderProps {
   selectedCharacterName?: string
   onSettingsClick: () => void
   onLogout: () => void
+  onLootClick?: () => void
   hideActions?: boolean
   ambientEffect?: AmbientEffect
   onAmbientEffectChange?: (effect: AmbientEffect) => void
@@ -30,6 +31,7 @@ export function Header({
   selectedCharacterName,
   onSettingsClick,
   onLogout,
+  onLootClick,
   hideActions = false,
   ambientEffect = "none",
   onAmbientEffectChange,
@@ -149,6 +151,19 @@ export function Header({
             </Button>
           )}
 
+          {/* Loot Button - DM only */}
+          {mode === "mj" && onLootClick && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onLootClick}
+              className="h-9 w-9 hover:bg-primary/20 hover:text-amber-400 transition-smooth"
+              title="Butin"
+            >
+              <Trophy className="w-4 h-4" />
+            </Button>
+          )}
+
           {/* Sound Mute Button - Player only (DM has it in ambient popover) */}
           {mode === "joueur" && (
             <Button
@@ -258,6 +273,16 @@ export function Header({
                       <BookOpen className="w-4 h-4" />
                       <span className="text-sm">Sorts</span>
                     </Button>
+                    {onLootClick && (
+                      <Button
+                        variant="ghost"
+                        onClick={onLootClick}
+                        className="w-full justify-start gap-2 h-9 hover:bg-primary/20 hover:text-amber-400"
+                      >
+                        <Trophy className="w-4 h-4" />
+                        <span className="text-sm">Butin</span>
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       onClick={onSettingsClick}
