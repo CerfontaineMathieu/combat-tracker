@@ -1,37 +1,43 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef, Suspense } from "react"
+import dynamic from "next/dynamic"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Header } from "@/components/header"
 import { MobileNav, type MobileTab } from "@/components/mobile-nav"
-import { PlayerPanel } from "@/components/player-panel"
-import { MyCharactersPanel } from "@/components/my-characters-panel"
-import { CombatPanel } from "@/components/combat-panel"
-import { CombatSetupPanel } from "@/components/combat-setup-panel"
 import { CombatDndProvider } from "@/components/combat-dnd-context"
-import { BestiaryPanel } from "@/components/bestiary-panel"
-import { MobileCombatSetup } from "@/components/mobile-combat-setup"
-import { MonsterPickerPanel } from "@/components/monster-picker-panel"
-import { CombatHistoryPanel, type HistoryEntry } from "@/components/combat-history-panel"
-import { SettingsPanel } from "@/components/settings-panel"
 import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note } from "@/lib/types"
 import { DEFAULT_INVENTORY } from "@/lib/types"
-import { AmbientEffects, type AmbientEffect } from "@/components/ambient-effects"
-import { XpSummaryModal } from "@/components/xp-summary-modal"
-import { OrphanPetDialog } from "@/components/orphan-pet-dialog"
-import { ConcentrationCheckDialog } from "@/components/concentration-check-dialog"
-import { GroupSaveDialog } from "@/components/group-save-dialog"
-import { GroupSaveResultsDialog } from "@/components/group-save-results-dialog"
-import { GroupSavePlayerDialog } from "@/components/group-save-player-dialog"
-import { SpellbookPanel } from "@/components/spellbook-panel"
-import { NotesPanel } from "@/components/notes-panel"
-import { AIAssistantPanel } from "@/components/ai-assistant-panel"
-import { LootPanelConnected, LootDistributionSummaryDialog } from "@/components/loot"
+import type { AmbientEffect } from "@/components/ambient-effects"
+import type { HistoryEntry } from "@/components/combat-history-panel"
 import type { CombatContext } from "@/lib/ai-types"
+
+// Dynamically imported heavy components (code splitting)
+const PlayerPanel = dynamic(() => import("@/components/player-panel").then(m => ({ default: m.PlayerPanel })), { loading: () => null })
+const MyCharactersPanel = dynamic(() => import("@/components/my-characters-panel").then(m => ({ default: m.MyCharactersPanel })), { loading: () => null })
+const CombatPanel = dynamic(() => import("@/components/combat-panel").then(m => ({ default: m.CombatPanel })), { loading: () => null })
+const CombatSetupPanel = dynamic(() => import("@/components/combat-setup-panel").then(m => ({ default: m.CombatSetupPanel })), { loading: () => null })
+const BestiaryPanel = dynamic(() => import("@/components/bestiary-panel").then(m => ({ default: m.BestiaryPanel })), { loading: () => null })
+const MobileCombatSetup = dynamic(() => import("@/components/mobile-combat-setup").then(m => ({ default: m.MobileCombatSetup })), { loading: () => null })
+const MonsterPickerPanel = dynamic(() => import("@/components/monster-picker-panel").then(m => ({ default: m.MonsterPickerPanel })), { loading: () => null })
+const CombatHistoryPanel = dynamic(() => import("@/components/combat-history-panel").then(m => ({ default: m.CombatHistoryPanel })), { ssr: false })
+const SettingsPanel = dynamic(() => import("@/components/settings-panel").then(m => ({ default: m.SettingsPanel })), { ssr: false })
+const AmbientEffects = dynamic(() => import("@/components/ambient-effects").then(m => ({ default: m.AmbientEffects })), { ssr: false })
+const XpSummaryModal = dynamic(() => import("@/components/xp-summary-modal").then(m => ({ default: m.XpSummaryModal })), { ssr: false })
+const OrphanPetDialog = dynamic(() => import("@/components/orphan-pet-dialog").then(m => ({ default: m.OrphanPetDialog })), { ssr: false })
+const ConcentrationCheckDialog = dynamic(() => import("@/components/concentration-check-dialog").then(m => ({ default: m.ConcentrationCheckDialog })), { ssr: false })
+const GroupSaveDialog = dynamic(() => import("@/components/group-save-dialog").then(m => ({ default: m.GroupSaveDialog })), { ssr: false })
+const GroupSaveResultsDialog = dynamic(() => import("@/components/group-save-results-dialog").then(m => ({ default: m.GroupSaveResultsDialog })), { ssr: false })
+const GroupSavePlayerDialog = dynamic(() => import("@/components/group-save-player-dialog").then(m => ({ default: m.GroupSavePlayerDialog })), { ssr: false })
+const SpellbookPanel = dynamic(() => import("@/components/spellbook-panel").then(m => ({ default: m.SpellbookPanel })), { loading: () => null })
+const NotesPanel = dynamic(() => import("@/components/notes-panel").then(m => ({ default: m.NotesPanel })), { ssr: false })
+const AIAssistantPanel = dynamic(() => import("@/components/ai-assistant-panel").then(m => ({ default: m.AIAssistantPanel })), { ssr: false })
+const LootPanelConnected = dynamic(() => import("@/components/loot").then(m => ({ default: m.LootPanelConnected })), { loading: () => null })
+const LootDistributionSummaryDialog = dynamic(() => import("@/components/loot").then(m => ({ default: m.LootDistributionSummaryDialog })), { ssr: false })
 import {
   Dialog,
   DialogContent,
@@ -128,7 +134,7 @@ function CombatTrackerContent() {
     const stored = sessionStorage.getItem('dnd-combatParticipants')
     return stored ? JSON.parse(stored) : []
   })
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -497,15 +503,46 @@ function CombatTrackerContent() {
       try {
         setLoading(true)
 
-        // Fetch campaign info
-        const campaignRes = await fetch(`/api/campaigns/${campaignId}`)
+        // Fetch campaign info, characters, and monsters in parallel
+        const [campaignRes, charactersRes, monstersRes] = await Promise.all([
+          fetch(`/api/campaigns/${campaignId}`),
+          fetch('/api/characters/notion'),
+          fetch(`/api/campaigns/${campaignId}/combat-monsters`),
+        ])
+
         if (campaignRes.ok) {
           const campaign = await campaignRes.json()
           setCampaignName(campaign.name)
         }
 
+        if (monstersRes.ok) {
+          const monstersData = await monstersRes.json()
+          setMonsters(monstersData.map((m: {
+            id: number
+            name: string
+            hp: number
+            max_hp: number
+            ac: number
+            initiative: number
+            notes: string | null
+            status: string
+            conditions: string[]
+            exhaustion_level: number
+          }) => ({
+            id: `m-${m.id}`,
+            name: m.name,
+            hp: m.hp,
+            maxHp: m.max_hp,
+            ac: m.ac,
+            initiative: m.initiative,
+            notes: m.notes || "",
+            status: m.status as "actif" | "mort",
+            conditions: m.conditions || [],
+            exhaustionLevel: m.exhaustion_level || 0,
+          })))
+        }
+
         // Fetch characters from Notion
-        const charactersRes = await fetch('/api/characters/notion')
         if (charactersRes.ok) {
           const charactersData = await charactersRes.json()
           // Map Notion fields to frontend fields and load inventories
@@ -570,35 +607,6 @@ function CombatTrackerContent() {
           )
           setPlayers(mappedCharacters)
           setAllCampaignCharacters(mappedCharacters)
-        }
-
-        // Fetch combat monsters
-        const monstersRes = await fetch(`/api/campaigns/${campaignId}/combat-monsters`)
-        if (monstersRes.ok) {
-          const monstersData = await monstersRes.json()
-          setMonsters(monstersData.map((m: {
-            id: number
-            name: string
-            hp: number
-            max_hp: number
-            ac: number
-            initiative: number
-            notes: string | null
-            status: string
-            conditions: string[]
-            exhaustion_level: number
-          }) => ({
-            id: `m-${m.id}`,
-            name: m.name,
-            hp: m.hp,
-            maxHp: m.max_hp,
-            ac: m.ac,
-            initiative: m.initiative,
-            notes: m.notes || "",
-            status: m.status as "actif" | "mort",
-            conditions: m.conditions || [],
-            exhaustionLevel: m.exhaustion_level || 0,
-          })))
         }
 
       } catch (error) {
@@ -2687,10 +2695,6 @@ function CombatTrackerContent() {
     updatePlayerHp,
     updateMonsterHp,
   ])
-
-  if (loading) {
-    return <LoadingSkeleton />
-  }
 
   // Show user selection screen if not selected yet
   if (!userSelected) {
