@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Crown, User, Heart, Shield, Loader2, Check, Lock } from "lucide-react"
+import { Crown, User, Heart, Shield, Loader2, Check, Lock, BookOpen } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import type { JournalCampaign } from "@/lib/types"
 
 interface CharacterInfo {
   id: string | number
@@ -28,17 +36,49 @@ interface CharacterInfo {
   conditions: string[]
   max_spell_slots?: Record<number, number> | null
   is_warlock?: boolean
+  campaigns?: string[]
+}
+
+// Notion's "Campagne" tags and the app's campaign names are entered separately
+// and can drift (e.g. "One-shot" vs "One-Shot", or a name with an extra suffix),
+// so match loosely rather than requiring an exact string.
+function normalize(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function characterMatchesCampaign(character: CharacterInfo, campaignName: string): boolean {
+  const tags = character.campaigns
+  if (!tags || tags.length === 0) return true // untagged characters show in every campaign
+  const normalizedCampaign = normalize(campaignName)
+  return tags.some((tag) => {
+    const normalizedTag = normalize(tag)
+    return (
+      normalizedTag === normalizedCampaign ||
+      normalizedCampaign.includes(normalizedTag) ||
+      normalizedTag.includes(normalizedCampaign)
+    )
+  })
 }
 
 interface UserSelectionScreenProps {
-  campaignId: number
   onSelectMJ: (password: string) => void
   onSelectPlayers: (characters: CharacterInfo[]) => void
   dmError?: string | null
   dmLoading?: boolean
+  journalCampaigns: JournalCampaign[]
+  journalCampaignId: number | null
+  onSelectJournalCampaign: (id: number) => void
 }
 
-export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers, dmError, dmLoading }: UserSelectionScreenProps) {
+export function UserSelectionScreen({
+  onSelectMJ,
+  onSelectPlayers,
+  dmError,
+  dmLoading,
+  journalCampaigns,
+  journalCampaignId,
+  onSelectJournalCampaign,
+}: UserSelectionScreenProps) {
   const [characters, setCharacters] = useState<CharacterInfo[]>([])
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,6 +105,17 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers, d
     }
     fetchCharacters()
   }, [])
+
+  const selectedCampaignName = journalCampaigns.find((c) => c.id === journalCampaignId)?.name
+  const visibleCharacters = selectedCampaignName
+    ? characters.filter((c) => characterMatchesCampaign(c, selectedCampaignName))
+    : characters
+
+  // Drop selections that disappear when switching campaigns
+  useEffect(() => {
+    setSelectedCharacters((prev) => prev.filter((c) => visibleCharacters.some((v) => v.id === c.id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampaignName, characters])
 
   const getHpColor = (current: number, max: number) => {
     const ratio = current / max
@@ -109,6 +160,27 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers, d
           <h1 className="text-3xl font-bold text-gold">D&D Combat Tracker</h1>
           <p className="text-muted-foreground">Qui êtes-vous ?</p>
         </div>
+
+        {journalCampaigns.length > 1 && (
+          <div className="flex items-center justify-center gap-2">
+            <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+            <Select
+              value={journalCampaignId != null ? String(journalCampaignId) : undefined}
+              onValueChange={(value) => onSelectJournalCampaign(parseInt(value, 10))}
+            >
+              <SelectTrigger className="w-auto min-w-[220px] bg-secondary/30">
+                <SelectValue placeholder="Choisir une campagne" />
+              </SelectTrigger>
+              <SelectContent>
+                {journalCampaigns.map((campaign) => (
+                  <SelectItem key={campaign.id} value={String(campaign.id)}>
+                    {campaign.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-4">
           {/* MJ Option */}
@@ -162,11 +234,16 @@ export function UserSelectionScreen({ campaignId, onSelectMJ, onSelectPlayers, d
                   <User className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Aucun personnage disponible</p>
                 </div>
+              ) : visibleCharacters.length === 0 ? (
+                <div className="text-center text-muted-foreground py-4">
+                  <User className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Aucun personnage pour cette campagne</p>
+                </div>
               ) : (
                 <>
                   <ScrollArea className="h-[200px] pr-2">
                     <div className="space-y-2">
-                      {characters.map((character) => {
+                      {visibleCharacters.map((character) => {
                         const isSelected = selectedCharacters.some(c => c.id === character.id)
                         return (
                           <div

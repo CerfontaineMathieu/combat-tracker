@@ -10,7 +10,8 @@ import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
-import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note } from "@/lib/types"
+import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note, JournalCampaign } from "@/lib/types"
+import type { GeneratedEncounterRow } from "@/lib/encounter-generator"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import type { AmbientEffect } from "@/components/ambient-effects"
 import type { HistoryEntry } from "@/components/combat-history-panel"
@@ -38,6 +39,7 @@ const NotesPanel = dynamic(() => import("@/components/notes-panel").then(m => ({
 const AIAssistantPanel = dynamic(() => import("@/components/ai-assistant-panel").then(m => ({ default: m.AIAssistantPanel })), { ssr: false })
 const LootPanelConnected = dynamic(() => import("@/components/loot").then(m => ({ default: m.LootPanelConnected })), { loading: () => null })
 const LootDistributionSummaryDialog = dynamic(() => import("@/components/loot").then(m => ({ default: m.LootDistributionSummaryDialog })), { ssr: false })
+const GenerateEncounterDialog = dynamic(() => import("@/components/encounter/generate-encounter-dialog").then(m => ({ default: m.GenerateEncounterDialog })), { ssr: false })
 import {
   Dialog,
   DialogContent,
@@ -109,9 +111,35 @@ function CombatTrackerContent() {
   const [mode, setMode] = useState<"mj" | "joueur">("mj")
   const [selectedCharacters, setSelectedCharacters] = useState<SelectedCharacters>([])
 
-  // Fixed campaign ID (single session)
+  // Fixed campaign ID (single session) — characters, monsters, and combat state
+  // always live under this campaign. "Campaigns" below are only used to pick
+  // which Notion journal database session notes get synced to.
   const campaignId = DEFAULT_CAMPAIGN_ID
   const [campaignName, setCampaignName] = useState("")
+  const [journalCampaigns, setJournalCampaigns] = useState<JournalCampaign[]>([])
+  const [journalCampaignId, setJournalCampaignId] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null
+    const stored = sessionStorage.getItem('dnd-journalCampaignId')
+    return stored ? parseInt(stored, 10) : null
+  })
+
+  const handleSelectJournalCampaign = (id: number) => {
+    setJournalCampaignId(id)
+    sessionStorage.setItem('dnd-journalCampaignId', String(id))
+  }
+
+  const refreshJournalCampaigns = async () => {
+    try {
+      const response = await fetch('/api/campaigns')
+      if (response.ok) {
+        const allCampaigns: JournalCampaign[] = await response.json()
+        setJournalCampaigns(allCampaigns)
+        setCampaignName(allCampaigns.find((c) => c.id === campaignId)?.name ?? "")
+      }
+    } catch (error) {
+      console.error('Failed to refresh campaigns:', error)
+    }
+  }
   const [players, setPlayers] = useState<Character[]>([])
   const [allCampaignCharacters, setAllCampaignCharacters] = useState<Character[]>([])
   const [monsters, setMonsters] = useState<Monster[]>([])
@@ -138,6 +166,7 @@ function CombatTrackerContent() {
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showEncounterGenerator, setShowEncounterGenerator] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   // Keyboard shortcut dialog control
   const [keyboardConditionDialogOpen, setKeyboardConditionDialogOpen] = useState(false)
@@ -503,16 +532,24 @@ function CombatTrackerContent() {
       try {
         setLoading(true)
 
-        // Fetch campaign info, characters, and monsters in parallel
-        const [campaignRes, charactersRes, monstersRes] = await Promise.all([
-          fetch(`/api/campaigns/${campaignId}`),
+        // Fetch characters, monsters, and the campaign list in parallel.
+        // Campaign name is derived from that same list (which also bootstraps
+        // a default campaign if none exists yet) to avoid a race between two
+        // separate campaign fetches on a fresh database.
+        const [charactersRes, monstersRes, journalCampaignsRes] = await Promise.all([
           fetch('/api/characters/notion'),
           fetch(`/api/campaigns/${campaignId}/combat-monsters`),
+          fetch('/api/campaigns'),
         ])
 
-        if (campaignRes.ok) {
-          const campaign = await campaignRes.json()
-          setCampaignName(campaign.name)
+        if (journalCampaignsRes.ok) {
+          const allCampaigns: JournalCampaign[] = await journalCampaignsRes.json()
+          setJournalCampaigns(allCampaigns)
+          setCampaignName(allCampaigns.find((c) => c.id === campaignId)?.name ?? "")
+          setJournalCampaignId((prev) => {
+            if (prev !== null && allCampaigns.some((c) => c.id === prev)) return prev
+            return allCampaigns[0]?.id ?? null
+          })
         }
 
         if (monstersRes.ok) {
@@ -2049,12 +2086,14 @@ function CombatTrackerContent() {
 
     setIsSyncingNotes(true)
     try {
+      const notionDatabaseId = journalCampaigns.find((c) => c.id === journalCampaignId)?.notion_journal_database_id
       const response = await fetch('/api/notion/journal/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           notes: sessionNotes,
           date: new Date().toISOString().split('T')[0],
+          notionDatabaseId,
         }),
       })
 
@@ -2487,6 +2526,50 @@ function CombatTrackerContent() {
     toast.success(`${quantity}x ${dbMonster.name} ajouté(s) au combat`)
   }
 
+  // Add a generated encounter (possibly several distinct monster types) to combat in one batch
+  const addEncounterToCombat = (rows: GeneratedEncounterRow[]) => {
+    const countByMonsterId = new Map<number, number>()
+    const newParticipants: CombatParticipant[] = rows.map((row, i) => {
+      const seen = (countByMonsterId.get(row.monster.id) || 0) + 1
+      countByMonsterId.set(row.monster.id, seen)
+      const totalOfType = rows.filter(r => r.monster.id === row.monster.id).length
+      return {
+        id: `enc-${row.monster.id}-${Date.now()}-${i}`,
+        name: totalOfType > 1 ? `${row.monster.name} ${seen}` : row.monster.name,
+        initiative: Math.floor(Math.random() * 20) + 1,
+        currentHp: row.monster.hit_points || 10,
+        maxHp: row.monster.hit_points || 10,
+        ac: row.monster.armor_class || undefined,
+        conditions: [],
+        exhaustionLevel: 0,
+        buffs: [],
+        type: "monster",
+        xp: row.monster.challenge_rating_xp || undefined,
+      }
+    })
+
+    setCombatParticipants(prev => {
+      const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
+
+      if (combatActive) {
+        queueMicrotask(() => {
+          emitCombatUpdate({
+            type: 'state-sync',
+            combatActive: true,
+            currentTurn,
+            roundNumber,
+            participants: updated,
+          })
+        })
+      }
+
+      return updated
+    })
+
+    const totalXp = newParticipants.reduce((sum, p) => sum + (p.xp || 0), 0)
+    toast.success(`Rencontre ajoutée : ${newParticipants.length} monstre(s), ${totalXp} XP`)
+  }
+
   // Add session monsters to combat with quantity (for mobile tap-to-add)
   const addSessionMonstersToCombat = (monster: Monster, quantity: number) => {
     const newParticipants: CombatParticipant[] = Array.from({ length: quantity }, (_, i) => ({
@@ -2700,11 +2783,13 @@ function CombatTrackerContent() {
   if (!userSelected) {
     return (
       <UserSelectionScreen
-        campaignId={campaignId}
         onSelectMJ={handleSelectMJ}
         onSelectPlayers={handleSelectPlayers}
         dmError={dmError}
         dmLoading={dmLoading}
+        journalCampaigns={journalCampaigns}
+        journalCampaignId={journalCampaignId}
+        onSelectJournalCampaign={handleSelectJournalCampaign}
       />
     )
   }
@@ -3025,6 +3110,7 @@ function CombatTrackerContent() {
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
                   onGroupSave={() => setShowGroupSaveConfig(true)}
+                  onGenerateEncounter={() => setShowEncounterGenerator(true)}
                 />
               )}
               {activeTab === "bestiary" && mode === "mj" && (
@@ -3252,6 +3338,7 @@ function CombatTrackerContent() {
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                     connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
                     onGroupSave={() => setShowGroupSaveConfig(true)}
+                    onGenerateEncounter={() => setShowEncounterGenerator(true)}
                   />
                 </div>
 
@@ -3292,10 +3379,19 @@ function CombatTrackerContent() {
         open={showSettings}
         onOpenChange={setShowSettings}
         campaignId={campaignId}
-        campaignName={campaignName}
         onCampaignNameChange={setCampaignName}
+        onCampaignsChanged={refreshJournalCampaigns}
         onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
       />
+
+      {/* Encounter Generator - MJ only */}
+      {mode === "mj" && (
+        <GenerateEncounterDialog
+          isOpen={showEncounterGenerator}
+          onClose={() => setShowEncounterGenerator(false)}
+          onConfirm={addEncounterToCombat}
+        />
+      )}
 
       {/* Session Notes Panel - MJ only */}
       {mode === "mj" && (

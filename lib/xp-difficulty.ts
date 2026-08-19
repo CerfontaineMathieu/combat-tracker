@@ -111,6 +111,32 @@ export function calculateDifficulty(
   return 'low'
 }
 
+// Generation only supports non-trivial tiers: calculateDifficulty only ever
+// returns 'trivial' when totalXp === 0, so it can never be a meaningful generation target.
+export type GenerationDifficultyTier = Exclude<DifficultyTier, 'trivial'>
+
+/**
+ * Inverse of calculateDifficulty: given a desired tier, return a target total
+ * monster XP that lands inside that tier's band (not on a boundary, since
+ * calculateDifficulty's >= comparisons make boundary values ambiguous).
+ */
+export function getTargetXpForTier(
+  tier: GenerationDifficultyTier,
+  players: { level: number }[]
+): number {
+  const { low, moderate, high } = getPartyXPBudget(players)
+  switch (tier) {
+    case 'low':
+      return Math.round(low * 0.6)
+    case 'moderate':
+      return Math.round((low + moderate) / 2)
+    case 'high':
+      return Math.round((moderate + high) / 2)
+    case 'deadly':
+      return Math.round(high * 1.25)
+  }
+}
+
 /**
  * Get the XP thresholds for a party (for UI display)
  * Returns the actual XP values for each difficulty tier

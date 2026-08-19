@@ -217,6 +217,10 @@ Forme Éthérée. Peut traverser créatures et objets (1d10 force s'il termine d
 Ténacité Naine. Avantage aux JS contre Charmé et Effrayé.
 ```
 
+### Habitat Field
+
+`Habitat` is a Notion **multi-select** property (a monster can have several). Values are free-form — defined directly in Notion, no fixed list is hardcoded in the app. The app pulls the full set of configured options from Notion's property schema on every sync (so a brand-new option appears in the app immediately, even before any monster is tagged with it), separately from the per-monster tags themselves.
+
 ### Legendary Actions Field
 
 Same as Actions, but include cost in parentheses when > 1:

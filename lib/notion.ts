@@ -531,6 +531,9 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
   // Description (flavor text)
   const description = extractStringProp(props.Description) || null;
 
+  // Habitats this monster can appear in (multi-select)
+  const habitat = parseCommaSeparated(extractMultiSelect(props.Habitat));
+
   // Extract actions - handles both array (new) and rich_text (old) formats
   const actions = extractActions(props.Actions);
   const bonus_actions = extractActions(props['Actions Bonus']);
@@ -580,7 +583,27 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
     traits,
     description,
     image_url,
+    habitat,
   };
+}
+
+/**
+ * Fetch the full list of configured Habitat multi-select options from the
+ * Notion database schema, independent of which monsters currently use them.
+ */
+export async function getHabitatOptionsFromNotion(): Promise<string[]> {
+  const notion = getNotionClient();
+  const databaseId = getDatabaseId();
+  const dataSourceId = await getDataSourceId(notion, databaseId);
+
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId }) as any;
+  const habitatProp = dataSource.properties?.Habitat;
+
+  if (!habitatProp || habitatProp.type !== 'multi_select') {
+    return [];
+  }
+
+  return habitatProp.multi_select.options.map((option: any) => option.name);
 }
 
 /**
@@ -618,6 +641,8 @@ export interface NotionCharacter {
   // Spell slots
   max_spell_slots: Record<number, number> | null;
   is_warlock: boolean;
+  // Campaign tags from the "Campagne" multi-select (empty = shown in every campaign)
+  campaigns: string[];
 }
 
 /**
@@ -751,6 +776,9 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
                       classLower.includes('sorcier') ||
                       classLower.includes('occultiste');
 
+    // Campaign tags from "Campagne" multi-select
+    const campaigns: string[] = (props.Campagne?.multi_select || []).map((option: any) => option.name);
+
     return {
       id: page.id,
       name,
@@ -771,6 +799,7 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
       saving_throw_proficiencies: savingThrowProficiencies,
       max_spell_slots: hasSpellSlots ? maxSpellSlots : null,
       is_warlock: isWarlock,
+      campaigns,
     };
   } catch (error) {
     console.error('Error mapping Notion character:', error);

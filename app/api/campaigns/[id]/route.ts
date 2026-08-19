@@ -25,9 +25,9 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, description } = body;
+    const { name, description, notion_journal_database_id } = body;
 
-    const campaign = await updateCampaign(parseInt(id, 10), { name, description });
+    const campaign = await updateCampaign(parseInt(id, 10), { name, description, notion_journal_database_id });
     if (!campaign) {
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
     }

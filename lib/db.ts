@@ -56,6 +56,7 @@ export interface Monster {
   image_url: string | null;
   ai_generated: string | null;  // AI-generated image path (local only)
   notion_id: string | null;      // Notion page ID (for sync tracking)
+  habitat: string[];             // Habitats this monster can appear in, from Notion's Habitat multi-select
   created_at: Date;
 }
 
@@ -214,8 +215,8 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       intelligence, wisdom, charisma, strength_mod, dexterity_mod, constitution_mod,
       intelligence_mod, wisdom_mod, charisma_mod, creature_type, size,
       challenge_rating_xp, actions, bonus_actions, reactions, legendary_actions, traits,
-      description, image_url, notion_id, ai_generated
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+      description, image_url, notion_id, ai_generated, habitat
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
     ON CONFLICT (name)
     DO UPDATE SET
       armor_class = EXCLUDED.armor_class,
@@ -243,7 +244,8 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       traits = EXCLUDED.traits,
       description = EXCLUDED.description,
       image_url = EXCLUDED.image_url,
-      notion_id = EXCLUDED.notion_id
+      notion_id = EXCLUDED.notion_id,
+      habitat = EXCLUDED.habitat
       -- NOTE: ai_generated is NOT updated here, preserving local AI-generated images
     RETURNING *`,
     [
@@ -284,9 +286,35 @@ export async function upsertMonster(monster: Omit<Monster, 'id' | 'created_at'>)
       monster.image_url,
       monster.notion_id || null,
       monster.ai_generated || null,
+      monster.habitat || [],
     ]
   );
   return result.rows[0];
+}
+
+export async function getHabitatOptions(): Promise<string[]> {
+  const result = await pool.query('SELECT name FROM habitat_options ORDER BY name');
+  return result.rows.map(row => row.name);
+}
+
+export async function syncHabitatOptions(names: string[]): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM habitat_options');
+    if (names.length > 0) {
+      await client.query(
+        'INSERT INTO habitat_options (name) SELECT unnest($1::text[]) ON CONFLICT DO NOTHING',
+        [names]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // Campaign types and functions
@@ -296,13 +324,19 @@ export interface Campaign {
   description: string | null;
   room_code: string | null;
   dm_password: string | null;
+  notion_journal_database_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
 export async function getCampaigns(): Promise<Campaign[]> {
   const result = await pool.query('SELECT * FROM campaigns ORDER BY updated_at DESC');
-  return result.rows;
+  if (result.rows.length > 0) return result.rows;
+
+  // Bootstrap: no campaign exists yet (fresh DB / never used the campaign feature).
+  // Create one from today's single-campaign setup so existing note syncing keeps working.
+  const defaultJournalId = process.env.NOTION_JOURNAL_DATABASE_ID || null;
+  return [await createCampaign('La pierre du Nécromancien - New Architecture', undefined, defaultJournalId)];
 }
 
 export async function getCampaignById(id: number): Promise<Campaign | null> {
@@ -516,17 +550,21 @@ export async function deleteNote(id: number): Promise<boolean> {
 }
 
 // Campaign CRUD functions
-export async function createCampaign(name: string, description?: string): Promise<Campaign> {
+export async function createCampaign(
+  name: string,
+  description?: string,
+  notionJournalDatabaseId?: string | null
+): Promise<Campaign> {
   const result = await pool.query(
-    `INSERT INTO campaigns (name, description) VALUES ($1, $2) RETURNING *`,
-    [name, description || null]
+    `INSERT INTO campaigns (name, description, notion_journal_database_id) VALUES ($1, $2, $3) RETURNING *`,
+    [name, description || null, notionJournalDatabaseId || null]
   );
   return result.rows[0];
 }
 
 export async function updateCampaign(
   id: number,
-  updates: Partial<Pick<Campaign, 'name' | 'description'>>
+  updates: Partial<Pick<Campaign, 'name' | 'description' | 'notion_journal_database_id'>>
 ): Promise<Campaign | null> {
   const setClauses: string[] = [];
   const values: (string | null)[] = [];
@@ -539,6 +577,10 @@ export async function updateCampaign(
   if (updates.description !== undefined) {
     setClauses.push(`description = $${paramIndex++}`);
     values.push(updates.description);
+  }
+  if (updates.notion_journal_database_id !== undefined) {
+    setClauses.push(`notion_journal_database_id = $${paramIndex++}`);
+    values.push(updates.notion_journal_database_id);
   }
 
   if (setClauses.length === 0) return null;
