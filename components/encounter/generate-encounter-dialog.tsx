@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Swords, RefreshCw, Trash2, Loader2, AlertTriangle, ArrowLeft } from "lucide-react"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu"
+import { Swords, RefreshCw, Trash2, Loader2, AlertTriangle, ArrowLeft, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DbMonster } from "@/lib/types"
 import {
@@ -51,6 +51,16 @@ const TIERS: { value: GenerationDifficultyTier }[] = [
 
 const COMPOSITIONS: EncounterComposition[] = ['solo', 'duo', 'group', 'mob']
 
+function toggleInArray(values: string[], value: string): string[] {
+  return values.includes(value) ? values.filter(v => v !== value) : [...values, value]
+}
+
+function summarizeSelection(values: string[], allLabel: string, unit: string): string {
+  if (values.length === 0) return allLabel
+  if (values.length <= 2) return values.join(", ")
+  return `${values.length} ${unit} sélectionnés`
+}
+
 export function GenerateEncounterDialog({ isOpen, onClose, onConfirm }: GenerateEncounterDialogProps) {
   const [step, setStep] = useState<'params' | 'preview'>('params')
 
@@ -59,8 +69,8 @@ export function GenerateEncounterDialog({ isOpen, onClose, onConfirm }: Generate
   const [tier, setTier] = useState<GenerationDifficultyTier>('moderate')
   const [composition, setComposition] = useState<EncounterComposition>('group')
   const [monsterCount, setMonsterCount] = useState(COMPOSITION_CONFIG.group.defaultCount)
-  const [creatureTypeFilter, setCreatureTypeFilter] = useState('all')
-  const [habitatFilter, setHabitatFilter] = useState('all')
+  const [creatureTypeFilters, setCreatureTypeFilters] = useState<string[]>([])
+  const [habitatFilters, setHabitatFilters] = useState<string[]>([])
 
   const [bestiary, setBestiary] = useState<DbMonster[]>([])
   const [bestiaryLoading, setBestiaryLoading] = useState(true)
@@ -116,8 +126,8 @@ export function GenerateEncounterDialog({ isOpen, onClose, onConfirm }: Generate
 
   const handleGenerate = () => {
     const partyPlayers = Array.from({ length: partySize }, () => ({ level: partyLevel }))
-    const byType = filterBestiaryByCreatureType(bestiary, creatureTypeFilter === 'all' ? '' : creatureTypeFilter)
-    const filtered = filterBestiaryByHabitat(byType, habitatFilter === 'all' ? '' : habitatFilter)
+    const byType = filterBestiaryByCreatureType(bestiary, creatureTypeFilters)
+    const filtered = filterBestiaryByHabitat(byType, habitatFilters)
     if (filtered.length === 0) {
       setParamsError("Aucun monstre ne correspond à ces filtres de type/habitat.")
       return
@@ -254,32 +264,50 @@ export function GenerateEncounterDialog({ isOpen, onClose, onConfirm }: Generate
 
             <div className="space-y-2">
               <Label htmlFor="creature-type">Type de créature</Label>
-              <Select value={creatureTypeFilter} onValueChange={setCreatureTypeFilter}>
-                <SelectTrigger id="creature-type" className="w-full">
-                  <SelectValue placeholder="Type de créature" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les types</SelectItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button id="creature-type" variant="outline" className="w-full justify-between font-normal">
+                    {summarizeSelection(creatureTypeFilters, "Tous les types", "types")}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   {creatureTypes.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                    <DropdownMenuCheckboxItem
+                      key={type}
+                      checked={creatureTypeFilters.includes(type)}
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={() => setCreatureTypeFilters(prev => toggleInArray(prev, type))}
+                    >
+                      {type}
+                    </DropdownMenuCheckboxItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="habitat">Habitat</Label>
-              <Select value={habitatFilter} onValueChange={setHabitatFilter}>
-                <SelectTrigger id="habitat" className="w-full">
-                  <SelectValue placeholder="Habitat" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les habitats</SelectItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button id="habitat" variant="outline" className="w-full justify-between font-normal">
+                    {summarizeSelection(habitatFilters, "Tous les habitats", "habitats")}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   {habitatOptions.map((habitat) => (
-                    <SelectItem key={habitat} value={habitat}>{habitat}</SelectItem>
+                    <DropdownMenuCheckboxItem
+                      key={habitat}
+                      checked={habitatFilters.includes(habitat)}
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={() => setHabitatFilters(prev => toggleInArray(prev, habitat))}
+                    >
+                      {habitat}
+                    </DropdownMenuCheckboxItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {paramsError && (
