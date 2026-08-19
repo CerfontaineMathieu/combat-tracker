@@ -641,6 +641,8 @@ export interface NotionCharacter {
   // Spell slots
   max_spell_slots: Record<number, number> | null;
   is_warlock: boolean;
+  // Campaign tags from the "Campagne" multi-select (empty = shown in every campaign)
+  campaigns: string[];
 }
 
 /**
@@ -774,6 +776,9 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
                       classLower.includes('sorcier') ||
                       classLower.includes('occultiste');
 
+    // Campaign tags from "Campagne" multi-select
+    const campaigns: string[] = (props.Campagne?.multi_select || []).map((option: any) => option.name);
+
     return {
       id: page.id,
       name,
@@ -794,6 +799,7 @@ function mapNotionPageToCharacter(page: any): NotionCharacter | null {
       saving_throw_proficiencies: savingThrowProficiencies,
       max_spell_slots: hasSpellSlots ? maxSpellSlots : null,
       is_warlock: isWarlock,
+      campaigns,
     };
   } catch (error) {
     console.error('Error mapping Notion character:', error);

@@ -10,7 +10,7 @@ import { UserSelectionScreen } from "@/components/user-selection-screen"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
-import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note } from "@/lib/types"
+import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note, JournalCampaign } from "@/lib/types"
 import type { GeneratedEncounterRow } from "@/lib/encounter-generator"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import type { AmbientEffect } from "@/components/ambient-effects"
@@ -111,9 +111,35 @@ function CombatTrackerContent() {
   const [mode, setMode] = useState<"mj" | "joueur">("mj")
   const [selectedCharacters, setSelectedCharacters] = useState<SelectedCharacters>([])
 
-  // Fixed campaign ID (single session)
+  // Fixed campaign ID (single session) — characters, monsters, and combat state
+  // always live under this campaign. "Campaigns" below are only used to pick
+  // which Notion journal database session notes get synced to.
   const campaignId = DEFAULT_CAMPAIGN_ID
   const [campaignName, setCampaignName] = useState("")
+  const [journalCampaigns, setJournalCampaigns] = useState<JournalCampaign[]>([])
+  const [journalCampaignId, setJournalCampaignId] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null
+    const stored = sessionStorage.getItem('dnd-journalCampaignId')
+    return stored ? parseInt(stored, 10) : null
+  })
+
+  const handleSelectJournalCampaign = (id: number) => {
+    setJournalCampaignId(id)
+    sessionStorage.setItem('dnd-journalCampaignId', String(id))
+  }
+
+  const refreshJournalCampaigns = async () => {
+    try {
+      const response = await fetch('/api/campaigns')
+      if (response.ok) {
+        const allCampaigns: JournalCampaign[] = await response.json()
+        setJournalCampaigns(allCampaigns)
+        setCampaignName(allCampaigns.find((c) => c.id === campaignId)?.name ?? "")
+      }
+    } catch (error) {
+      console.error('Failed to refresh campaigns:', error)
+    }
+  }
   const [players, setPlayers] = useState<Character[]>([])
   const [allCampaignCharacters, setAllCampaignCharacters] = useState<Character[]>([])
   const [monsters, setMonsters] = useState<Monster[]>([])
@@ -506,16 +532,24 @@ function CombatTrackerContent() {
       try {
         setLoading(true)
 
-        // Fetch campaign info, characters, and monsters in parallel
-        const [campaignRes, charactersRes, monstersRes] = await Promise.all([
-          fetch(`/api/campaigns/${campaignId}`),
+        // Fetch characters, monsters, and the campaign list in parallel.
+        // Campaign name is derived from that same list (which also bootstraps
+        // a default campaign if none exists yet) to avoid a race between two
+        // separate campaign fetches on a fresh database.
+        const [charactersRes, monstersRes, journalCampaignsRes] = await Promise.all([
           fetch('/api/characters/notion'),
           fetch(`/api/campaigns/${campaignId}/combat-monsters`),
+          fetch('/api/campaigns'),
         ])
 
-        if (campaignRes.ok) {
-          const campaign = await campaignRes.json()
-          setCampaignName(campaign.name)
+        if (journalCampaignsRes.ok) {
+          const allCampaigns: JournalCampaign[] = await journalCampaignsRes.json()
+          setJournalCampaigns(allCampaigns)
+          setCampaignName(allCampaigns.find((c) => c.id === campaignId)?.name ?? "")
+          setJournalCampaignId((prev) => {
+            if (prev !== null && allCampaigns.some((c) => c.id === prev)) return prev
+            return allCampaigns[0]?.id ?? null
+          })
         }
 
         if (monstersRes.ok) {
@@ -2052,12 +2086,14 @@ function CombatTrackerContent() {
 
     setIsSyncingNotes(true)
     try {
+      const notionDatabaseId = journalCampaigns.find((c) => c.id === journalCampaignId)?.notion_journal_database_id
       const response = await fetch('/api/notion/journal/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           notes: sessionNotes,
           date: new Date().toISOString().split('T')[0],
+          notionDatabaseId,
         }),
       })
 
@@ -2747,11 +2783,13 @@ function CombatTrackerContent() {
   if (!userSelected) {
     return (
       <UserSelectionScreen
-        campaignId={campaignId}
         onSelectMJ={handleSelectMJ}
         onSelectPlayers={handleSelectPlayers}
         dmError={dmError}
         dmLoading={dmLoading}
+        journalCampaigns={journalCampaigns}
+        journalCampaignId={journalCampaignId}
+        onSelectJournalCampaign={handleSelectJournalCampaign}
       />
     )
   }
@@ -3341,8 +3379,8 @@ function CombatTrackerContent() {
         open={showSettings}
         onOpenChange={setShowSettings}
         campaignId={campaignId}
-        campaignName={campaignName}
         onCampaignNameChange={setCampaignName}
+        onCampaignsChanged={refreshJournalCampaigns}
         onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
       />
 

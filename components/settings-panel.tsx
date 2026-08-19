@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -13,17 +13,18 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { Save, Key, Loader2, RefreshCw } from "lucide-react"
+import { Save, Key, Loader2, RefreshCw, Plus, Trash2 } from "lucide-react"
 import { NotionSyncButton } from "@/components/notion-sync-button"
 import { ItemSyncDialog } from "@/components/item-sync-dialog"
 import { SpellSyncDialog } from "@/components/spell-sync-dialog"
+import type { JournalCampaign } from "@/lib/types"
 
 interface SettingsPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   campaignId: number
-  campaignName: string
   onCampaignNameChange: (name: string) => void
+  onCampaignsChanged?: () => void
   onMonsterSyncComplete?: () => void
 }
 
@@ -31,40 +32,126 @@ export function SettingsPanel({
   open,
   onOpenChange,
   campaignId,
-  campaignName,
   onCampaignNameChange,
+  onCampaignsChanged,
   onMonsterSyncComplete,
 }: SettingsPanelProps) {
-  const [savingName, setSavingName] = useState(false)
+  const [campaigns, setCampaigns] = useState<JournalCampaign[]>([])
+  const [savingCampaignId, setSavingCampaignId] = useState<number | null>(null)
+  const [deletingCampaignId, setDeletingCampaignId] = useState<number | null>(null)
+  const [newCampaignName, setNewCampaignName] = useState("")
+  const [newCampaignJournalId, setNewCampaignJournalId] = useState("")
+  const [creatingCampaign, setCreatingCampaign] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [changingPassword, setChangingPassword] = useState(false)
 
-  const handleSaveCampaignName = async () => {
-    if (!campaignName.trim()) {
+  useEffect(() => {
+    if (!open) return
+    async function fetchCampaigns() {
+      try {
+        const response = await fetch("/api/campaigns")
+        if (response.ok) {
+          setCampaigns(await response.json())
+        }
+      } catch (error) {
+        console.error("Failed to fetch campaigns:", error)
+      }
+    }
+    fetchCampaigns()
+  }, [open])
+
+  const updateCampaignField = (id: number, field: "name" | "notion_journal_database_id", value: string) => {
+    setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
+  }
+
+  const handleSaveCampaign = async (campaign: JournalCampaign) => {
+    if (!campaign.name.trim()) {
       toast.error("Le nom de la campagne ne peut pas être vide")
       return
     }
 
-    setSavingName(true)
+    setSavingCampaignId(campaign.id)
     try {
-      const response = await fetch(`/api/campaigns/${campaignId}`, {
+      const response = await fetch(`/api/campaigns/${campaign.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: campaignName }),
+        body: JSON.stringify({
+          name: campaign.name,
+          notion_journal_database_id: campaign.notion_journal_database_id || null,
+        }),
       })
 
       if (response.ok) {
         toast.success("Campagne sauvegardée")
+        if (campaign.id === campaignId) onCampaignNameChange(campaign.name)
+        onCampaignsChanged?.()
       } else {
         throw new Error("Failed to save")
       }
     } catch (error) {
-      console.error("Error saving campaign name:", error)
+      console.error("Error saving campaign:", error)
       toast.error("Erreur lors de la sauvegarde")
     } finally {
-      setSavingName(false)
+      setSavingCampaignId(null)
+    }
+  }
+
+  const handleCreateCampaign = async () => {
+    if (!newCampaignName.trim()) return
+
+    setCreatingCampaign(true)
+    try {
+      const response = await fetch("/api/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newCampaignName,
+          notion_journal_database_id: newCampaignJournalId || null,
+        }),
+      })
+
+      if (response.ok) {
+        const campaign = await response.json()
+        setCampaigns((prev) => [campaign, ...prev])
+        setNewCampaignName("")
+        setNewCampaignJournalId("")
+        toast.success("Campagne créée")
+        onCampaignsChanged?.()
+      } else {
+        throw new Error("Failed to create")
+      }
+    } catch (error) {
+      console.error("Error creating campaign:", error)
+      toast.error("Erreur lors de la création")
+    } finally {
+      setCreatingCampaign(false)
+    }
+  }
+
+  const handleDeleteCampaign = async (id: number) => {
+    if (campaigns.length <= 1) {
+      toast.error("Vous devez garder au moins une campagne")
+      return
+    }
+    if (!confirm("Supprimer cette campagne ?")) return
+
+    setDeletingCampaignId(id)
+    try {
+      const response = await fetch(`/api/campaigns/${id}`, { method: "DELETE" })
+      if (response.ok) {
+        setCampaigns((prev) => prev.filter((c) => c.id !== id))
+        toast.success("Campagne supprimée")
+        onCampaignsChanged?.()
+      } else {
+        throw new Error("Failed to delete")
+      }
+    } catch (error) {
+      console.error("Error deleting campaign:", error)
+      toast.error("Erreur lors de la suppression")
+    } finally {
+      setDeletingCampaignId(null)
     }
   }
 
@@ -126,33 +213,86 @@ export function SettingsPanel({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Campaign Name Section */}
+          {/* Campaigns Section */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium flex items-center gap-2">
-              Campagne
+              Campagnes
             </h4>
-            <div className="space-y-2">
-              <Label htmlFor="campaignName">Nom de la campagne</Label>
-              <div className="flex gap-2">
+            <p className="text-xs text-muted-foreground">
+              Les personnages et le combat restent partagés. Seul le journal Notion où
+              sont synchronisées vos notes de session change selon la campagne sélectionnée à la connexion.
+            </p>
+
+            <div className="space-y-4">
+              {campaigns.map((campaign) => (
+                <div key={campaign.id} className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
+                  <div className="flex gap-2">
+                    <Input
+                      value={campaign.name}
+                      onChange={(e) => updateCampaignField(campaign.id, "name", e.target.value)}
+                      className="bg-background min-h-[40px] flex-1"
+                      placeholder="Ex: La Malédiction de Strahd"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 shrink-0 text-muted-foreground hover:text-crimson"
+                      onClick={() => handleDeleteCampaign(campaign.id)}
+                      disabled={deletingCampaignId === campaign.id}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={campaign.notion_journal_database_id ?? ""}
+                      onChange={(e) => updateCampaignField(campaign.id, "notion_journal_database_id", e.target.value)}
+                      className="bg-background min-h-[40px] flex-1 font-mono text-xs"
+                      placeholder="ID de la base Notion 'Journal de Campagne'"
+                    />
+                    <Button
+                      onClick={() => handleSaveCampaign(campaign)}
+                      disabled={savingCampaignId === campaign.id}
+                      className="min-h-[40px] shrink-0 bg-gold hover:bg-gold/80 text-background"
+                    >
+                      {savingCampaignId === campaign.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <div className="flex-1 space-y-2">
                 <Input
-                  id="campaignName"
-                  value={campaignName}
-                  onChange={(e) => onCampaignNameChange(e.target.value)}
-                  className="bg-background min-h-[44px] flex-1"
-                  placeholder="Ex: La Malédiction de Strahd"
+                  value={newCampaignName}
+                  onChange={(e) => setNewCampaignName(e.target.value)}
+                  className="bg-background min-h-[40px]"
+                  placeholder="Nom de la nouvelle campagne"
                 />
-                <Button
-                  onClick={handleSaveCampaignName}
-                  disabled={savingName}
-                  className="min-h-[44px] bg-gold hover:bg-gold/80 text-background"
-                >
-                  {savingName ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                </Button>
+                <Input
+                  value={newCampaignJournalId}
+                  onChange={(e) => setNewCampaignJournalId(e.target.value)}
+                  className="bg-background min-h-[40px] font-mono text-xs"
+                  placeholder="ID de la base Notion 'Journal de Campagne'"
+                />
               </div>
+              <Button
+                onClick={handleCreateCampaign}
+                disabled={creatingCampaign || !newCampaignName.trim()}
+                className="min-h-[40px] shrink-0"
+                variant="outline"
+              >
+                {creatingCampaign ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </Button>
             </div>
           </div>
 

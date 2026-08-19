@@ -324,13 +324,19 @@ export interface Campaign {
   description: string | null;
   room_code: string | null;
   dm_password: string | null;
+  notion_journal_database_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
 export async function getCampaigns(): Promise<Campaign[]> {
   const result = await pool.query('SELECT * FROM campaigns ORDER BY updated_at DESC');
-  return result.rows;
+  if (result.rows.length > 0) return result.rows;
+
+  // Bootstrap: no campaign exists yet (fresh DB / never used the campaign feature).
+  // Create one from today's single-campaign setup so existing note syncing keeps working.
+  const defaultJournalId = process.env.NOTION_JOURNAL_DATABASE_ID || null;
+  return [await createCampaign('La pierre du Nécromancien - New Architecture', undefined, defaultJournalId)];
 }
 
 export async function getCampaignById(id: number): Promise<Campaign | null> {
@@ -544,17 +550,21 @@ export async function deleteNote(id: number): Promise<boolean> {
 }
 
 // Campaign CRUD functions
-export async function createCampaign(name: string, description?: string): Promise<Campaign> {
+export async function createCampaign(
+  name: string,
+  description?: string,
+  notionJournalDatabaseId?: string | null
+): Promise<Campaign> {
   const result = await pool.query(
-    `INSERT INTO campaigns (name, description) VALUES ($1, $2) RETURNING *`,
-    [name, description || null]
+    `INSERT INTO campaigns (name, description, notion_journal_database_id) VALUES ($1, $2, $3) RETURNING *`,
+    [name, description || null, notionJournalDatabaseId || null]
   );
   return result.rows[0];
 }
 
 export async function updateCampaign(
   id: number,
-  updates: Partial<Pick<Campaign, 'name' | 'description'>>
+  updates: Partial<Pick<Campaign, 'name' | 'description' | 'notion_journal_database_id'>>
 ): Promise<Campaign | null> {
   const setClauses: string[] = [];
   const values: (string | null)[] = [];
@@ -567,6 +577,10 @@ export async function updateCampaign(
   if (updates.description !== undefined) {
     setClauses.push(`description = $${paramIndex++}`);
     values.push(updates.description);
+  }
+  if (updates.notion_journal_database_id !== undefined) {
+    setClauses.push(`notion_journal_database_id = $${paramIndex++}`);
+    values.push(updates.notion_journal_database_id);
   }
 
   if (setClauses.length === 0) return null;

@@ -210,6 +210,13 @@ export interface Note {
   content: string
 }
 
+// Lightweight campaign info used only to pick a Notion journal destination
+export interface JournalCampaign {
+  id: number
+  name: string
+  notion_journal_database_id: string | null
+}
+
 // Database monster type (from PostgreSQL)
 export interface DbMonster {
   id: number

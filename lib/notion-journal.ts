@@ -25,10 +25,10 @@ function getNotionClient(): Client {
 }
 
 /**
- * Get Journal database ID
+ * Get Journal database ID, preferring the campaign-specific override when provided
  */
-function getJournalDatabaseId(): string {
-  const databaseId = process.env.NOTION_JOURNAL_DATABASE_ID;
+function getJournalDatabaseId(override?: string | null): string {
+  const databaseId = override || process.env.NOTION_JOURNAL_DATABASE_ID;
 
   if (!databaseId) {
     throw new Error('NOTION_JOURNAL_DATABASE_ID is not defined');
@@ -78,9 +78,9 @@ function formatNotesForNotion(notes: Note[]): string {
 /**
  * Get the next session number by finding the highest existing N° Session
  */
-async function getNextSessionNumber(): Promise<number> {
+async function getNextSessionNumber(databaseIdOverride?: string | null): Promise<number> {
   const notion = getNotionClient();
-  const databaseId = getJournalDatabaseId();
+  const databaseId = getJournalDatabaseId(databaseIdOverride);
 
   try {
     const dataSourceId = await getDataSourceId(notion, databaseId);
@@ -166,9 +166,9 @@ function createParagraphBlocks(text: string): any[] {
 /**
  * Find existing entry for a given date
  */
-async function findEntryByDate(date: string): Promise<string | null> {
+async function findEntryByDate(date: string, databaseIdOverride?: string | null): Promise<string | null> {
   const notion = getNotionClient();
-  const databaseId = getJournalDatabaseId();
+  const databaseId = getJournalDatabaseId(databaseIdOverride);
 
   try {
     // v5 SDK: Get data source ID first
@@ -226,12 +226,12 @@ async function replaceEntryContent(pageId: string, notes: Note[]): Promise<void>
 /**
  * Create new entry in Notion
  */
-async function createEntry(date: string, notes: Note[]): Promise<string> {
+async function createEntry(date: string, notes: Note[], databaseIdOverride?: string | null): Promise<string> {
   const notion = getNotionClient();
-  const databaseId = getJournalDatabaseId();
+  const databaseId = getJournalDatabaseId(databaseIdOverride);
 
   // Get next session number
-  const sessionNumber = await getNextSessionNumber();
+  const sessionNumber = await getNextSessionNumber(databaseIdOverride);
 
   const formattedContent = formatNotesForNotion(notes);
   const blocks = createParagraphBlocks(formattedContent);
@@ -262,10 +262,10 @@ async function createEntry(date: string, notes: Note[]): Promise<string> {
 /**
  * Sync notes to Notion - find existing entry or create new one
  */
-export async function syncSessionNotes(notes: Note[], date: string): Promise<SyncResult> {
+export async function syncSessionNotes(notes: Note[], date: string, databaseIdOverride?: string | null): Promise<SyncResult> {
   try {
     // Check if entry already exists for this date
-    const existingId = await findEntryByDate(date);
+    const existingId = await findEntryByDate(date, databaseIdOverride);
 
     if (existingId) {
       // Replace content in existing entry
@@ -278,7 +278,7 @@ export async function syncSessionNotes(notes: Note[], date: string): Promise<Syn
       };
     } else {
       // Create new entry
-      const newId = await createEntry(date, notes);
+      const newId = await createEntry(date, notes, databaseIdOverride);
       console.log(`[Notion Journal] Created new entry ${newId} with ${notes.length} notes`);
       return {
         success: true,
