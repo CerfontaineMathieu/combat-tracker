@@ -73,6 +73,13 @@ export const COMPOSITION_CONFIG: Record<EncounterComposition, {
 
 const TOLERANCE_BANDS = [0.15, 0.30, 0.50]
 
+// crypto.randomUUID() is a secure-context-only API (HTTPS or localhost) and
+// throws on a plain-HTTP LAN deployment, so use a plain id instead — this is
+// just a React key, not a security-sensitive identifier.
+function generateRowId(): string {
+  return `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 export function filterBestiaryByCreatureType(bestiary: DbMonster[], typeFilters: string[]): DbMonster[] {
   const pool = bestiary.filter(m => m.challenge_rating_xp != null && m.challenge_rating_xp > 0)
   if (typeFilters.length === 0) return pool
@@ -118,7 +125,7 @@ export function generateEncounter(params: {
   const perMonsterTarget = params.targetXp / params.monsterCount
   const rows: GeneratedEncounterRow[] = Array.from({ length: params.monsterCount }, () => {
     const { monster, withinTolerance } = pickMonsterNear(perMonsterTarget, params.candidates)
-    return { id: crypto.randomUUID(), monster, targetShareXp: perMonsterTarget, withinTolerance }
+    return { id: generateRowId(), monster, targetShareXp: perMonsterTarget, withinTolerance }
   })
 
   const totalXp = rows.reduce((sum, row) => sum + (row.monster.challenge_rating_xp || 0), 0)
