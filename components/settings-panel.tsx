@@ -1,40 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { Save, Key, Loader2, RefreshCw, Plus, Trash2 } from "lucide-react"
+import { Save, Key, Loader2, RefreshCw, Plus, Trash2, ArrowLeft } from "lucide-react"
 import { NotionSyncButton } from "@/components/notion-sync-button"
 import { ItemSyncDialog } from "@/components/item-sync-dialog"
 import { SpellSyncDialog } from "@/components/spell-sync-dialog"
 import type { JournalCampaign } from "@/lib/types"
 
 interface SettingsPanelProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   campaignId: number
   onCampaignNameChange: (name: string) => void
   onCampaignsChanged?: () => void
   onMonsterSyncComplete?: () => void
+  onClose: () => void
 }
 
 export function SettingsPanel({
-  open,
-  onOpenChange,
   campaignId,
   onCampaignNameChange,
   onCampaignsChanged,
   onMonsterSyncComplete,
+  onClose,
 }: SettingsPanelProps) {
   const [campaigns, setCampaigns] = useState<JournalCampaign[]>([])
   const [savingCampaignId, setSavingCampaignId] = useState<number | null>(null)
@@ -48,7 +39,6 @@ export function SettingsPanel({
   const [changingPassword, setChangingPassword] = useState(false)
 
   useEffect(() => {
-    if (!open) return
     async function fetchCampaigns() {
       try {
         const response = await fetch("/api/campaigns")
@@ -60,7 +50,7 @@ export function SettingsPanel({
       }
     }
     fetchCampaigns()
-  }, [open])
+  }, [])
 
   const updateCampaignField = (id: number, field: "name" | "notion_journal_database_id", value: string) => {
     setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
@@ -203,16 +193,23 @@ export function SettingsPanel({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-gold">Paramètres</DialogTitle>
-          <DialogDescription>
-            Configurez les paramètres de votre campagne
-          </DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      <div className="shrink-0 border-b border-border bg-card">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Retour">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold text-gold leading-tight">Paramètres</h1>
+            <p className="text-xs text-muted-foreground">
+              Configurez les paramètres de votre campagne
+            </p>
+          </div>
+        </div>
+      </div>
 
-        <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
           {/* Campaigns Section */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium flex items-center gap-2">
@@ -383,7 +380,7 @@ export function SettingsPanel({
             </p>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }

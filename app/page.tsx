@@ -2809,6 +2809,18 @@ function CombatTrackerContent() {
     )
   }
 
+  if (showSettings) {
+    return (
+      <SettingsPanel
+        campaignId={campaignId}
+        onCampaignNameChange={setCampaignName}
+        onCampaignsChanged={refreshJournalCampaigns}
+        onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
+        onClose={() => setShowSettings(false)}
+      />
+    )
+  }
+
   // Get display name for selected characters
   const selectedCharacterNames = selectedCharacters.length > 0
     ? selectedCharacters.length === 1
@@ -3390,14 +3402,6 @@ function CombatTrackerContent() {
         history={combatHistory}
       />
 
-      <SettingsPanel
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        campaignId={campaignId}
-        onCampaignNameChange={setCampaignName}
-        onCampaignsChanged={refreshJournalCampaigns}
-        onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
-      />
 
       {/* Encounter Generator - MJ only */}
       {mode === "mj" && (
