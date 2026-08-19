@@ -73,17 +73,17 @@ export const COMPOSITION_CONFIG: Record<EncounterComposition, {
 
 const TOLERANCE_BANDS = [0.15, 0.30, 0.50]
 
-export function filterBestiaryByCreatureType(bestiary: DbMonster[], typeFilter: string): DbMonster[] {
+export function filterBestiaryByCreatureType(bestiary: DbMonster[], typeFilters: string[]): DbMonster[] {
   const pool = bestiary.filter(m => m.challenge_rating_xp != null && m.challenge_rating_xp > 0)
-  const q = typeFilter.trim().toLowerCase()
-  if (!q) return pool
-  return pool.filter(m => m.creature_type?.toLowerCase() === q)
+  if (typeFilters.length === 0) return pool
+  const set = new Set(typeFilters.map(t => t.toLowerCase()))
+  return pool.filter(m => m.creature_type != null && set.has(m.creature_type.toLowerCase()))
 }
 
-export function filterBestiaryByHabitat(bestiary: DbMonster[], habitatFilter: string): DbMonster[] {
-  const q = habitatFilter.trim().toLowerCase()
-  if (!q) return bestiary
-  return bestiary.filter(m => m.habitat?.some(h => h.toLowerCase() === q))
+export function filterBestiaryByHabitat(bestiary: DbMonster[], habitatFilters: string[]): DbMonster[] {
+  if (habitatFilters.length === 0) return bestiary
+  const set = new Set(habitatFilters.map(h => h.toLowerCase()))
+  return bestiary.filter(m => m.habitat?.some(h => set.has(h.toLowerCase())))
 }
 
 function pickMonsterNear(target: number, candidates: DbMonster[]): { monster: DbMonster; withinTolerance: boolean } {
