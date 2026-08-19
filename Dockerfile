@@ -1,7 +1,7 @@
 FROM node:26-alpine AS base
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@10.34.5 --activate
+RUN npm install -g pnpm@10.34.5
 
 # Dependencies stage
 FROM base AS deps
