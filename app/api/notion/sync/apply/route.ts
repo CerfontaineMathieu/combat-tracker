@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { fetchMonstersFromNotion, mapNotionMonsterToDbMonster } from '@/lib/notion';
+import { fetchMonstersFromNotion, mapNotionMonsterToDbMonster, getHabitatOptionsFromNotion } from '@/lib/notion';
 import {
   updateMonsterFields,
   deleteMonstersById,
   upsertMonster,
+  syncHabitatOptions,
   type Monster
 } from '@/lib/db';
 
@@ -98,6 +99,17 @@ export async function POST(request: Request) {
           `Échec de l'ajout de "${add.name}": ${error instanceof Error ? error.message : 'Erreur inconnue'}`
         );
       }
+    }
+
+    // Phase 4: Refresh the full Habitat option list from Notion's property schema,
+    // so newly-added options are available in the app even before any monster uses them
+    try {
+      const habitatOptions = await getHabitatOptionsFromNotion();
+      await syncHabitatOptions(habitatOptions);
+    } catch (error) {
+      results.errors.push(
+        `Échec de la synchronisation des habitats: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+      );
     }
 
     console.log('Sync apply completed:', results);

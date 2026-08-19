@@ -531,6 +531,9 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
   // Description (flavor text)
   const description = extractStringProp(props.Description) || null;
 
+  // Habitats this monster can appear in (multi-select)
+  const habitat = parseCommaSeparated(extractMultiSelect(props.Habitat));
+
   // Extract actions - handles both array (new) and rich_text (old) formats
   const actions = extractActions(props.Actions);
   const bonus_actions = extractActions(props['Actions Bonus']);
@@ -580,7 +583,27 @@ export function mapNotionMonsterToDbMonster(notionMonster: any): Partial<Monster
     traits,
     description,
     image_url,
+    habitat,
   };
+}
+
+/**
+ * Fetch the full list of configured Habitat multi-select options from the
+ * Notion database schema, independent of which monsters currently use them.
+ */
+export async function getHabitatOptionsFromNotion(): Promise<string[]> {
+  const notion = getNotionClient();
+  const databaseId = getDatabaseId();
+  const dataSourceId = await getDataSourceId(notion, databaseId);
+
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId }) as any;
+  const habitatProp = dataSource.properties?.Habitat;
+
+  if (!habitatProp || habitatProp.type !== 'multi_select') {
+    return [];
+  }
+
+  return habitatProp.multi_select.options.map((option: any) => option.name);
 }
 
 /**

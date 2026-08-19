@@ -71,6 +71,7 @@ export const FIELD_LABELS: Record<string, string> = {
   legendary_actions: 'Actions légendaires',
   traits: 'Traits',
   image_url: 'Image URL',
+  habitat: 'Habitat',
 };
 
 /**
@@ -166,6 +167,7 @@ export function compareMonsters(
     'legendary_actions',
     'traits',
     'image_url',
+    'habitat',
   ];
 
   for (const field of fieldsToCompare) {
@@ -173,7 +175,7 @@ export function compareMonsters(
     const newValue = normalizeValue(notionMonster[field]);
 
     let hasChanged = false;
-    const isJsonb = field === 'actions' || field === 'legendary_actions' || field === 'traits';
+    const isJsonb = field === 'actions' || field === 'legendary_actions' || field === 'traits' || field === 'habitat';
 
     if (isJsonb) {
       hasChanged = !areJsonEqual(oldValue, newValue);

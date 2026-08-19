@@ -250,6 +250,7 @@ export interface DbMonster {
   image_url: string | null
   ai_generated: string | null
   notion_id: string | null
+  habitat: string[]
 }
 
 // Condition definition with icon and color
