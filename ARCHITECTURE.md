@@ -228,6 +228,13 @@ hooks/                    # Custom React hooks
 
 ## Recent Work
 
+- **2026-08-19**: Berserker Titles — barbarian daily achievements (`feature/barbarian-titles` branch)
+  - Homebrew mechanic scoped to one character (Taylan, `BERSERKER_TITLES_CHARACTER_ID` in `lib/berserker-titles.ts`): 8 hardcoded titles, each a daily challenge condition + a boost description. All reset on long rest (no per-combat variant — simplified after an earlier version distinguished reset cadences).
+  - No new DB/API layer: achievement state is derived entirely from the existing buff system — marking a title achieved adds a custom `ActiveBuff` (`buffId: berserker-<title-id>`) to the character via the existing `onUpdateBuffs`/`updatePlayerBuffs` flow, so it's already persisted (`character_hp.buffs`), synced over sockets, and visible as a normal buff badge everywhere.
+  - In `SpellbookPanel` (the "Sorts" tab), this character is special-cased to render `BerserkerTitlesCard` instead of the spell-slot UI, in place of a spellbook that a Barbarian wouldn't have. Manual toggle only — the app doesn't track kills/damage, so there's no auto-detection.
+  - Reset wiring: `app/page.tsx`'s `handleLongRest` strips all `berserker-*` buffs (`ALL_BERSERKER_BUFF_IDS`) on long rest.
+  - Files: `lib/berserker-titles.ts` (new), `components/berserker-titles-card.tsx` (new), `components/spellbook-panel.tsx`, `app/page.tsx`
+
 - **2026-08-19**: Multi-campaign Notion journal routing (`feature/campaign-journal-select` branch)
   - The `campaigns` table already partitions characters/combat/notes/etc. by `campaign_id`, but the app only ever used `DEFAULT_CAMPAIGN_ID = 1` and never rendered `campaign-selector.tsx` — it was dead code. Rather than turning on full multi-tenancy, this keeps a single shared roster/combat/bestiary and repurposes `campaigns` purely as a list of (name, Notion journal database ID) pairs, so the DM can pick which Notion "Journal de Campagne" database session notes sync to.
   - `campaigns.notion_journal_database_id` column added. `getCampaigns()` auto-bootstraps a default row (from `NOTION_JOURNAL_DATABASE_ID` env var) if the table is empty, so first-run/legacy installs keep working.
