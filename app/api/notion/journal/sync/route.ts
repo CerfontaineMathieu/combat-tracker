@@ -5,6 +5,7 @@ import type { Note } from '@/lib/types';
 interface SyncRequest {
   notes: Note[];
   date: string;
+  notionDatabaseId?: string | null;
 }
 
 export async function POST(request: Request) {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
 
     console.log(`[Notion Journal API] Syncing ${body.notes.length} note(s) to Notion for date ${body.date}...`);
 
-    const result = await syncSessionNotes(body.notes, body.date);
+    const result = await syncSessionNotes(body.notes, body.date, body.notionDatabaseId);
 
     if (result.success) {
       console.log(`[Notion Journal API] Sync complete: ${result.updated ? 'updated' : 'created'} entry ${result.notionId}`);

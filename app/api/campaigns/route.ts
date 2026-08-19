@@ -14,13 +14,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, description } = body;
+    const { name, description, notion_journal_database_id } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    const campaign = await createCampaign(name, description);
+    const campaign = await createCampaign(name, description, notion_journal_database_id);
     return NextResponse.json(campaign, { status: 201 });
   } catch (error) {
     console.error('Failed to create campaign:', error);

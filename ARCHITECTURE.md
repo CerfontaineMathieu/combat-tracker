@@ -118,11 +118,14 @@ lib/socket-context/
 ## API Routes (`app/api/`)
 
 ### Campaign
-- `campaigns/` - List/create campaigns
+- `campaigns/` - List/create campaigns (list auto-bootstraps a default row if empty)
+- `campaigns/[id]/` - Get/update (name, `notion_journal_database_id`)/delete
 - `campaigns/[id]/characters/` - Campaign characters
 - `campaigns/[id]/combat-session/` - Combat state
 - `campaigns/[id]/combat-monsters/` - Monsters in combat
 - `campaigns/[id]/fight-presets/` - Preset encounters
+- `campaigns/[id]/session-notes/` - In-app session notes (Redis, campaign-scoped)
+- `notion/journal/sync/` - Push session notes to a Notion journal database (`notionDatabaseId` optional override; see Recent Work below)
 
 ### Character
 - `characters/[id]/hp/` - HP updates
@@ -224,6 +227,14 @@ hooks/                    # Custom React hooks
 ---
 
 ## Recent Work
+
+- **2026-08-19**: Multi-campaign Notion journal routing (`feature/campaign-journal-select` branch)
+  - The `campaigns` table already partitions characters/combat/notes/etc. by `campaign_id`, but the app only ever used `DEFAULT_CAMPAIGN_ID = 1` and never rendered `campaign-selector.tsx` — it was dead code. Rather than turning on full multi-tenancy, this keeps a single shared roster/combat/bestiary and repurposes `campaigns` purely as a list of (name, Notion journal database ID) pairs, so the DM can pick which Notion "Journal de Campagne" database session notes sync to.
+  - `campaigns.notion_journal_database_id` column added. `getCampaigns()` auto-bootstraps a default row (from `NOTION_JOURNAL_DATABASE_ID` env var) if the table is empty, so first-run/legacy installs keep working.
+  - `lib/notion-journal.ts`'s `syncSessionNotes`/`getNextSessionNumber`/`findEntryByDate`/`createEntry` all take an optional `databaseIdOverride`, falling back to the env var when not supplied.
+  - Login screen (`UserSelectionScreen`) shows a campaign picker (only when >1 campaign exists) before MJ/Joueur selection; choice is remembered in `sessionStorage` (`dnd-journalCampaignId`). Settings panel's old single "campaign name" field was replaced with a full campaign list manager (name + Notion journal DB id, create/edit/delete).
+  - Player character list on the login screen is filtered by a new "Campagne" multi-select property on the Notion Characters DB (`NotionCharacter.campaigns`). Matching against the app's campaign `name` is case-insensitive substring containment, not exact equality — the two are entered independently in Notion vs. Settings and can drift (e.g. Notion tag "La pierre du Nécromancien" vs. campaign name "La pierre du Nécromancien - New Architecture"). Untagged characters show up under every campaign so nothing silently disappears if a character isn't tagged yet.
+  - Files: `migrations/1787200000000_add-notion-journal-to-campaigns.sql`, `lib/db.ts` (`Campaign.notion_journal_database_id`, `createCampaign`/`updateCampaign`/`getCampaigns` bootstrap), `lib/types.ts` (`JournalCampaign`), `lib/notion-journal.ts`, `lib/notion.ts` (`NotionCharacter.campaigns`, `mapNotionPageToCharacter`), `app/api/campaigns/route.ts`, `app/api/campaigns/[id]/route.ts`, `app/api/notion/journal/sync/route.ts`, `app/page.tsx` (`journalCampaigns`/`journalCampaignId` state, `handleSyncNotesToNotion`), `components/user-selection-screen.tsx` (`characterMatchesCampaign`), `components/settings-panel.tsx`
 
 - **2026-08-19**: Encounter generator (`feature/encounter-generator` branch)
   - DM-facing dialog to auto-compose a balanced encounter from the bestiary using the 2024 DMG XP-budget system: party size/level → difficulty tier (Faible/Modéré/Élevé/Mortel) → target XP, composition (Solo/Duo/Groupe/Horde) → monster count, creature-type dropdown filter, preview list with per-row reroll/remove before adding to combat in one batch
