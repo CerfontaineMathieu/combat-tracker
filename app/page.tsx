@@ -13,6 +13,7 @@ import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note, JournalCampaign } from "@/lib/types"
 import type { GeneratedEncounterRow } from "@/lib/encounter-generator"
 import { characterMatchesCampaign } from "@/lib/campaign-match"
+import { ALL_BERSERKER_BUFF_IDS } from "@/lib/berserker-titles"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import type { AmbientEffect } from "@/components/ambient-effects"
 import type { HistoryEntry } from "@/components/combat-history-panel"
@@ -1882,31 +1883,43 @@ function CombatTrackerContent() {
     const maxSlots = player.maxSpellSlots || {}
     const newSlots = { ...maxSlots }
 
+    // Berserker titles reset on long rest, same as any other daily resource
+    const currentBuffs = player.buffs || []
+    const newBuffs = currentBuffs.filter((b) => !ALL_BERSERKER_BUFF_IDS.includes(b.buffId))
+    const buffsChanged = newBuffs.length !== currentBuffs.length
+
     // Update local state
     setPlayers((prev) => prev.map((p) =>
-      p.id === characterId ? { ...p, spellSlots: newSlots } : p
+      p.id === characterId ? { ...p, spellSlots: newSlots, buffs: newBuffs } : p
     ))
 
     if (combatActive) {
       setCombatParticipants((prev) =>
-        prev.map((p) => (p.id === characterId ? { ...p, spellSlots: newSlots } : p))
+        prev.map((p) => (p.id === characterId ? { ...p, spellSlots: newSlots, buffs: newBuffs } : p))
       )
     }
 
-    // Emit socket event
+    // Emit socket events
     emitSpellSlotChange({
       participantId: characterId,
       participantType: 'player',
       spellSlots: newSlots,
       source: mode === 'mj' ? 'dm' : 'player',
     })
+    if (buffsChanged) {
+      emitBuffChange({
+        participantId: characterId,
+        participantType: 'player',
+        buffs: newBuffs,
+      })
+    }
 
     // Persist to database
     try {
       await fetch(`/api/characters/${characterId}/hp`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spellSlots: newSlots }),
+        body: JSON.stringify({ spellSlots: newSlots, buffs: newBuffs }),
       })
       console.log('[SpellSlots] Long rest - restored all slots:', characterId)
       toast.success(`${player.name} récupère ses emplacements (repos long)`)
@@ -3075,6 +3088,7 @@ function CombatTrackerContent() {
                   onSpellSlotChange={updatePlayerSpellSlot}
                   onShortRest={handleShortRest}
                   onLongRest={handleLongRest}
+                  onUpdateBuffs={updatePlayerBuffs}
                 />
               )}
               {activeTab === "combat" && (
@@ -3216,6 +3230,7 @@ function CombatTrackerContent() {
                       onSpellSlotChange={updatePlayerSpellSlot}
                       onShortRest={handleShortRest}
                       onLongRest={handleLongRest}
+                      onUpdateBuffs={updatePlayerBuffs}
                     />
                   </div>
                 )}
@@ -3295,6 +3310,7 @@ function CombatTrackerContent() {
                   onSpellSlotChange={updatePlayerSpellSlot}
                   onShortRest={handleShortRest}
                   onLongRest={handleLongRest}
+                  onUpdateBuffs={updatePlayerBuffs}
                 />
               </div>
               <div className="col-span-2 flex items-center justify-center">

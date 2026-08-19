@@ -32,7 +32,9 @@ import { cn } from "@/lib/utils"
 import { getSocket } from "@/lib/socket"
 import { SpellPickerDialog } from "./spell-picker-dialog"
 import { SpellDetail } from "./spell-detail"
-import type { Character, PreparedSpell, CatalogSpell } from "@/lib/types"
+import { BerserkerTitlesCard } from "./berserker-titles-card"
+import { BERSERKER_TITLES_CHARACTER_ID } from "@/lib/berserker-titles"
+import type { Character, PreparedSpell, CatalogSpell, ActiveBuff } from "@/lib/types"
 
 // D&D spell level names in French
 const SPELL_LEVELS = [
@@ -57,6 +59,7 @@ interface SpellbookPanelProps {
     spell: CatalogSpell,
     slotLevel: number
   ) => void
+  onUpdateBuffs?: (characterId: string, buffs: ActiveBuff[]) => void
   isDm?: boolean
   campaignId?: number
 }
@@ -67,6 +70,7 @@ export function SpellbookPanel({
   onShortRest,
   onLongRest,
   onCastSpell,
+  onUpdateBuffs,
   isDm = false,
   campaignId = 1,
 }: SpellbookPanelProps) {
@@ -87,6 +91,13 @@ export function SpellbookPanel({
     const maxSlots = char.maxSpellSlots || {}
     return Object.keys(maxSlots).length > 0
   })
+
+  // The Berserker titles tracker takes over this tab for its one character,
+  // in place of a (non-existent, for this class) spellbook
+  const berserkerCharacter = characters.find((char) => char.id === BERSERKER_TITLES_CHARACTER_ID)
+  const visibleCharacters = berserkerCharacter
+    ? [berserkerCharacter, ...spellcasters.filter((c) => c.id !== BERSERKER_TITLES_CHARACTER_ID)]
+    : spellcasters
 
   // Load prepared spells for all spellcasters
   const loadPreparedSpells = useCallback(
@@ -486,7 +497,7 @@ export function SpellbookPanel({
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden p-0">
           <ScrollArea className="h-full px-4 md:px-6 pb-6">
-            {spellcasters.length === 0 ? (
+            {visibleCharacters.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p className="text-sm">Aucun lanceur de sorts</p>
@@ -496,22 +507,36 @@ export function SpellbookPanel({
               </div>
             ) : (
               <div className="space-y-4">
-                {spellcasters.map((character) => (
-                  <div
-                    key={character.id}
-                    className="bg-secondary/30 rounded-lg border border-border/50 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <h3 className="font-bold text-foreground flex-1 min-w-0 truncate">
-                        {character.name}
-                      </h3>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {character.class} Niv. {character.level}
-                      </span>
+                {visibleCharacters.map((character) => {
+                  const isBerserker = character.id === BERSERKER_TITLES_CHARACTER_ID
+                  return (
+                    <div
+                      key={character.id}
+                      className="bg-secondary/30 rounded-lg border border-border/50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <h3 className={cn(
+                          "font-bold flex-1 min-w-0 truncate",
+                          isBerserker ? "text-red-400" : "text-foreground"
+                        )}>
+                          {isBerserker ? "🏆 Titres du Berserker" : character.name}
+                        </h3>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {character.class} Niv. {character.level}
+                        </span>
+                      </div>
+                      {isBerserker && onUpdateBuffs ? (
+                        <BerserkerTitlesCard
+                          character={character}
+                          onUpdateBuffs={onUpdateBuffs}
+                          onLongRest={onLongRest}
+                        />
+                      ) : (
+                        renderCharacterSpells(character)
+                      )}
                     </div>
-                    {renderCharacterSpells(character)}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </ScrollArea>
