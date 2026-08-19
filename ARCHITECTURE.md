@@ -225,6 +225,12 @@ hooks/                    # Custom React hooks
 
 ## Recent Work
 
+- **2026-08-19**: Encounter generator (`feature/encounter-generator` branch)
+  - DM-facing dialog to auto-compose a balanced encounter from the bestiary using the 2024 DMG XP-budget system: party size/level → difficulty tier (Faible/Modéré/Élevé/Mortel) → target XP, composition (Solo/Duo/Groupe/Horde) → monster count, creature-type dropdown filter, preview list with per-row reroll/remove before adding to combat in one batch
+  - Trigger moved from the top header into the "Préparation du Combat" card header (`Wand2` icon, next to the group-save `Dices` button)
+  - Habitat groundwork (this session): `monsters.habitat` (`TEXT[]`) + `habitat_options` lookup table, synced from Notion's `Habitat` multi-select — both the per-monster tags and the full option list (pulled from Notion's property schema, not just tagged monsters) refresh on every sync. `GET /api/monsters/habitats` exposes the option list. The actual habitat filter UI in the generator dialog is not yet built — pending the user finishing tagging monsters in Notion.
+  - Files: `lib/xp-difficulty.ts` (added `getTargetXpForTier`), `lib/encounter-generator.ts`, `components/encounter/generate-encounter-dialog.tsx`, `components/combat-setup-panel.tsx`, `app/page.tsx`, `lib/notion.ts` (`mapNotionMonsterToDbMonster` habitat extraction, `getHabitatOptionsFromNotion`), `lib/db.ts` (`Monster.habitat`, `getHabitatOptions`/`syncHabitatOptions`), `lib/monster-comparison.ts` (habitat added to sync diff), `app/api/notion/sync/apply/route.ts`, `app/api/monsters/habitats/route.ts`, `migrations/1787137112588_add-habitat-to-monsters.sql`
+
 - **2025-12-23**: Keyboard shortcuts system (`feat/keyboard-shortcuts` branch)
   - Global keyboard shortcuts for DM and player modes
   - Combat: Alt+S (start), Space (next turn), Alt+X (stop), Alt+R (roll initiatives)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useDroppable } from "@dnd-kit/core"
-import { Swords, Play, Users, Skull, ArrowDown, Dices, Save, FolderOpen, Trash2, Loader2, MousePointer, AlertTriangle, WifiOff } from "lucide-react"
+import { Swords, Play, Users, Skull, ArrowDown, Dices, Wand2, Save, FolderOpen, Trash2, Loader2, MousePointer, AlertTriangle, WifiOff } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -84,6 +84,7 @@ interface CombatSetupPanelProps {
   ownCharacterIds?: string[] // IDs of characters owned by the current player
   connectedPlayerIds?: string[] // IDs of currently connected players
   onGroupSave?: () => void // Callback to trigger group save dialog
+  onGenerateEncounter?: () => void // Callback to trigger the encounter generator dialog
 }
 
 export function CombatSetupPanel({
@@ -99,6 +100,7 @@ export function CombatSetupPanel({
   ownCharacterIds = [],
   connectedPlayerIds = [],
   onGroupSave,
+  onGenerateEncounter,
 }: CombatSetupPanelProps) {
   const isMobile = useIsMobile()
   const { combatParticipants, isOverCombatZone } = useCombatDnd()
@@ -329,6 +331,17 @@ export function CombatSetupPanel({
                   </Badge>
                 )}
               </>
+            )}
+            {mode === "mj" && onGenerateEncounter && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onGenerateEncounter}
+                className="h-7 px-2 border-crimson/30 hover:border-crimson hover:bg-crimson/10 text-crimson"
+                title="Générer une rencontre"
+              >
+                <Wand2 className="w-4 h-4" />
+              </Button>
             )}
             {mode === "mj" && onGroupSave && (
               <Button

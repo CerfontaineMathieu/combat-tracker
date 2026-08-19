@@ -11,6 +11,7 @@ import { LoadingSkeleton } from "@/components/loading-skeleton"
 import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note } from "@/lib/types"
+import type { GeneratedEncounterRow } from "@/lib/encounter-generator"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import type { AmbientEffect } from "@/components/ambient-effects"
 import type { HistoryEntry } from "@/components/combat-history-panel"
@@ -38,6 +39,7 @@ const NotesPanel = dynamic(() => import("@/components/notes-panel").then(m => ({
 const AIAssistantPanel = dynamic(() => import("@/components/ai-assistant-panel").then(m => ({ default: m.AIAssistantPanel })), { ssr: false })
 const LootPanelConnected = dynamic(() => import("@/components/loot").then(m => ({ default: m.LootPanelConnected })), { loading: () => null })
 const LootDistributionSummaryDialog = dynamic(() => import("@/components/loot").then(m => ({ default: m.LootDistributionSummaryDialog })), { ssr: false })
+const GenerateEncounterDialog = dynamic(() => import("@/components/encounter/generate-encounter-dialog").then(m => ({ default: m.GenerateEncounterDialog })), { ssr: false })
 import {
   Dialog,
   DialogContent,
@@ -138,6 +140,7 @@ function CombatTrackerContent() {
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showEncounterGenerator, setShowEncounterGenerator] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   // Keyboard shortcut dialog control
   const [keyboardConditionDialogOpen, setKeyboardConditionDialogOpen] = useState(false)
@@ -2487,6 +2490,50 @@ function CombatTrackerContent() {
     toast.success(`${quantity}x ${dbMonster.name} ajouté(s) au combat`)
   }
 
+  // Add a generated encounter (possibly several distinct monster types) to combat in one batch
+  const addEncounterToCombat = (rows: GeneratedEncounterRow[]) => {
+    const countByMonsterId = new Map<number, number>()
+    const newParticipants: CombatParticipant[] = rows.map((row, i) => {
+      const seen = (countByMonsterId.get(row.monster.id) || 0) + 1
+      countByMonsterId.set(row.monster.id, seen)
+      const totalOfType = rows.filter(r => r.monster.id === row.monster.id).length
+      return {
+        id: `enc-${row.monster.id}-${Date.now()}-${i}`,
+        name: totalOfType > 1 ? `${row.monster.name} ${seen}` : row.monster.name,
+        initiative: Math.floor(Math.random() * 20) + 1,
+        currentHp: row.monster.hit_points || 10,
+        maxHp: row.monster.hit_points || 10,
+        ac: row.monster.armor_class || undefined,
+        conditions: [],
+        exhaustionLevel: 0,
+        buffs: [],
+        type: "monster",
+        xp: row.monster.challenge_rating_xp || undefined,
+      }
+    })
+
+    setCombatParticipants(prev => {
+      const updated = sortParticipantsByInitiative([...prev, ...newParticipants])
+
+      if (combatActive) {
+        queueMicrotask(() => {
+          emitCombatUpdate({
+            type: 'state-sync',
+            combatActive: true,
+            currentTurn,
+            roundNumber,
+            participants: updated,
+          })
+        })
+      }
+
+      return updated
+    })
+
+    const totalXp = newParticipants.reduce((sum, p) => sum + (p.xp || 0), 0)
+    toast.success(`Rencontre ajoutée : ${newParticipants.length} monstre(s), ${totalXp} XP`)
+  }
+
   // Add session monsters to combat with quantity (for mobile tap-to-add)
   const addSessionMonstersToCombat = (monster: Monster, quantity: number) => {
     const newParticipants: CombatParticipant[] = Array.from({ length: quantity }, (_, i) => ({
@@ -3025,6 +3072,7 @@ function CombatTrackerContent() {
                   ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                   connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
                   onGroupSave={() => setShowGroupSaveConfig(true)}
+                  onGenerateEncounter={() => setShowEncounterGenerator(true)}
                 />
               )}
               {activeTab === "bestiary" && mode === "mj" && (
@@ -3252,6 +3300,7 @@ function CombatTrackerContent() {
                     ownCharacterIds={selectedCharacters.map(c => String(c.id))}
                     connectedPlayerIds={displayPlayers.filter(p => p.isConnected).map(p => p.id)}
                     onGroupSave={() => setShowGroupSaveConfig(true)}
+                    onGenerateEncounter={() => setShowEncounterGenerator(true)}
                   />
                 </div>
 
@@ -3296,6 +3345,15 @@ function CombatTrackerContent() {
         onCampaignNameChange={setCampaignName}
         onMonsterSyncComplete={() => setMonsterRefreshKey(k => k + 1)}
       />
+
+      {/* Encounter Generator - MJ only */}
+      {mode === "mj" && (
+        <GenerateEncounterDialog
+          isOpen={showEncounterGenerator}
+          onClose={() => setShowEncounterGenerator(false)}
+          onConfirm={addEncounterToCombat}
+        />
+      )}
 
       {/* Session Notes Panel - MJ only */}
       {mode === "mj" && (
