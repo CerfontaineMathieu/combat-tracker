@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { JournalCampaign } from "@/lib/types"
+import { characterMatchesCampaign } from "@/lib/campaign-match"
 
 interface CharacterInfo {
   id: string | number
@@ -37,27 +38,6 @@ interface CharacterInfo {
   max_spell_slots?: Record<number, number> | null
   is_warlock?: boolean
   campaigns?: string[]
-}
-
-// Notion's "Campagne" tags and the app's campaign names are entered separately
-// and can drift (e.g. "One-shot" vs "One-Shot", or a name with an extra suffix),
-// so match loosely rather than requiring an exact string.
-function normalize(value: string): string {
-  return value.trim().toLowerCase()
-}
-
-function characterMatchesCampaign(character: CharacterInfo, campaignName: string): boolean {
-  const tags = character.campaigns
-  if (!tags || tags.length === 0) return true // untagged characters show in every campaign
-  const normalizedCampaign = normalize(campaignName)
-  return tags.some((tag) => {
-    const normalizedTag = normalize(tag)
-    return (
-      normalizedTag === normalizedCampaign ||
-      normalizedCampaign.includes(normalizedTag) ||
-      normalizedTag.includes(normalizedCampaign)
-    )
-  })
 }
 
 interface UserSelectionScreenProps {
