@@ -144,6 +144,7 @@ export interface Character {
   spellSlots?: Record<number, number>     // Current available slots {1: 4, 2: 3, ...}
   maxSpellSlots?: Record<number, number>  // Max slots from Notion
   isWarlock?: boolean                      // Warlocks recover slots on short rest
+  campaigns?: string[]                     // Campaign tags from Notion's "Campagne" multi-select
 }
 
 export interface Monster {

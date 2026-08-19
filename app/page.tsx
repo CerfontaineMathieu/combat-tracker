@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { useSocketContext } from "@/lib/socket-context"
 import type { Character, Monster, CombatParticipant, DbMonster, CharacterInventory, ActiveBuff, Note, JournalCampaign } from "@/lib/types"
 import type { GeneratedEncounterRow } from "@/lib/encounter-generator"
+import { characterMatchesCampaign } from "@/lib/campaign-match"
 import { DEFAULT_INVENTORY } from "@/lib/types"
 import type { AmbientEffect } from "@/components/ambient-effects"
 import type { HistoryEntry } from "@/components/combat-history-panel"
@@ -604,6 +605,7 @@ function CombatTrackerContent() {
               max_spell_slots: Record<number, number> | null
               is_warlock: boolean
               saving_throw_proficiencies: string[]
+              campaigns: string[]
             }) => {
               // Load persisted data from database in parallel
               const [inventory, persistedStatus] = await Promise.all([
@@ -639,6 +641,7 @@ function CombatTrackerContent() {
                 maxSpellSlots: c.max_spell_slots ?? undefined,
                 spellSlots: persistedStatus.spellSlots ?? c.max_spell_slots ?? undefined,
                 isWarlock: c.is_warlock,
+                campaigns: c.campaigns,
               }
             })
           )
@@ -891,6 +894,7 @@ function CombatTrackerContent() {
           maxSpellSlots: campaignChar?.maxSpellSlots,
           spellSlots: char.spellSlots ?? campaignChar?.spellSlots ?? campaignChar?.maxSpellSlots,
           isWarlock: campaignChar?.isWarlock,
+          campaigns: campaignChar?.campaigns,
         })
       })
     })
@@ -955,6 +959,17 @@ function CombatTrackerContent() {
       return a.name.localeCompare(b.name)
     })
   }, [socketState.connectedPlayers, allCampaignCharacters, socketState.combatState.participants, playerInitiatives, players])
+
+  // Name of the campaign currently selected (login screen picker) — used for
+  // the header badge and to filter the MJ's roster below
+  const activeCampaignName = journalCampaigns.find((c) => c.id === journalCampaignId)?.name ?? campaignName
+
+  // MJ roster ("Groupe" panel) filtered to the selected campaign, so a DM
+  // running a one-shot doesn't see the main campaign's characters and vice versa
+  const campaignPlayers = useMemo(() => {
+    if (!activeCampaignName) return displayPlayers
+    return displayPlayers.filter((p) => characterMatchesCampaign(p, activeCampaignName))
+  }, [displayPlayers, activeCampaignName])
 
   // Memoize connected player IDs to avoid infinite loops
   const connectedPlayerIds = useMemo(() => {
@@ -2971,7 +2986,7 @@ function CombatTrackerContent() {
 
       <Header
         mode={mode}
-        campaignName={campaignName}
+        campaignName={activeCampaignName}
         selectedCharacterName={selectedCharacterNames}
         onSettingsClick={() => setShowSettings(true)}
         onLogout={() => {
@@ -3017,7 +3032,7 @@ function CombatTrackerContent() {
               {activeTab === "players" && mode === "mj" && (
                 <PlayerPanel
                   key={`players-${socketState.connectedPlayers.length}`}
-                  players={displayPlayers}
+                  players={campaignPlayers}
                   onUpdateHp={updatePlayerHp}
                   onUpdateInitiative={updatePlayerInitiative}
                   onUpdateConditions={updatePlayerConditions}
@@ -3150,7 +3165,7 @@ function CombatTrackerContent() {
                 {mode === "mj" && (
                   <div className="col-span-3 h-full overflow-auto">
                     <PlayerPanel
-                      players={displayPlayers}
+                      players={campaignPlayers}
                       onUpdateHp={updatePlayerHp}
                       onUpdateInitiative={updatePlayerInitiative}
                       onUpdateConditions={updatePlayerConditions}
@@ -3304,7 +3319,7 @@ function CombatTrackerContent() {
                 {mode === "mj" && (
                   <div className="col-span-3 h-full overflow-auto">
                     <PlayerPanel
-                      players={displayPlayers}
+                      players={campaignPlayers}
                       onUpdateHp={updatePlayerHp}
                       onUpdateInitiative={updatePlayerInitiative}
                       onUpdateConditions={updatePlayerConditions}
