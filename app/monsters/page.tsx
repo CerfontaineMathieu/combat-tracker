@@ -1,21 +1,37 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { Search, Skull, ChevronLeft, Heart, Shield, Zap } from "lucide-react"
+import { Search, Skull, ChevronLeft, Heart, Shield, Zap, ChevronDown, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu"
 import { MonsterDetail } from "@/components/monster-detail"
 import { cn } from "@/lib/utils"
+import { xpToChallengeRating } from "@/lib/challenge-rating"
 import type { DbMonster } from "@/lib/types"
+
+function toggleInArray<T>(values: T[], value: T): T[] {
+  return values.includes(value) ? values.filter((v) => v !== value) : [...values, value]
+}
+
+function summarizeSelection(count: number, allLabel: string, unit: string): string {
+  if (count === 0) return allLabel
+  if (count <= 2) return `${count} ${unit}`
+  return `${count} ${unit} sélectionnés`
+}
 
 export default function MonstersPage() {
   const [monsters, setMonsters] = useState<DbMonster[]>([])
   const [filteredMonsters, setFilteredMonsters] = useState<DbMonster[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [creatureTypeFilters, setCreatureTypeFilters] = useState<string[]>([])
+  const [habitatFilters, setHabitatFilters] = useState<string[]>([])
+  const [crFilters, setCrFilters] = useState<number[]>([])
+  const [habitatOptions, setHabitatOptions] = useState<string[]>([])
   const [selectedMonster, setSelectedMonster] = useState<DbMonster | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,21 +59,64 @@ export default function MonstersPage() {
     fetchMonsters()
   }, [])
 
-  // Filter monsters based on search query
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredMonsters(monsters)
-    } else {
-      const query = searchQuery.toLowerCase()
-      setFilteredMonsters(
-        monsters.filter(
-          (m) =>
-            m.name.toLowerCase().includes(query) ||
-            m.creature_type?.toLowerCase().includes(query)
-        )
-      )
+    async function fetchHabitats() {
+      try {
+        const response = await fetch("/api/monsters/habitats")
+        if (!response.ok) throw new Error("Failed to fetch habitats")
+        setHabitatOptions(await response.json())
+      } catch {
+        // Non-critical: habitat filter simply stays empty
+      }
     }
-  }, [searchQuery, monsters])
+    fetchHabitats()
+  }, [])
+
+  const creatureTypes = useMemo(
+    () => [...new Set(monsters.map((m) => m.creature_type).filter((t): t is string => !!t))].sort(),
+    [monsters]
+  )
+
+  const crOptions = useMemo(() => {
+    const xps = [...new Set(monsters.map((m) => m.challenge_rating_xp).filter((xp): xp is number => xp != null))]
+    return xps.sort((a, b) => a - b).map((xp) => ({ xp, label: xpToChallengeRating(xp) }))
+  }, [monsters])
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || creatureTypeFilters.length > 0 || habitatFilters.length > 0 || crFilters.length > 0
+
+  const resetFilters = () => {
+    setSearchQuery("")
+    setCreatureTypeFilters([])
+    setHabitatFilters([])
+    setCrFilters([])
+  }
+
+  // Filter monsters based on search query and selected filters
+  useEffect(() => {
+    const query = searchQuery.trim().toLowerCase()
+    const typeSet = new Set(creatureTypeFilters.map((t) => t.toLowerCase()))
+    const habitatSet = new Set(habitatFilters.map((h) => h.toLowerCase()))
+    const crSet = new Set(crFilters)
+
+    setFilteredMonsters(
+      monsters.filter((m) => {
+        if (query && !m.name.toLowerCase().includes(query) && !m.creature_type?.toLowerCase().includes(query)) {
+          return false
+        }
+        if (typeSet.size > 0 && !(m.creature_type && typeSet.has(m.creature_type.toLowerCase()))) {
+          return false
+        }
+        if (habitatSet.size > 0 && !m.habitat?.some((h) => habitatSet.has(h.toLowerCase()))) {
+          return false
+        }
+        if (crSet.size > 0 && !(m.challenge_rating_xp != null && crSet.has(m.challenge_rating_xp))) {
+          return false
+        }
+        return true
+      })
+    )
+  }, [searchQuery, creatureTypeFilters, habitatFilters, crFilters, monsters])
 
   if (loading) {
     return (
@@ -113,7 +172,7 @@ export default function MonstersPage() {
 
       <main className="container mx-auto p-4 animate-fade-in">
         {/* Search */}
-        <div className="max-w-md mx-auto mb-6">
+        <div className="max-w-md mx-auto mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
@@ -123,6 +182,79 @@ export default function MonstersPage() {
               className="pl-10 bg-card text-lg min-h-[48px]"
             />
           </div>
+        </div>
+
+        {/* Filters */}
+        <div className="max-w-3xl mx-auto mb-6 flex flex-wrap items-center justify-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="min-h-[44px] font-normal justify-between gap-2">
+                {summarizeSelection(creatureTypeFilters.length, "Tous les types", "types")}
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-72 overflow-y-auto">
+              {creatureTypes.map((type) => (
+                <DropdownMenuCheckboxItem
+                  key={type}
+                  checked={creatureTypeFilters.includes(type)}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => setCreatureTypeFilters((prev) => toggleInArray(prev, type))}
+                >
+                  {type}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="min-h-[44px] font-normal justify-between gap-2">
+                {summarizeSelection(habitatFilters.length, "Tous les habitats", "habitats")}
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-72 overflow-y-auto">
+              {habitatOptions.map((habitat) => (
+                <DropdownMenuCheckboxItem
+                  key={habitat}
+                  checked={habitatFilters.includes(habitat)}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => setHabitatFilters((prev) => toggleInArray(prev, habitat))}
+                >
+                  {habitat}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="min-h-[44px] font-normal justify-between gap-2">
+                {summarizeSelection(crFilters.length, "Tous les FP", "FP")}
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-72 overflow-y-auto">
+              {crOptions.map(({ xp, label }) => (
+                <DropdownMenuCheckboxItem
+                  key={xp}
+                  checked={crFilters.includes(xp)}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => setCrFilters((prev) => toggleInArray(prev, xp))}
+                >
+                  FP {label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" className="min-h-[44px] text-muted-foreground" onClick={resetFilters}>
+              <X className="w-4 h-4 mr-1" />
+              Réinitialiser
+            </Button>
+          )}
         </div>
 
         {/* Results count */}
