@@ -33,7 +33,7 @@ export const BERSERKER_TITLES: BerserkerTitle[] = [
   {
     id: "sans-pitie",
     name: "Sans Pitié",
-    condition: "10 kills dans la même journée",
+    condition: "5 kills dans la même journée",
     boost: "Avantage sur tous les jets d'intimidation jusqu'au prochain long repos",
   },
   {
