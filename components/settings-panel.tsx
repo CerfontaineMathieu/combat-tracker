@@ -4,13 +4,22 @@ import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { Save, Key, Loader2, RefreshCw, Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Save, Key, Loader2, RefreshCw, Plus, Trash2, ArrowLeft, BookOpen, Info } from "lucide-react"
 import { NotionSyncButton } from "@/components/notion-sync-button"
 import { ItemSyncDialog } from "@/components/item-sync-dialog"
 import { SpellSyncDialog } from "@/components/spell-sync-dialog"
+import { cn } from "@/lib/utils"
 import type { JournalCampaign } from "@/lib/types"
+
+type SectionId = "campaigns" | "password" | "notion-sync" | "about"
+
+const SECTIONS: { id: SectionId; label: string; icon: typeof Key }[] = [
+  { id: "campaigns", label: "Campagnes", icon: BookOpen },
+  { id: "password", label: "Mot de passe MJ", icon: Key },
+  { id: "notion-sync", label: "Synchronisation Notion", icon: RefreshCw },
+  { id: "about", label: "À propos", icon: Info },
+]
 
 interface SettingsPanelProps {
   campaignId: number
@@ -27,6 +36,7 @@ export function SettingsPanel({
   onMonsterSyncComplete,
   onClose,
 }: SettingsPanelProps) {
+  const [activeSection, setActiveSection] = useState<SectionId>("campaigns")
   const [campaigns, setCampaigns] = useState<JournalCampaign[]>([])
   const [savingCampaignId, setSavingCampaignId] = useState<number | null>(null)
   const [deletingCampaignId, setDeletingCampaignId] = useState<number | null>(null)
@@ -195,7 +205,7 @@ export function SettingsPanel({
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       <div className="shrink-0 border-b border-border bg-card">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Retour">
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -208,13 +218,36 @@ export function SettingsPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-          {/* Campaigns Section */}
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+        {/* Section navigation */}
+        <nav className="shrink-0 flex md:flex-col gap-1 overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-r border-border bg-card/50 p-2 md:w-60 md:p-3">
+          {SECTIONS.map((section) => {
+            const Icon = section.icon
+            const isActive = activeSection === section.id
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={cn(
+                  "flex min-h-[44px] shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors md:w-full md:shrink",
+                  isActive
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {section.label}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Section content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl px-4 py-6 space-y-4">
+          {activeSection === "campaigns" && (
           <div className="space-y-3">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              Campagnes
-            </h4>
+            <h2 className="text-base font-semibold">Campagnes</h2>
             <p className="text-xs text-muted-foreground">
               Les personnages et le combat restent partagés. Seul le journal Notion où
               sont synchronisées vos notes de session change selon la campagne sélectionnée à la connexion.
@@ -292,15 +325,11 @@ export function SettingsPanel({
               </Button>
             </div>
           </div>
+          )}
 
-          <Separator />
-
-          {/* Password Section */}
+          {activeSection === "password" && (
           <div className="space-y-3">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <Key className="w-4 h-4" />
-              Mot de passe MJ
-            </h4>
+            <h2 className="text-base font-semibold">Mot de passe MJ</h2>
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="currentPassword">Mot de passe actuel</Label>
@@ -349,15 +378,11 @@ export function SettingsPanel({
               </Button>
             </div>
           </div>
+          )}
 
-          <Separator />
-
-          {/* Notion Sync Section */}
+          {activeSection === "notion-sync" && (
           <div className="space-y-3">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Synchronisation Notion
-            </h4>
+            <h2 className="text-base font-semibold">Synchronisation Notion</h2>
             <p className="text-xs text-muted-foreground">
               Synchronisez vos données depuis Notion (monstres, items et sorts).
             </p>
@@ -367,17 +392,18 @@ export function SettingsPanel({
               <SpellSyncDialog />
             </div>
           </div>
+          )}
 
-          <Separator />
-
-          {/* About Section */}
+          {activeSection === "about" && (
           <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-3">À propos</h4>
+            <h2 className="text-base font-semibold mb-3">À propos</h2>
             <p className="text-xs text-muted-foreground">
               Compagnon D&D v1.0
               <br />
               Application de suivi de combat en temps réel pour vos sessions de jeu de rôle.
             </p>
+          </div>
+          )}
           </div>
         </div>
       </div>
