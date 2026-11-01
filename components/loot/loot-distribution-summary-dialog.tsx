@@ -15,6 +15,7 @@ import { Trophy, Coins, Package, CheckCircle } from "lucide-react"
 import type { LootDistribution } from "@/lib/types"
 import { LOOT_RARITIES } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { LinkedSpellLabel } from "./linked-spell-label"
 
 interface LootDistributionSummaryDialogProps {
   isOpen: boolean
@@ -97,6 +98,7 @@ export function LootDistributionSummaryDialog({
                 return (
                   <div key={idx} className="flex items-center gap-2 text-sm">
                     <span className={cn("font-medium", rarityStyle.color)}>{item.name}</span>
+                    <LinkedSpellLabel spell={item.linkedSpell} />
                     {item.quantity > 1 && (
                       <Badge variant="outline" className="text-xs">x{item.quantity}</Badge>
                     )}

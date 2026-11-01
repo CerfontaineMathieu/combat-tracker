@@ -6,6 +6,7 @@ import { User, Coins, Package } from "lucide-react"
 import type { LootDistribution, LootItemRarity } from "@/lib/types"
 import { formatCurrency, isCurrencyEmpty } from "@/lib/loot-utils"
 import { cn } from "@/lib/utils"
+import { LinkedSpellLabel } from "./linked-spell-label"
 
 interface CharacterLootCardProps {
   distribution: LootDistribution
@@ -62,6 +63,7 @@ export function CharacterLootCard({ distribution }: CharacterLootCardProps) {
                   >
                     <Package className="w-3.5 h-3.5 text-muted-foreground" />
                     <span>{item.name}</span>
+                    <LinkedSpellLabel spell={item.linkedSpell} />
                     {item.quantity > 1 && (
                       <span className="text-muted-foreground">x{item.quantity}</span>
                     )}
