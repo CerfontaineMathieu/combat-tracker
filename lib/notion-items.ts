@@ -78,20 +78,77 @@ async function extractRelation(notion: Client, relationProp: any): Promise<strin
   if (!relationProp || relationProp.type !== 'relation') return '';
   if (!relationProp.relation || !Array.isArray(relationProp.relation) || relationProp.relation.length === 0) return '';
 
-  try {
-    const relatedPageId = relationProp.relation[0].id;
-    const relatedPage = await notion.pages.retrieve({ page_id: relatedPageId }) as any;
+  const relatedPage = await fetchRelatedPage(notion, relationProp.relation[0].id);
+  return relatedPage ? getPageTitle(relatedPage) : '';
+}
 
-    // Get the title from the related page
-    const titleProp = relatedPage.properties?.Nom || relatedPage.properties?.Name || relatedPage.properties?.title;
-    if (titleProp?.title) {
-      return extractText(titleProp.title);
-    }
-    return '';
-  } catch (error) {
+/**
+ * Short-lived cache for related pages (weapon/armor types, weapon properties).
+ * Many magic items share the same base type, so this avoids re-fetching it for
+ * every item during a sync. Entries expire so a later sync picks up Notion edits.
+ */
+const RELATED_PAGE_TTL_MS = 5 * 60 * 1000;
+const relatedPageCache = new Map<string, { at: number; page: Promise<any | null> }>();
+
+function fetchRelatedPage(notion: Client, pageId: string): Promise<any | null> {
+  const cached = relatedPageCache.get(pageId);
+  if (cached && Date.now() - cached.at < RELATED_PAGE_TTL_MS) return cached.page;
+
+  const page = notion.pages.retrieve({ page_id: pageId }).catch((error) => {
     console.error('Error fetching related page:', error);
-    return '';
+    relatedPageCache.delete(pageId);
+    return null;
+  });
+  relatedPageCache.set(pageId, { at: Date.now(), page });
+  return page;
+}
+
+function getPageTitle(page: any): string {
+  const titleProp = page.properties?.Nom || page.properties?.Name || page.properties?.title;
+  return titleProp?.title ? extractText(titleProp.title) : '';
+}
+
+/**
+ * Pull combat stats from the base type a magic weapon/armor links to
+ * ("Types d'armes" / "Types d'armures et boucliers" in Notion), so players can
+ * see damage dice or AC in their inventory. Keys are stored in catalog properties.
+ */
+async function extractBaseTypeStats(
+  notion: Client,
+  typeProp: any,
+  sourceDatabase: string
+): Promise<Record<string, unknown>> {
+  const stats: Record<string, unknown> = {};
+  const relatedId = typeProp?.type === 'relation' ? typeProp.relation?.[0]?.id : undefined;
+  if (!relatedId) return stats;
+
+  const basePage = await fetchRelatedPage(notion, relatedId);
+  if (!basePage) return stats;
+  const p = basePage.properties || {};
+
+  const baseType = getPageTitle(basePage);
+  if (baseType) stats.base_type = baseType;
+
+  if (sourceDatabase === 'armes') {
+    const dice = extractText(p['D de dégats']?.rich_text || []);
+    if (dice) stats.damage_dice = dice;
+    const damageType = extractSelect(p['Type de dégats']);
+    if (damageType) stats.damage_type = damageType;
+
+    const propertyIds: string[] = (p['Propriétés']?.relation || []).map((r: any) => r.id);
+    if (propertyIds.length > 0) {
+      const pages = await Promise.all(propertyIds.map((id) => fetchRelatedPage(notion, id)));
+      const names = pages.filter(Boolean).map(getPageTitle).filter(Boolean);
+      if (names.length > 0) stats.weapon_properties = names.join(', ');
+    }
+  } else if (sourceDatabase === 'armures') {
+    if (typeof p.CA?.number === 'number') stats.armor_ac = p.CA.number;
+    if (p['Ajout modificateur de Dextérité']?.checkbox) stats.armor_dex_bonus = true;
+    if (extractSelect(p['Discrétion']) === 'Désavantage') stats.stealth_disadvantage = true;
+    if (typeof p['Force min.']?.number === 'number') stats.strength_min = p['Force min.'].number;
   }
+
+  return stats;
 }
 
 /**
@@ -391,6 +448,11 @@ async function mapNotionPageToCatalogItem(
     // Store equipment_slot in properties for auto-equipping
     if (equipmentSlot) {
       properties.equipment_slot = equipmentSlot;
+    }
+
+    // Base weapon/armor stats (damage dice, AC...) from the linked type page
+    if (sourceDatabase === 'armes' || sourceDatabase === 'armures') {
+      Object.assign(properties, await extractBaseTypeStats(notion, props.Type, sourceDatabase));
     }
 
     return {
