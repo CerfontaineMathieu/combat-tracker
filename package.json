@@ -16,7 +16,7 @@
     "docker:prod:build": "docker compose up --build",
     "migrate": "node-pg-migrate up",
     "migrate:down": "node-pg-migrate down",
-    "migrate:create": "node-pg-migrate create"
+    "migrate:create": "node-pg-migrate create --migration-file-language sql"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
