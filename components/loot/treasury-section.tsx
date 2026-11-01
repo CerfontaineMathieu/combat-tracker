@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Building2, Package } from "lucide-react"
 import type { LootItem, LootItemRarity } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { LinkedSpellLabel } from "./linked-spell-label"
 
 interface TreasurySectionProps {
   items: LootItem[]
@@ -47,7 +48,10 @@ export function TreasurySection({ items }: TreasurySectionProps) {
             className="flex items-center gap-2 p-2 rounded-md bg-zinc-800/30 border border-zinc-700/50"
           >
             <Package className="w-4 h-4 text-muted-foreground shrink-0" />
-            <span className="text-sm flex-1">{item.name}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm">{item.name}</span>
+              <LinkedSpellLabel spell={item.linkedSpell} className="flex" />
+            </div>
             {item.quantity > 1 && (
               <span className="text-sm text-muted-foreground">x{item.quantity}</span>
             )}

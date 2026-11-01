@@ -37,6 +37,7 @@ import { ResistanceTypeDialog } from "@/components/resistance-type-dialog"
 import { SpellDetail } from "@/components/spell-detail"
 import { EquipmentSilhouette } from "@/components/equipment-silhouette"
 import { SlotPickerDialog } from "@/components/slot-picker-dialog"
+import { ItemCatalogDetails } from "@/components/item-catalog-details"
 import type { EquipmentSlot } from "@/lib/types"
 import { SLOT_NAMES, getSlotTypesFromCatalog } from "@/lib/types"
 
@@ -128,6 +129,8 @@ type DetailItem = {
   type: 'equipment' | 'consumable' | 'misc';
   quantity?: number;
   equipped?: boolean;
+  slot?: EquipmentSlot | null;
+  catalogNotionId?: string;
   linkedSpell?: {
     id: number;
     name: string;
@@ -357,9 +360,31 @@ export function InventoryManager({
   }
 
   // Slot picker handlers
-  const handleSlotClick = (slot: EquipmentSlot) => {
+  const openEquipmentDetail = (item: EquipmentItem) => {
+    setDetailItem({
+      name: item.name,
+      description: item.description,
+      rarity: item.rarity,
+      type: 'equipment',
+      equipped: item.equipped,
+      slot: item.slot,
+      catalogNotionId: item.catalogNotionId,
+    })
+  }
+
+  const openSlotPicker = (slot: EquipmentSlot) => {
     setSelectedSlot(slot)
     setSlotPickerOpen(true)
+  }
+
+  // Occupied slot -> show the item's details (with a "Changer" button); empty slot -> pick an item
+  const handleSlotClick = (slot: EquipmentSlot) => {
+    const equippedItem = localInventory.equipment.find(i => i.slot === slot)
+    if (equippedItem) {
+      openEquipmentDetail(equippedItem)
+    } else if (!readonly) {
+      openSlotPicker(slot)
+    }
   }
 
   const handleSlotSelect = (slot: EquipmentSlot, itemId: string | null) => {
@@ -701,10 +726,9 @@ export function InventoryManager({
             <EquipmentSilhouette
               equipment={localInventory.equipment}
               onSlotClick={handleSlotClick}
-              disabled={readonly}
             />
             <p className="text-xs text-muted-foreground text-center mt-2">
-              Cliquez sur un emplacement pour équiper
+              Cliquez sur un objet pour voir ses détails
             </p>
           </div>
 
@@ -810,23 +834,12 @@ export function InventoryManager({
                     <div
                       key={item.id}
                       className={cn(
-                        "p-2 rounded-lg border transition-smooth",
+                        "p-2 rounded-lg border transition-smooth cursor-pointer hover:bg-secondary/50",
                         item.equipped
                           ? "bg-emerald/10 border-emerald/30"
-                          : "bg-secondary/30 border-border/50",
-                        (item.description || item.rarity) && "cursor-pointer hover:bg-secondary/50"
+                          : "bg-secondary/30 border-border/50"
                       )}
-                      onClick={() => {
-                        if (item.description || item.rarity) {
-                          setDetailItem({
-                            name: item.name,
-                            description: item.description,
-                            rarity: item.rarity,
-                            type: 'equipment',
-                            equipped: item.equipped,
-                          })
-                        }
-                      }}
+                      onClick={() => openEquipmentDetail(item)}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -994,20 +1007,18 @@ export function InventoryManager({
                     <div
                       key={item.id}
                       className={cn(
-                        "p-2 rounded-lg border bg-secondary/30 border-border/50",
-                        (item.description || item.rarity || item.linkedSpell) && "cursor-pointer hover:bg-secondary/50"
+                        "p-2 rounded-lg border bg-secondary/30 border-border/50 cursor-pointer hover:bg-secondary/50"
                       )}
                       onClick={() => {
-                        if (item.description || item.rarity || item.linkedSpell) {
-                          setDetailItem({
-                            name: item.name,
-                            description: item.description,
-                            rarity: item.rarity,
-                            type: 'consumable',
-                            quantity: item.quantity,
-                            linkedSpell: item.linkedSpell,
-                          })
-                        }
+                        setDetailItem({
+                          name: item.name,
+                          description: item.description,
+                          rarity: item.rarity,
+                          type: 'consumable',
+                          quantity: item.quantity,
+                          linkedSpell: item.linkedSpell,
+                          catalogNotionId: item.catalogNotionId,
+                        })
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -1216,11 +1227,17 @@ export function InventoryManager({
               )}
             </div>
 
-            {/* Description */}
-            {detailItem?.description && (
-              <div className="p-4 rounded-lg bg-secondary/30 border border-border/50">
-                <p className="text-sm whitespace-pre-wrap">{detailItem.description}</p>
-              </div>
+            {/* Description + stats (fresh from the catalog when the item came from it) */}
+            {detailItem && !viewingDetailSpell && (
+              <ItemCatalogDetails
+                catalogNotionId={detailItem.catalogNotionId}
+                description={detailItem.description}
+                onCatalogLoaded={(catalog) => {
+                  if (!detailItem.rarity && catalog.rarity) {
+                    setDetailItem(prev => prev && { ...prev, rarity: catalog.rarity || undefined })
+                  }
+                }}
+              />
             )}
 
             {/* Linked Spell for scrolls */}
@@ -1272,16 +1289,32 @@ export function InventoryManager({
             )}
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full mt-2"
-            onClick={() => {
-              setDetailItem(null)
-              setViewingDetailSpell(null)
-            }}
-          >
-            Fermer
-          </Button>
+          <div className="flex gap-2 mt-2">
+            {detailItem?.slot && !readonly && (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  const slot = detailItem.slot!
+                  setDetailItem(null)
+                  setViewingDetailSpell(null)
+                  openSlotPicker(slot)
+                }}
+              >
+                Changer
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setDetailItem(null)
+                setViewingDetailSpell(null)
+              }}
+            >
+              Fermer
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

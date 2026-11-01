@@ -913,6 +913,7 @@ export interface LootDistribution {
     name: string;
     quantity: number;
     rarity: LootItemRarity;
+    linkedSpell?: { id: number; name: string; level: number };
   }>;
 }
 

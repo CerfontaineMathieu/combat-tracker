@@ -39,6 +39,7 @@ import type { LootItem, LootClaim, LootItemType, LootItemRarity } from "@/lib/ty
 import { LOOT_RARITIES, LOOT_STATUSES, LOOT_ITEM_TYPES } from "@/lib/types"
 import { getPriorityEmoji, getPriorityLabel } from "@/lib/loot-utils"
 import { cn } from "@/lib/utils"
+import { LinkedSpellLabel } from "./linked-spell-label"
 
 interface LootItemCardProps {
   item: LootItem
@@ -145,6 +146,7 @@ export function LootItemCard({
                   </Badge>
                 )}
               </div>
+              <LinkedSpellLabel spell={item.linkedSpell} className="flex" />
               {!item.isIdentified && (
                 <span className="text-xs text-muted-foreground">Non identifié</span>
               )}

@@ -1540,6 +1540,7 @@ app.prepare().then(() => {
             name: item.name,
             quantity: item.quantity,
             rarity: item.rarity,
+            linkedSpell: item.linkedSpell,
           });
         }
       });

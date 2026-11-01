@@ -29,6 +29,7 @@
 | Player View | `components/player-panel.tsx` | Player character during combat |
 | Character Sheet | `components/my-characters-panel.tsx` | Individual character management |
 | Inventory | `components/inventory-manager.tsx` | Equipment, consumables, currency |
+| Item Details (stats) | `components/item-catalog-details.tsx` | Fetches live catalog data; damage/AC/properties/attunement |
 | Spellbook | `components/spellbook-panel.tsx` | Spell slots & prepared spells |
 | Bestiary | `components/bestiary-panel.tsx` | Monster database browser |
 | Loot Distribution | `components/loot/` | Loot claiming & distribution |
@@ -62,6 +63,7 @@
 | Add Item Dialog | `components/loot/add-loot-item-dialog.tsx` |
 | Split Item Dialog | `components/loot/split-item-dialog.tsx` |
 | Distribution Summary | `components/loot/distribution-summary.tsx` |
+| Scroll Spell Label | `components/loot/linked-spell-label.tsx` |
 | Utilities | `lib/loot-utils.ts` |
 
 ---
@@ -136,6 +138,7 @@ lib/socket-context/
 ### Notion Sync
 - `notion/sync/` - Monster sync
 - `notion/items/sync/` - Item catalog sync
+- `items/catalog/[notionId]/` - Single catalog item by Notion id (used by inventory detail dialog)
 - `notion/spells/sync/` - Spell catalog sync
 
 ---
@@ -227,6 +230,16 @@ hooks/                    # Custom React hooks
 ---
 
 ## Recent Work
+
+- **2026-11-01**: Equipment details for players (issue #231)
+  - Every equipment/consumable row is now clickable (was only when the inventory copy had a description/rarity). Clicking an occupied silhouette slot opens the item's details (with a "Changer" button → slot picker); empty slots still open the picker. Silhouette is no longer disabled in readonly mode (view-only details).
+  - Detail dialog uses `ItemCatalogDetails`, which fetches the live catalog entry via `catalogNotionId` (inventory items are snapshots and may lack a description) and renders a stats block.
+  - Item sync (`lib/notion-items.ts` → `extractBaseTypeStats`) now follows the `Type` relation of Armes/Armures to "Types d'armes" / "Types d'armures et boucliers" and stores in `properties`: `base_type`, `damage_dice`, `damage_type`, `weapon_properties` (weapons) and `armor_ac`, `armor_dex_bonus`, `stealth_disadvantage`, `strength_min` (armor). Related pages are cached 5 min during a sync. **Requires an item re-sync** for existing catalog rows.
+  - Files: `components/item-catalog-details.tsx` (new), `app/api/items/catalog/[notionId]/route.ts` (new), `components/inventory-manager.tsx`, `lib/notion-items.ts`
+
+- **2026-11-01**: Loot scrolls show their spell (issue #230)
+  - `linkedSpell` was already stored on scroll `LootItem`s but never rendered. New `LinkedSpellLabel` shows "Niv. X : Nom" (or "Tour de magie") on the item card, treasury list, split dialog, and both distribution summaries. `LootDistribution.items` now carries `linkedSpell` (set in `lib/loot-utils.ts`, `server.ts` finalize, `distribution-summary.tsx` preview).
+  - Files: `components/loot/linked-spell-label.tsx` (new), `components/loot/loot-item-card.tsx`, `components/loot/treasury-section.tsx`, `components/loot/split-item-dialog.tsx`, `components/loot/character-loot-card.tsx`, `components/loot/loot-distribution-summary-dialog.tsx`, `components/loot/distribution-summary.tsx`, `lib/types.ts`, `lib/loot-utils.ts`, `server.ts`
 
 - **2026-08-19**: Berserker Titles — barbarian daily achievements (`feature/barbarian-titles` branch)
   - Homebrew mechanic scoped to one character (Taylan, `BERSERKER_TITLES_CHARACTER_ID` in `lib/berserker-titles.ts`): 8 hardcoded titles, each a daily challenge condition + a boost description. All reset on long rest (no per-combat variant — simplified after an earlier version distinguished reset cadences).

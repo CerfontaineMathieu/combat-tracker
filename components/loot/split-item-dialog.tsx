@@ -16,6 +16,7 @@ import { Minus, Plus, Split } from "lucide-react"
 import type { LootItem } from "@/lib/types"
 import { LOOT_RARITIES } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { LinkedSpellLabel } from "./linked-spell-label"
 
 interface SplitItemDialogProps {
   isOpen: boolean
@@ -70,6 +71,7 @@ export function SplitItemDialog({
           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
             <div className="flex-1">
               <p className={cn("font-medium", rarityStyle.color)}>{item.name}</p>
+              <LinkedSpellLabel spell={item.linkedSpell} className="flex" />
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className={cn("text-xs", rarityStyle.bgColor, rarityStyle.color)}>
                   {rarityStyle.label}
